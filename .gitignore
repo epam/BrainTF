@@ -1,0 +1,133 @@
+# General files and directories to ignore
+.DS_Store
+Thumbs.db
+*.log
+*.bak
+*.swp
+*.swo
+*.tmp
+*.lock
+*.cache
+.idea/
+.vscode/
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Terraform files
+.terraform/
+.terraform.lock.hcl
+terraform.tfstate*
+terraform.tfstate.backup
+builds
+*.tfstate
+*.tfstate.backup
+*.tfvars
+*.tfvars.json
+override.tf
+override.tf.json
+*_override.tf
+*_override.tf.json
+crash.log
+terraform.rc
+*.tfplan
+
+# Files containing secrets
+secrets.auto.tfvars
+secrets.auto.tfvars.json
+*.auto.tfvars
+*.env
+.envrc
+.secret
+.secret.env
+vault_pass.txt
+
+# Python virtual environments
+venv/
+env/
+.venv/
+.virtualenv/
+
+# Python-related files
+pip-log.txt
+layer.zip
+pip-delete-this-directory.txt
+.coverage
+.tox/
+nosetests.xml
+*.egg
+*.egg-info/
+dist/
+build/
+*.pytest_cache
+
+# Logs and temporary files for Python
+*.log
+*.tmp
+*.bak
+*.swp
+*.swo
+
+
+# Dependency management files
+Pipfile
+Pipfile.lock
+poetry.lock
+.poetry/
+
+# Docker files
+.dockerignore
+docker-compose.override.yml
+docker-compose.local.yml
+docker-compose.dev.yml
+Dockerfile.*
+.env.docker
+
+# IDE and editor settings
+*.code-workspace
+.idea/
+.vscode/
+*.vscode/
+*.sublime-project
+*.sublime-workspace
+
+# Security and encryption files
+*.key
+*.pem
+*.crt
+*.csr
+*.jks
+*.p12
+*.pfx
+*.gpg
+*.asc
+*.kdb
+*.envrc
+*.secret
+*.vault
+*.keyring
+
+# SSH files
+.ssh/
+known_hosts
+id_rsa
+id_rsa.pub
+id_dsa
+id_dsa.pub
+id_ecdsa
+id_ecdsa.pub
+id_ed25519
+id_ed25519.pub
+
+# AWS CLI files
+.aws/
+.aws-sso/
+credentials
+config
+/terraform/main_module/builds/
+
+# Excluds
+!/docs/config_files/main_module/secrets.auto.tfvars
+!/docs/config_files/main_module/terraform.tfvars
+!/docs/config_files/state_bucket/terraform.tfvars

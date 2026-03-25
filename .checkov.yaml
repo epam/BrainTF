@@ -1,0 +1,66 @@
+# .checkov.yaml
+skip-check:
+#  - CKV_AWS_328         # Checkov bug — causes a TypeError during scanning; temporarily skipped to prevent pipeline failure
+#  - CKV_AWS_50          # False positive — X-Ray tracing is correctly enabled using passthrough variables, but Checkov can't detect it through modules
+#  - CKV_AWS_300         # False positive — abort_incomplete_multipart_upload is already defined inside modules, but Checkov cannot analyze nested module internals
+#  - CKV_AWS_111         # False positive inside terraform-aws-vpc external module (wildcard '*' on logs:* actions is unavoidable here)
+#  - CKV_AWS_356         # False positive inside terraform-aws-vpc external module — wildcard '*' is used in IAM policy for CloudWatch Logs, but cannot be changed
+#  - CKV_AWS_338         # Team decision — skip all log groups with 7-day retention; acceptable per internal logging policy
+#  - CKV_AWS_136         # Temporarily skipped — ECR encryption_configuration is commented out; decision pending on whether to use default encryption or re-enable KMS key usage
+#  - CKV_AWS_272         # Code signing not required for Lambda; acceptable per internal policy
+#  - CKV_AWS_117         # Lambda is intentionally deployed outside a VPC for public webhook access
+#  - CKV_AWS_116         # DLQ not used intentionally; Lambda failure risk is low, and retries are handled at the application level
+#  - CKV_AWS_258         # Lambda URL is intentionally public for webhook access; protected via internal secret validation
+#  - CKV_AWS_316         # Privileged mode is required for Docker builds in CodeBuild; acceptable risk per team decision
+#  - CKV_AWS_173         # Lambda environment variable encryption is handled by default
+#  - CKV_AWS_158         # CloudWatch log group encryption managed by default
+#  - CKV_AWS_221         # This resource fails because the aws_codeartifact_domain does not explicitly define a customer-managed KMS key (CMK).
+#                        # However, the domain relies on the default AWS-managed key, which is acceptable in our use case.
+#                        # Adding a CMK adds unnecessary complexity without added benefit in this context.
+#  - CKV_AWS_290         # The IAM policy grants necessary VPC-related EC2 permissions for AWS CodeBuild.
+#                        # Although one of the statements uses a wildcard "*", it is limited in scope by the service context.
+#                        # Additional restrictions are defined in the second statement with subnet-level constraints.
+#  - CKV_AWS_355         # IAM policy uses "Resource: *" for EC2 actions like Describe*, which do not support resource-level restrictions.
+#                        # Acceptable per AWS guidelines — no fine-grained scoping possible for these actions.
+#  - CKV_AWS_27          # The SQS queue is used as a Dead Letter Queue (DLQ) with low sensitivity data.
+#                        # Default AWS-managed encryption is acceptable for this use case.
+#                        # Enabling a customer-managed KMS key would add unnecessary overhead.
+#  - CKV_AWS_115         # Lambda is lightweight and rarely invoked (e.g., for notifications).
+#                        # Adding concurrency limits introduces unnecessary overhead in this context.
+#  - CKV_AWS_285         # Step Function execution history logging is not enabled.
+#                        # In this use case, detailed Lambda logs provide sufficient visibility.
+#                        # Adding logging_configuration adds complexity without significant benefit.
+#  - CKV_AWS_150         # Deletion protection is intentionally disabled for ALB in this environment
+#  - CKV_AWS_91          # Access logging is not required in this environment
+#  - CKV_AWS_224         # ECS Cluster logging with CMK is not required in this environment
+#  - CKV_AWS_65          # Container Insights are not required in this environment
+#  - CKV_AWS_274         # AdministratorAccess is required for Atlantis role in cross-account integration; accepted risk in this context
+#  - CKV_AWS_51          # ECR image tags are mutable intentionally for Atlantis CI workflow
+#  - CKV_AWS_337         # KMS CMK is not used for SSM parameter because default AWS-managed key
+#  - CKV_AWS_124         # Event notifications for CloudFormation stack are not used in this environment, SNS not required
+#  - CKV_AWS_7           # Key rotation is intentionally disabled for CloudTrail CMK in this environment
+#  - CKV_AWS_144         # Cross-region replication for ALB log bucket is not required in this environment
+#  - CKV2_AWS_61         # Lifecycle policy for ALB log S3 bucket is not required in current environment
+#  - CKV_AWS_145         # KMS encryption for ALB log bucket is not required in current environment
+#  - CKV2_AWS_12         # Default SG of the VPC is not used; skipping restriction requirement
+#  - CKV2_AWS_5          # Security group is used internally in ECS service module, skipping attachment validation
+#  - CKV_AWS_378         # Internal ALB uses HTTP by design; TLS is handled by ECS/app layer
+#  - CKV2_AWS_11         # Flow logging enabled via input variables to terraform-aws-vpc; Checkov cannot detect internal implementation; false positive
+#  - CKV_AWS_21          # False positive: versioning already enabled for ALB log bucket
+#  - CKV2_AWS_28         # Public ALB not behind WAF in this environment by design (non-prod)
+#  - CKV2_AWS_34         # SSM Parameter is intentionally stored as plaintext (non-sensitive value)
+#  - CKV2_AWS_57         # Secrets rotation is not required in this environment; handled externally / non-prod
+#  - CKV2_AWS_62         # Event notifications for S3 bucket are not required; external module usage
+#  - CKV2_AWS_15         # ASG uses ELB health checks (handled via external configuration)
+#  - CKV2_AWS_65         # S3 ACLs managed via terraform-aws-s3-bucket module (false positive)
+#  - CKV_AWS_18          # Access logging not applicable for ALB log bucket; false positive from external module
+#  - CKV2_AWS_6          # Public Access Block is enforced via module inputs in log_bucket; false positive from external module scan
+#  - CKV_AWS_174         # CloudFront TLS v1.2 — resource in an external CloudFormation template, TLS version cannot be configured here
+#  - CKV_AWS_119         # Temporary skip until clarification — using AWS-managed key, migration to CMK under discussion
+#  - CKV_AWS_109         # Temporary skip until clarification — IAM policy review in progress
+#  - CKV_AWS_120         # Temporary skip until clarification — API Gateway caching not required for this stage
+#  - CKV_AWS_97          # Temporary skip until clarification — EFS in-transit encryption to be configured or EFS disabled
+  - CKV_TF_1            # Temporarily skipped: external modules still use registry source with version, not commit SHA
+
+output: cli
+quiet: true

@@ -1,0 +1,40 @@
+# .gitleaks.toml
+[[rules]]
+description = "AWS Access Key"
+id = "aws-access-key"
+regex = '''(A3T[A-Z0-9]|AKIA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}'''
+
+[[rules]]
+description = "AWS Secret Key"
+id = "aws-secret-key"
+regex = '''(?i)aws(.{0,20})?(?-i)['\"][0-9a-zA-Z/+]{40}['\"]'''
+
+[[rules]]
+description = "GitHub Token"
+id = "github-token"
+regex = '''(?i)ghp_[0-9a-zA-Z]{36}|gho_[0-9a-zA-Z]{36}|ghu_[0-9a-zA-Z]{36}|ghs_[0-9a-zA-Z]{36}|ghr_[0-9a-zA-Z]{36}'''
+
+[[rules]]
+description = "GitLab Token"
+id = "gitlab-token"
+regex = '''glpat-[0-9a-zA-Z_]{20}'''
+
+[[rules]]
+description = "Bitbucket Token"
+id = "bitbucket-token"
+regex = '''(?i)bitbucket(.{0,20})?(?-i)['\"][0-9a-zA-Z/+]{40}['\"]'''
+
+[[rules]]
+description = "Generic API Key"
+id = "generic-api-key"
+regex = '''(?i)apikey(.{0,20})?(?-i)['\"][0-9a-zA-Z]{32,45}['\"]'''
+
+[[rules]]
+description = "Generic Secret"
+id = "generic-secret"
+regex = '''(?i)secret(.{0,20})?(?-i)['\"][0-9a-zA-Z]{32,45}['\"]'''
+
+[[rules]]
+description = "Python Secret Token"
+id = "python-secret-token"
+regex = '''(?i)('|\")?(\bsecret\b|\btoken\b)(.{0,20})?(?-i)['\"][0-9a-zA-Z]{32,45}['\"]'''

@@ -1,0 +1,715 @@
+image:
+  name: python:3.11
+
+stages:
+  - setup
+  - lint
+  - validate
+  - checkov
+  - tfsec
+  - trivy
+  - plan
+  - apply
+
+variables:
+  WORK_DIRS: "test_code/modules/dynamodb, test_code/modules/s3_bucket"# Working directories for all stages
+  # Utility versions
+  TFLINT_VERSION: "v0.56.0" # TFLint version to install
+  TERRAFORM_VERSION: "1.5.6" # Terraform versio
+  CHECKOV_VERSION: "3.2.432" # Checkov version to install
+  TFSEC_VERSION: "v1.28.12" # TFSec version to install
+  TRIVY_VERSION: "0.69.3" # Trivy version to install
+
+  # Automatically defined variables (Don't change anything, all variables are managed by Terraform only!!)
+  AWS_S3_BUCKET: "${ARTIFACTS_BUCKET}" # AWS S3 bucket to upload logs
+  GIT_API_ENDPOINT: "${GIT_API_ENDPOINT}" # GitLab API base URL
+  # OIDC variables
+  OIDC_ROLE_ARN: "${OIDC_ROLE_ARN}" # Replace with your AWS Role ARN
+  OIDC_AUDIENCE: "${OIDC_PROVIDER}"# The OIDC AUDIENCE
+  JOB_TOKEN: "${JOB_TOKEN}" # The VCS token for API calls
+  # Enable/Disable AI Tools
+  AI_HANDLER_CREATE: "${AI_HANDLER_CREATE}" # Enable or disable AI Handler
+
+# Install all necessary tools for analysis
+install_tools:
+  stage: setup
+  script:
+    - echo "Checking if tools are already cached..."
+    - if [ -d "project-tools" ] && [ -x "project-tools/aws/bin/aws" ] && [ -x "project-tools/tflint" ] && [ -x "project-tools/terraform" ] && [ -x "project-tools/openai" ] && [ -x "project-tools/checkov" ] && [ -x "project-tools/tfsec" ] && [ -x "project-tools/trivy" ]; then
+      echo "Tools are already cached. Skipping installation.";
+      exit 0;
+      fi
+    - echo "Installing tools..."
+    - mkdir -p project-tools/aws/bin project-tools
+    # Install AWS CLI version 2
+    - echo "Installing AWS CLI version 2..."
+    - curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+    - unzip -q -o awscliv2.zip
+    - ./aws/install --bin-dir "${CI_PROJECT_DIR}/project-tools/aws/bin" --install-dir "${CI_PROJECT_DIR}/project-tools/aws" --update
+    - rm -rf aws awscliv2.zip
+    - export PATH="${CI_PROJECT_DIR}/project-tools/aws/bin:$PATH"
+    - echo "AWS CLI installed successfully."
+    # Install TFLint
+    - curl -sL https://github.com/terraform-linters/tflint/releases/download/$TFLINT_VERSION/tflint_linux_amd64.zip -o tflint.zip
+    - unzip -q -o tflint.zip -d project-tools
+    - rm tflint.zip
+    # Install Terraform
+    - |
+      if [ -e project-tools/terraform ]; then
+        rm -rf project-tools/terraform
+      fi
+    - curl -sS https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip -o terraform.zip
+    - unzip -q -o terraform.zip -d project-tools
+    - rm terraform.zip
+    - ls
+    # Installing OpenAI library
+    - pip install --upgrade pip
+    - pip install -q openai --target=${CI_PROJECT_DIR}/project-tools/openai
+    - export PYTHONPATH="${CI_PROJECT_DIR}/project-tools/openai:$PYTHONPATH"
+    # Install Checkov
+    - pip install -q checkov==$CHECKOV_VERSION --target=${CI_PROJECT_DIR}/project-tools/checkov # Install Checkov
+    - export PATH="${CI_PROJECT_DIR}/project-tools/checkov/bin:$PATH" # Ensure PATH includes checkov
+    - export PYTHONPATH="${CI_PROJECT_DIR}/project-tools/checkov:$PYTHONPATH"
+    # Install TFsec
+    - curl -L https://github.com/aquasecurity/tfsec/releases/download/$TFSEC_VERSION/tfsec-linux-amd64 -o project-tools/tfsec
+    - chmod +x project-tools/tfsec
+    # Install Trivy
+    - curl -L https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz -o trivy.tar.gz
+    - tar -xzf trivy.tar.gz -C project-tools
+    - rm trivy.tar.gz
+    - chmod +x project-tools/trivy
+    # Add project-tools to PATH
+    - export PATH="${CI_PROJECT_DIR}/project-tools:$PATH"
+    # Verify installed tools
+    - echo "Verifying installed tools:"
+    - aws --version || { echo "AWS CLI installation failed"; exit 1; }
+    - tflint --version || { echo "TFLint installation failed"; exit 1; }
+    - terraform version || { echo "Terraform installation failed"; exit 1; }
+    - python -c "import openai; print(openai.__version__)" || { echo "OpenAI library is not installed"; exit 1; }
+    - checkov --version || { echo "Checkov installation failed"; exit 1; }
+    - tfsec --version  || { echo "TFsec installation failed"; exit 1; }
+    - echo -n "Trivy "; trivy --version || { echo "Trivy installation failed"; exit 1; }
+
+  cache:
+    key: "${CI_COMMIT_REF_SLUG}-tools"
+    paths:
+      - project-tools/
+    policy: pull-push  # Ensures cache is restored and updated in each run
+  artifacts:
+    paths:
+      - project-tools/ # Save all tools in the project-tools directory as an artifact
+    expire_in: 2 days
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event"
+
+terraform-fmt:
+  stage: lint
+  before_script:
+    - export PATH="${CI_PROJECT_DIR}/project-tools:$PATH"
+    - export PATH="${CI_PROJECT_DIR}/project-tools/aws/bin:$PATH"
+  script:
+    - echo "Starting Terraform format check..."
+    - terraform fmt -check -recursive || { echo -e "\033[31mTerraform files are not properly formatted. Please run 'terraform fmt -recursive' locally and update your pull request.\033[0m"; exit 1; }
+    - echo -e "\033[32mTerraform format check passed. All files are properly formatted.\033[0m"
+  dependencies:
+    - install_tools
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event"'
+
+# Run TFLint analysis
+tflint_analysis:
+  stage: lint
+  id_tokens:
+    GITLAB_OIDC_TOKEN:
+      aud: $OIDC_PROVIDER
+  before_script:
+    - export PATH="${CI_PROJECT_DIR}/project-tools:$PATH"
+    - export PATH="${CI_PROJECT_DIR}/project-tools/aws/bin:$PATH"
+    - export TOOL_NAME="TFLint"  # Tool name for dynamic usage
+
+  script:
+    - LOG_NAME="tflint_analysis.log" # The log file name for TFLint analysis step
+    - LOG_FILE_PATH="${CI_PROJECT_DIR}/${LOG_NAME}" # Path to log file for TFLint analysis step
+    - PLAIN_TEXT_LOG="$CI_PROJECT_DIR/plain_text_log.txt"  # Define the plain text log file path
+    - EXIT_CODE=0  # Initialize a variable to store the exit code
+
+    # Run TFLint analysis for each directory and generate individual logs
+    - |
+      # Check if $TOOL_NAME is installed
+      tflint --version || { echo -e "\033[31m$TOOL_NAME not found in project-tools.\033[0m"; exit 1; }
+
+      # Initialize TFLint
+      tflint --init --config "${CI_PROJECT_DIR}/.tflint.hcl" || { echo -e "\033[31mFailed to initialize $TOOL_NAME.\033[0m"; exit 1; }
+
+      IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
+      for dir in "${DIRS[@]}"; do
+        echo -e "\033[34mRunning $TOOL_NAME analysis in directory: $dir\033[0m"
+
+        # Run TFLint analysis and capture output
+        tflint --color --force --chdir="$dir" 2>&1 | tee temp.log || true
+
+        # Process output and update exit code if issues are found
+        if [[ -f temp.log && -s temp.log ]]; then
+          sed -r 's/\x1B\[[0-9;]*[mK]//g' temp.log >> "${LOG_FILE_PATH}"
+          echo -e "Working Directory: $dir\n" >> "${LOG_FILE_PATH}"
+          EXIT_CODE=1  # Indicate that issues were found
+        else
+          echo -e "\033[32mNo issues were found during $TOOL_NAME analysis in the directory.\033[0m"
+        fi
+      done
+
+      # Determine action based on log file content
+    - |
+      if [[ -f "$LOG_FILE_PATH" && -s "$LOG_FILE_PATH" ]]; then
+        if [[ "$AI_HANDLER_CREATE" == "true" ]]; then
+          echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the note with the log text.\033[0m"
+          cat "$LOG_FILE_PATH" >> $PLAIN_TEXT_LOG
+          ACTION="both"
+        elif [[ "$AI_HANDLER_CREATE" == "false" ]]; then
+          echo -e "\033[33mLog file contains errors, but AI handler is disabled.\033[0m \033[34mProceeding with posting the log text only.\033[0m"
+          cat "$LOG_FILE_PATH" >> $PLAIN_TEXT_LOG
+          ACTION="post"
+        fi
+      else
+        echo -e "\033[32mLog file is empty. No issues were found during $TOOL_NAME analysis.\033[0m"
+        echo "$TOOL_NAME analysis was successful. No issues were found." > "$PLAIN_TEXT_LOG"
+        ACTION="post"
+      fi
+
+    # Post a comment with the results
+    - bash ${CI_PROJECT_DIR}/scripts/upload_and_comment.sh \
+      "$VCS_PROVIDER" \
+      "$ACTION" \
+      "$LOG_FILE_PATH" \
+      "$LOG_NAME" \
+      "$AWS_S3_BUCKET" \
+      "$CI_PROJECT_NAME" \
+      "$CI_PROJECT_NAMESPACE" \
+      "$CI_COMMIT_REF_NAME" \
+      "$CI_COMMIT_SHA" \
+      "$JOB_TOKEN" \
+      "$CI_PROJECT_ID" \
+      "$CI_PIPELINE_ID" \
+      "$CI_MERGE_REQUEST_IID" \
+      "$OIDC_ROLE_ARN" \
+      "$GITLAB_OIDC_TOKEN" \
+      "$TOOL_NAME" \
+      "$PLAIN_TEXT_LOG" \
+      "$CI_JOB_URL"
+
+    # Fail the job if errors were found
+    - |
+      if [[ $EXIT_CODE -ne 0 ]]; then
+        echo -e "\033[31m$TOOL_NAME analysis completed with errors. Failing the job.\033[0m"
+        exit $EXIT_CODE
+      fi
+  dependencies:
+    - install_tools
+  rules:
+    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $RUN_TFLINT_ANALYSIS == "true"'
+
+# Run Terraform Validate
+terraform_validate:
+  stage: validate
+  id_tokens:
+    GITLAB_OIDC_TOKEN:
+      aud: $OIDC_PROVIDER
+  before_script:
+    - export PATH="${CI_PROJECT_DIR}/project-tools:$PATH"
+    - export PATH="${CI_PROJECT_DIR}/project-tools/aws/bin:$PATH"
+    - export TOOL_NAME="Terraform"  # Tool name for dynamic usage
+
+  script:
+    - LOG_NAME="terraform_validate.log" # The log file name for Terraform validate step
+    - LOG_FILE_PATH="${CI_PROJECT_DIR}/${LOG_NAME}" # Path to log file Terraform validate step
+    - PLAIN_TEXT_LOG="$CI_PROJECT_DIR/plain_text_log.txt"  # Define the plain text log file path
+    - EXIT_CODE=0  # Initialize a variable to store the exit code
+
+    # Run Terraform Validate for each directory and generate individual logs
+    - |
+      # Check if Terraform is installed
+      terraform --version || { echo -e "\033[31m$TOOL_NAME not found in project-tools.\033[0m"; exit 1; }
+
+      IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
+      for dir in "${DIRS[@]}"; do
+        echo -e "\033[34mRunning $TOOL_NAME init in directory: $dir\033[0m"
+        # Initialize Terraform in the directory
+        terraform -chdir="$dir" init 2> >(tee temp.log >&2) || true
+
+        # Process output from Terraform init and update exit code if issues are found
+        if [[ -f temp.log && -s temp.log ]]; then
+          sed -r 's/\x1B\[[0-9;]*[mK]//g' temp.log | sed '/^╷$/d; /^╵$/d' | sed ':a;N;$!ba;s/\n$//' | sed -r 's/^│ //g' >> "${LOG_FILE_PATH}"
+          echo -e "Working Directory: $dir\n" >> "${LOG_FILE_PATH}"
+          EXIT_CODE=1  # Indicate that issues were found
+        else
+          echo -e "\033[32mNo issues were found during $TOOL_NAME init in the directory: $dir.\033[0m"
+          echo -e "\033[34mRunning $TOOL_NAME validate in directory: $dir\033[0m"
+          terraform -chdir="$dir" validate 2> >(tee temp.log >&2) || true
+
+          if [[ -f temp.log && -s temp.log ]]; then
+            sed -r 's/\x1B\[[0-9;]*[mK]//g' temp.log | sed '/^╷$/d; /^╵$/d' | sed ':a;N;$!ba;s/\n$//' | sed -r 's/^│ //g' >> "${LOG_FILE_PATH}"
+            echo -e "Working Directory: $dir\n" >> "${LOG_FILE_PATH}"
+            EXIT_CODE=1  # Indicate that issues were found
+          else
+            echo -e "\033[32mNo issues were found during $TOOL_NAME validate in the directory: $dir.\033[0m"
+          fi
+        fi
+      done
+
+    # Determine action based on log file content
+    - |
+      if [[ -f "$LOG_FILE_PATH" && -s "$LOG_FILE_PATH" ]]; then
+        if [[ "$AI_HANDLER_CREATE" == "true" ]]; then
+          echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the note with the log text.\033[0m"
+          cat "$LOG_FILE_PATH" >> $PLAIN_TEXT_LOG
+          ACTION="both"
+        elif [[ "$AI_HANDLER_CREATE" == "false" ]]; then
+          echo -e "\033[33mLog file contains errors, but AI handler is disabled.\033[0m \033[34mProceeding with posting the log text only.\033[0m"
+          cat "$LOG_FILE_PATH" >> $PLAIN_TEXT_LOG
+          ACTION="post"
+        fi
+      else
+        echo -e "\033[32mLog file is empty. No issues were found during $TOOL_NAME validate.\033[0m"
+        echo "$TOOL_NAME validation was successful. No issues were found." > "$PLAIN_TEXT_LOG"
+        ACTION="post"
+      fi
+
+    # Post a comment with the results
+    - bash ${CI_PROJECT_DIR}/scripts/upload_and_comment.sh \
+      "$VCS_PROVIDER" \
+      "$ACTION" \
+      "$LOG_FILE_PATH" \
+      "$LOG_NAME" \
+      "$AWS_S3_BUCKET" \
+      "$CI_PROJECT_NAME" \
+      "$CI_PROJECT_NAMESPACE" \
+      "$CI_COMMIT_REF_NAME" \
+      "$CI_COMMIT_SHA" \
+      "$JOB_TOKEN" \
+      "$CI_PROJECT_ID" \
+      "$CI_PIPELINE_ID" \
+      "$CI_MERGE_REQUEST_IID" \
+      "$OIDC_ROLE_ARN" \
+      "$GITLAB_OIDC_TOKEN" \
+      "$TOOL_NAME" \
+      "$PLAIN_TEXT_LOG" \
+      "$CI_JOB_URL"
+
+    # Fail the job if errors were found
+    - |
+      if [[ $EXIT_CODE -ne 0 ]]; then
+        echo -e "\033[31m$TOOL_NAME validate analysis completed with errors. Failing the job.\033[0m"
+        exit $EXIT_CODE
+      fi
+
+  allow_failure: false
+  dependencies:
+    - install_tools
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $RUN_TERRAFORM_VALIDATE == "true"
+
+# Run Checkov analysis
+checkov_analysis:
+  stage: checkov
+  id_tokens:
+    GITLAB_OIDC_TOKEN:
+      aud: $OIDC_PROVIDER
+  before_script:
+    # Add project-tools to PATH and update PYTHONPATH for Checkov
+    - export PATH="${CI_PROJECT_DIR}/project-tools/checkov/bin:$PATH"
+    - export PATH="${CI_PROJECT_DIR}/project-tools/aws/bin:$PATH"
+    - export PYTHONPATH="${CI_PROJECT_DIR}/project-tools/checkov:$PYTHONPATH"
+    - export PYTHONPATH="${CI_PROJECT_DIR}/project-tools/openai:$PYTHONPATH"
+    - export TOOL_NAME="Checkov"  # Tool name for dynamic usage
+  script:
+    # Initialize variables for log file and tool name
+    - LOG_NAME="checkov_analysis.log" # Log file for Checkov analysis stage
+    - LOG_FILE_PATH="${CI_PROJECT_DIR}/${LOG_NAME}" # Path to log file for Checkov analysis stage
+    - PLAIN_TEXT_LOG="$CI_PROJECT_DIR/plain_text_log.txt" # Define the plain text log file path
+    - AI_OUTPUT_LOG="$CI_PROJECT_DIR/ai_output_log.txt" # Define the AI output log file path
+    - CHECKOV_CONFIG="$CI_PROJECT_DIR/.checkov.yaml" # Define the file path to the Checkov config
+
+    # Split WORK_DIRS into an array
+    - |
+      echo "Checkov version:" && checkov --version || { echo -e "\033[31m$TOOL_NAME not installed.\033[0m"; exit 1; }
+
+      IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
+      EXIT_CODE=0  # Initialize exit code
+      MAX_EXIT_CODE=0
+      TEMP_RESULTS_DIR="${CI_PROJECT_DIR}/result_logs"  # Define temporary results directory
+      # Ensure the temporary results directory exists
+      mkdir -p "$TEMP_RESULTS_DIR"
+      for dir in "${DIRS[@]}"; do
+        echo -e "\033[34mRunning $TOOL_NAME analysis in directory: $dir\033[0m"
+        echo -e "Running $TOOL_NAME analysis in directory: $dir" >> "${LOG_FILE_PATH}"
+        # Define temporary result file for the current directory
+        TEMP_RESULT_FILE="${TEMP_RESULTS_DIR}/results_cli_${dir//\//_}.txt"
+        # Run Checkov and capture the exit code
+        CURRENT_EXIT_CODE=0
+        checkov -d "$dir" --config-file "$CHECKOV_CONFIG" --quiet --framework terraform --download-external-modules false > "$TEMP_RESULT_FILE" 2>&1 || CURRENT_EXIT_CODE=$?
+
+        # Process results: any error level > 0 is recorded, and MAX_EXIT_CODE is updated
+        if [[ $CURRENT_EXIT_CODE -gt 0 ]]; then
+          echo -e "\033[31mIssues found in directory: $dir\033[0m"
+          echo "Issues found in directory: $dir." >> "${LOG_FILE_PATH}"
+          cat "$TEMP_RESULT_FILE"
+          cat "$TEMP_RESULT_FILE" >> "${LOG_FILE_PATH}"
+          if [[ $CURRENT_EXIT_CODE -gt $MAX_EXIT_CODE ]]; then
+            MAX_EXIT_CODE=$CURRENT_EXIT_CODE  # Update the maximum error level
+          fi
+        else
+          echo -e "\033[32mNo issues were found during $TOOL_NAME analysis in the directory: $dir.\033[0m"
+          echo "No issues were found during $TOOL_NAME analysis in the directory: $dir." >> "${LOG_FILE_PATH}"
+        fi
+      done
+
+      # Set overall exit code based on the maximum error level
+      EXIT_CODE=$MAX_EXIT_CODE
+    - |
+      if [[ -f "$LOG_FILE_PATH" && -s "$LOG_FILE_PATH" && $EXIT_CODE -gt 0 ]]; then
+        # Errors found
+        echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the note with the log text.\033[0m"
+        cat "$LOG_FILE_PATH" >> $PLAIN_TEXT_LOG
+        if [[ "$AI_HANDLER_CREATE" == "true" ]]; then
+          ACTION="both"
+        elif [[ "$AI_HANDLER_CREATE" == "false" ]]; then
+          echo -e "\033[33mLog file contains errors, but AI handler is disabled.\033[0m \033[34mProceeding with posting the log text only.\033[0m"
+          ACTION="post"
+        fi
+      else
+        # No errors found
+        echo -e "\033[32mLog file is empty. No issues were found during $TOOL_NAME analysis.\033[0m"
+        echo "$TOOL_NAME analysis was successful. No issues were found." > "$PLAIN_TEXT_LOG"
+        ACTION="post"
+      fi
+
+    # Post a comment with the results
+    - bash ${CI_PROJECT_DIR}/scripts/upload_and_comment.sh \
+      "$VCS_PROVIDER" \
+      "$ACTION" \
+      "$LOG_FILE_PATH" \
+      "$LOG_NAME" \
+      "$AWS_S3_BUCKET" \
+      "$CI_PROJECT_NAME" \
+      "$CI_PROJECT_NAMESPACE" \
+      "$CI_COMMIT_REF_NAME" \
+      "$CI_COMMIT_SHA" \
+      "$JOB_TOKEN" \
+      "$CI_PROJECT_ID" \
+      "$CI_PIPELINE_ID" \
+      "$CI_MERGE_REQUEST_IID" \
+      "$OIDC_ROLE_ARN" \
+      "$GITLAB_OIDC_TOKEN" \
+      "$TOOL_NAME" \
+      "$PLAIN_TEXT_LOG" \
+      "$CI_JOB_URL"
+
+    # Fail the job if errors were found
+    - |
+      if [[ $EXIT_CODE -ne 0 ]]; then
+        echo -e "\033[31m$TOOL_NAME analysis completed with errors. Failing the job.\033[0m"
+        exit $EXIT_CODE
+      fi
+
+  allow_failure: false
+  dependencies:
+    - install_tools
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $RUN_CHECKOV_ANALYSIS == "true"
+
+# Run TFSec analysis
+tfsec_analysis:
+  stage: tfsec
+  id_tokens:
+    GITLAB_OIDC_TOKEN:
+      aud: $OIDC_PROVIDER
+  before_script:
+    # Add project-tools to PATH and update PYTHONPATH for TFsec
+    - export PATH="${CI_PROJECT_DIR}/project-tools:$PATH"
+    - export PATH="${CI_PROJECT_DIR}/project-tools/aws/bin:$PATH"
+    - export PYTHONPATH="${CI_PROJECT_DIR}/project-tools/openai:$PYTHONPATH"
+    - export TOOL_NAME="TFSec"  # Tool name for dynamic usage
+  script:
+    # Initialize variables for log file and tool name
+    - LOG_NAME="tfsec_analysis.log" # Log file for TFsec analysis stage
+    - LOG_FILE_PATH="${CI_PROJECT_DIR}/${LOG_NAME}" # Path to log file for TFsec analysis stage
+    - PLAIN_TEXT_LOG="$CI_PROJECT_DIR/plain_text_log.txt" # Define the plain text log file path
+    - AI_OUTPUT_LOG="$CI_PROJECT_DIR/ai_output_log.txt" # Define the AI output log file path
+
+    # Split WORK_DIRS into an array
+    - |
+      echo -e "TFSec version:" && tfsec --version || { echo -e "\033[31m$TOOL_NAME not installed..\033[0m"; exit 1; }
+      IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
+      EXIT_CODE=0  # Initialize exit code
+      MAX_EXIT_CODE=0  # Track the maximum error level across all directories
+      TEMP_RESULTS_DIR="${CI_PROJECT_DIR}/result_logs"  # Define temporary results directory
+      # Ensure the temporary results directory exists
+      mkdir -p "$TEMP_RESULTS_DIR"
+
+      for dir in "${DIRS[@]}"; do
+        echo -e "\033[34mRunning $TOOL_NAME analysis in directory: $dir\033[0m"
+        echo -e "Running $TOOL_NAME analysis in directory: $dir" >> "${LOG_FILE_PATH}"
+        # Define temporary result file for the current directory
+        TEMP_RESULT_FILE="${TEMP_RESULTS_DIR}/results_cli_${dir//\//_}.txt"
+        # Run TFSec and capture the exit code
+        CURRENT_EXIT_CODE=0
+        tfsec "$dir" --out "$TEMP_RESULT_FILE" --no-module-downloads || CURRENT_EXIT_CODE=$?
+
+        # Process results: any error level > 0 is recorded, and MAX_EXIT_CODE is updated
+        if [[ $CURRENT_EXIT_CODE -gt 0 ]]; then
+          echo -e "\033[31mIssues found in directory: $dir\033[0m"
+          echo "Issues found in directory: $dir.">> "${LOG_FILE_PATH}"
+          cat "$TEMP_RESULT_FILE"
+          sed -r 's/\x1B\[[0-9;]*[mK]//g' "$TEMP_RESULT_FILE" >> "${LOG_FILE_PATH}"
+          if [[ $CURRENT_EXIT_CODE -gt $MAX_EXIT_CODE ]]; then
+            MAX_EXIT_CODE=$CURRENT_EXIT_CODE  # Update the maximum error level
+          fi
+        else
+          echo -e "\033[32mNo issues were found during $TOOL_NAME analysis in the directory: $dir.\033[0m"
+          echo "No issues were found during $TOOL_NAME analysis in the directory: $dir." >> "${LOG_FILE_PATH}"
+        fi
+      done
+
+      # Set overall exit code based on the maximum error level
+      EXIT_CODE=$MAX_EXIT_CODE
+    - |
+      if [[ -f "$LOG_FILE_PATH" && -s "$LOG_FILE_PATH" && $EXIT_CODE -gt 0 ]]; then
+        # Errors found
+        echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the note with the log text.\033[0m"
+        cat "$LOG_FILE_PATH" >> $PLAIN_TEXT_LOG
+        if [[ "$AI_HANDLER_CREATE" == "true" ]]; then
+          ACTION="both"
+        elif [[ "$AI_HANDLER_CREATE" == "false" ]]; then
+          echo -e "\033[33mLog file contains errors, but AI handler is disabled.\033[0m \033[34mProceeding with posting the log text only.\033[0m"
+          ACTION="post"
+        fi
+      else
+        # No errors found
+        echo -e "\033[32mLog file is empty. No issues were found during $TOOL_NAME analysis.\033[0m"
+        echo "$TOOL_NAME analysis was successful. No issues were found." > "$PLAIN_TEXT_LOG"
+        ACTION="post"
+      fi
+
+    # Post a comment with the results
+    - bash ${CI_PROJECT_DIR}/scripts/upload_and_comment.sh \
+      "$VCS_PROVIDER" \
+      "$ACTION" \
+      "$LOG_FILE_PATH" \
+      "$LOG_NAME" \
+      "$AWS_S3_BUCKET" \
+      "$CI_PROJECT_NAME" \
+      "$CI_PROJECT_NAMESPACE" \
+      "$CI_COMMIT_REF_NAME" \
+      "$CI_COMMIT_SHA" \
+      "$JOB_TOKEN" \
+      "$CI_PROJECT_ID" \
+      "$CI_PIPELINE_ID" \
+      "$CI_MERGE_REQUEST_IID" \
+      "$OIDC_ROLE_ARN" \
+      "$GITLAB_OIDC_TOKEN" \
+      "$TOOL_NAME" \
+      "$PLAIN_TEXT_LOG" \
+      "$CI_JOB_URL"
+
+    # Fail the job if errors were found
+    - |
+      if [[ $EXIT_CODE -ne 0 ]]; then
+        echo -e "\033[31m$TOOL_NAME analysis completed with errors. Failing the job.\033[0m"
+        exit $EXIT_CODE
+      fi
+
+  allow_failure: false
+  dependencies:
+    - install_tools
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $RUN_TFSEC_ANALYSIS == "true"
+
+# Run Trivy analysis for Terraform files
+trivy_analysis:
+  stage: trivy
+  id_tokens:
+    GITLAB_OIDC_TOKEN:
+      aud: $OIDC_PROVIDER
+  before_script:
+    # Add project-tools to PATH and update PYTHONPATH for Trivy
+    - export PATH="${CI_PROJECT_DIR}/project-tools:$PATH"
+    - export PATH="${CI_PROJECT_DIR}/project-tools/aws/bin:$PATH"
+    - export PYTHONPATH="${CI_PROJECT_DIR}/project-tools/openai:$PYTHONPATH"
+    - export TOOL_NAME="Trivy"  # Tool name for dynamic usage
+  script:
+    # Initialize variables for log file and tool name
+    - LOG_NAME="trivy_analysis.log" # Log file for Trivy analysis stage
+    - LOG_FILE_PATH="${CI_PROJECT_DIR}/${LOG_NAME}" # Path to log file for Trivy analysis stage
+    - PLAIN_TEXT_LOG="$CI_PROJECT_DIR/plain_text_log.txt" # Define the plain text log file path
+    - AI_OUTPUT_LOG="$CI_PROJECT_DIR/ai_output_log.txt" # Define the AI output log file path
+
+    # Split WORK_DIRS into an array
+    - |
+      echo -e "Trivy version:" && trivy --version || { echo -e "\033[31m$TOOL_NAME not installed..\033[0m"; exit 1; }
+      IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
+      EXIT_CODE=0  # Initialize exit code
+      MAX_EXIT_CODE=0  # Track the maximum error level across all directories
+      TEMP_RESULTS_DIR="${CI_PROJECT_DIR}/result_logs"  # Define temporary results directory
+      # Ensure the temporary results directory exists
+      mkdir -p "$TEMP_RESULTS_DIR"
+
+      for dir in "${DIRS[@]}"; do
+        echo -e "\033[34mRunning $TOOL_NAME analysis in directory: $dir\033[0m"
+        echo -e "Running $TOOL_NAME analysis in directory: $dir" >> "${LOG_FILE_PATH}"
+        # Define temporary result file for the current directory
+        TEMP_RESULT_FILE="${TEMP_RESULTS_DIR}/results_cli_${dir//\//_}.txt"
+        # Run Trivy and capture the exit code
+        CURRENT_EXIT_CODE=0
+        trivy config "$dir" --exit-code 1 --severity HIGH,CRITICAL --format table >> "$TEMP_RESULT_FILE" || CURRENT_EXIT_CODE=$?
+
+        # Process results: any error level > 0 is recorded, and MAX_EXIT_CODE is updated
+        if [[ $CURRENT_EXIT_CODE -gt 0 ]]; then
+          echo -e "\033[31mIssues found in directory: $dir\033[0m"
+          echo "Issues found in directory: $dir.">> "${LOG_FILE_PATH}"
+          cat "$TEMP_RESULT_FILE"
+          sed -r 's/\x1B\[[0-9;]*[mK]//g' "$TEMP_RESULT_FILE" >> "${LOG_FILE_PATH}"
+          if [[ $CURRENT_EXIT_CODE -gt $MAX_EXIT_CODE ]]; then
+            MAX_EXIT_CODE=$CURRENT_EXIT_CODE  # Update the maximum error level
+          fi
+        else
+          echo -e "\033[32mNo issues were found during $TOOL_NAME analysis in the directory: $dir.\033[0m"
+          echo "No issues were found during $TOOL_NAME analysis in the directory: $dir." >> "${LOG_FILE_PATH}"
+        fi
+      done
+
+      # Set overall exit code based on the maximum error level
+      EXIT_CODE=$MAX_EXIT_CODE
+    - |
+      if [[ -f "$LOG_FILE_PATH" && -s "$LOG_FILE_PATH" && $EXIT_CODE -gt 0 ]]; then
+        # Errors found
+        echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the note with the log text.\033[0m"
+        cat "$LOG_FILE_PATH" >> $PLAIN_TEXT_LOG
+        if [[ "$AI_HANDLER_CREATE" == "true" ]]; then
+          echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the note with the log text.\033[0m"
+          ACTION="both"
+        elif [[ "$AI_HANDLER_CREATE" == "false" ]]; then
+          echo -e "\033[33mLog file contains errors, but AI handler is disabled.\033[0m \033[34mProceeding with posting the log text only.\033[0m"
+          ACTION="post"
+        fi
+      else
+        # No errors found
+        echo -e "\033[32mLog file is empty. No issues were found during $TOOL_NAME analysis.\033[0m"
+        echo "$TOOL_NAME analysis was successful. No issues were found." > "$PLAIN_TEXT_LOG"
+        ACTION="post"
+      fi
+
+    # Post a comment with the results
+    - bash ${CI_PROJECT_DIR}/scripts/upload_and_comment.sh \
+      "$VCS_PROVIDER" \
+      "$ACTION" \
+      "$LOG_FILE_PATH" \
+      "$LOG_NAME" \
+      "$AWS_S3_BUCKET" \
+      "$CI_PROJECT_NAME" \
+      "$CI_PROJECT_NAMESPACE" \
+      "$CI_COMMIT_REF_NAME" \
+      "$CI_COMMIT_SHA" \
+      "$JOB_TOKEN" \
+      "$CI_PROJECT_ID" \
+      "$CI_PIPELINE_ID" \
+      "$CI_MERGE_REQUEST_IID" \
+      "$OIDC_ROLE_ARN" \
+      "$GITLAB_OIDC_TOKEN" \
+      "$TOOL_NAME" \
+      "$PLAIN_TEXT_LOG" \
+      "$CI_JOB_URL"
+
+    # Fail the job if errors were found
+    - |
+      if [[ $EXIT_CODE -ne 0 ]]; then
+        echo -e "\033[31m$TOOL_NAME analysis completed with errors. Failing the job.\033[0m"
+        exit $EXIT_CODE
+      fi
+
+  allow_failure: false
+  dependencies:
+    - install_tools
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $RUN_TRIVY_ANALYSIS == "true"
+
+# Generate Terraform plan
+terraform_plan:
+  stage: plan
+  id_tokens:
+    GITLAB_OIDC_TOKEN:
+      aud: $OIDC_PROVIDER # Specify the audience for OIDC token (GitLab OIDC configuration)
+  before_script:
+    # Add project-tools to PATH and update PYTHONPATH
+    - export PATH="${CI_PROJECT_DIR}/project-tools:$PATH" # Add project-tools to the system PATH
+    - export PATH="${CI_PROJECT_DIR}/project-tools/aws/bin:$PATH" # Add AWS tools to the system PATH
+    - export PYTHONPATH="${CI_PROJECT_DIR}/project-tools/openai:$PYTHONPATH" # Add custom Python libraries
+    # Assume role with OIDC and export AWS credentials
+    - set +x # Disable command echoing to hide sensitive data
+    - if [ -z "${OIDC_ROLE_ARN}" ] || [ -z "${GITLAB_OIDC_TOKEN}" ]; then echo -e "\033[31mMissing OIDC_ROLE_ARN or GITLAB_OIDC_TOKEN.\033[0m"; exit 1; fi
+    - aws_sts_output=$(aws sts assume-role-with-web-identity
+      --role-arn "${OIDC_ROLE_ARN}"
+      --role-session-name "VCSRunner-${CI_PROJECT_ID}-${CI_PIPELINE_ID}"
+      --web-identity-token "${GITLAB_OIDC_TOKEN}"
+      --duration-seconds 3600
+      --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]'
+      --output text) || { echo -e "\033[31mFailed to assume role with OIDC.\033[0m"; exit 1; }
+    - export AWS_ACCESS_KEY_ID=$(echo "$aws_sts_output" | awk '{print $1}')
+    - export AWS_SECRET_ACCESS_KEY=$(echo "$aws_sts_output" | awk '{print $2}')
+    - export AWS_SESSION_TOKEN=$(echo "$aws_sts_output" | awk '{print $3}')
+    - export AWS_REGION="eu-west-1" # Set AWS region for all subsequent commands
+    # Verify AWS OIDC authentication
+    - echo "Verifying AWS OIDC authentication..."
+    - aws sts get-caller-identity || (echo "Failed to authenticate with AWS using OIDC. Check role ARN and token." && exit 1)
+    - aws s3 ls || (echo "Failed to access S3. Ensure permissions are correctly configured." && exit 1)
+  script:
+    # Define log file paths
+    - LOG_NAME="terraform_plan.log" # Log file name for Terraform plan stage
+    - LOG_FILE_PATH="${CI_PROJECT_DIR}/${LOG_NAME}" # Full path to the log file
+    - cd $WORK_DIRS
+    - echo "Running Terraform plan..."
+    # Initialize Terraform with backend configuration
+    - terraform init $TERRAFORM_BACKEND_PARAMS || (echo "Terraform initialization failed. Check backend configuration." && exit 1)
+    # Generate Terraform plan
+    - terraform plan -out "$TERRAFORM_PLANFILE" > "$TERRAFORM_PLAN_LOG" || (echo "Terraform plan failed. Check configuration and syntax." && exit 1)
+    # Export Terraform plan to JSON format for further analysis
+    - terraform show -json "$TERRAFORM_PLANFILE" > "$SHOWFILE" || (echo "Failed to export Terraform plan to JSON. Check the plan file." && exit 1)
+    - echo "Terraform plan completed successfully."
+  artifacts:
+    paths:
+      - "$TERRAFORM_PLAN_LOG" # Save the Terraform plan log as an artifact
+      - "$SHOWFILE" # Save the JSON representation of the Terraform plan as an artifact
+  allow_failure: false # Fail the pipeline if this stage fails
+  dependencies:
+    - install_tools # Ensure tools are installed before running this stage
+  rules:
+    - if: $CI_PIPELINE_SOURCE == "merge_request_event" && $RUN_TERRAFORM_PLAN == "true" # Run this stage only for merge requests and if Terraform plan is enabled
+
+## Terraform apply
+#terraform_apply:
+#  stage: apply
+#  id_tokens:
+#    GITLAB_OIDC_TOKEN:
+#      aud: $OIDC_PROVIDER
+#  before_script:
+#    # Add project-tools to PATH and update PYTHONPATH for TFsec
+#    - export PATH="${CI_PROJECT_DIR}/project-tools:$PATH"
+#    - export PATH="${CI_PROJECT_DIR}/project-tools/aws/bin:$PATH"
+#    - export PYTHONPATH="${CI_PROJECT_DIR}/project-tools/openai:$PYTHONPATH"
+#  script:
+#    - LOG_NAME="terraform_plan.log" # Log file for Terraform plan stage
+#    - LOG_FILE_PATH="${CI_PROJECT_DIR}/${LOG_NAME}" # Path to log file for Terraform plan stage
+#    - cd repo
+#    - echo "Running Terraform apply..."
+#    - terraform plan -out "$TERRAFORM_PLANFILE" > "$TERRAFORM_PLAN_LOG"
+#    - terraform show -json "$TTERRAFORM_PLANFILE" > "$SHOWFILE"
+#    - echo "Terraform apply completed."
+#  artifacts:
+#    paths:
+#      - "$TERRAFORM_PLAN_LOG"
+#      - "$SHOWFILE"
+#  allow_failure: false
+#  dependencies:
+#    - install_tools
+#  rules:
+#    - if: '$CI_PIPELINE_SOURCE == "merge_request_event" && $RUN_TERRAFORM_PLAN == "true" && $RUN_TERRAFORM_APPLY == "true"'
+#
