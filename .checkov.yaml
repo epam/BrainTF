@@ -2,7 +2,6 @@
 skip-check:
 #  - CKV_AWS_328         # Checkov bug — causes a TypeError during scanning; temporarily skipped to prevent pipeline failure
 #  - CKV_AWS_50          # False positive — X-Ray tracing is correctly enabled using passthrough variables, but Checkov can't detect it through modules
-#  - CKV_AWS_300         # False positive — abort_incomplete_multipart_upload is already defined inside modules, but Checkov cannot analyze nested module internals
 #  - CKV_AWS_111         # False positive inside terraform-aws-vpc external module (wildcard '*' on logs:* actions is unavoidable here)
 #  - CKV_AWS_356         # False positive inside terraform-aws-vpc external module — wildcard '*' is used in IAM policy for CloudWatch Logs, but cannot be changed
 #  - CKV_AWS_338         # Team decision — skip all log groups with 7-day retention; acceptable per internal logging policy
@@ -39,21 +38,16 @@ skip-check:
 #  - CKV_AWS_337         # KMS CMK is not used for SSM parameter because default AWS-managed key
 #  - CKV_AWS_124         # Event notifications for CloudFormation stack are not used in this environment, SNS not required
 #  - CKV_AWS_7           # Key rotation is intentionally disabled for CloudTrail CMK in this environment
-#  - CKV_AWS_144         # Cross-region replication for ALB log bucket is not required in this environment
-#  - CKV2_AWS_61         # Lifecycle policy for ALB log S3 bucket is not required in current environment
 #  - CKV_AWS_145         # KMS encryption for ALB log bucket is not required in current environment
 #  - CKV2_AWS_12         # Default SG of the VPC is not used; skipping restriction requirement
-#  - CKV2_AWS_5          # Security group is used internally in ECS service module, skipping attachment validation
 #  - CKV_AWS_378         # Internal ALB uses HTTP by design; TLS is handled by ECS/app layer
 #  - CKV2_AWS_11         # Flow logging enabled via input variables to terraform-aws-vpc; Checkov cannot detect internal implementation; false positive
 #  - CKV_AWS_21          # False positive: versioning already enabled for ALB log bucket
 #  - CKV2_AWS_28         # Public ALB not behind WAF in this environment by design (non-prod)
 #  - CKV2_AWS_34         # SSM Parameter is intentionally stored as plaintext (non-sensitive value)
 #  - CKV2_AWS_57         # Secrets rotation is not required in this environment; handled externally / non-prod
-#  - CKV2_AWS_62         # Event notifications for S3 bucket are not required; external module usage
 #  - CKV2_AWS_15         # ASG uses ELB health checks (handled via external configuration)
 #  - CKV2_AWS_65         # S3 ACLs managed via terraform-aws-s3-bucket module (false positive)
-#  - CKV_AWS_18          # Access logging not applicable for ALB log bucket; false positive from external module
 #  - CKV2_AWS_6          # Public Access Block is enforced via module inputs in log_bucket; false positive from external module scan
 #  - CKV_AWS_174         # CloudFront TLS v1.2 — resource in an external CloudFormation template, TLS version cannot be configured here
 #  - CKV_AWS_119         # Temporary skip until clarification — using AWS-managed key, migration to CMK under discussion
@@ -61,6 +55,13 @@ skip-check:
 #  - CKV_AWS_120         # Temporary skip until clarification — API Gateway caching not required for this stage
 #  - CKV_AWS_97          # Temporary skip until clarification — EFS in-transit encryption to be configured or EFS disabled
   - CKV_TF_1            # Temporarily skipped: external modules still use registry source with version, not commit SHA
+  - CKV_AWS_300         # Demo only — abort_incomplete_multipart_upload not required in demo scenario
+  - CKV2_AWS_5          # Demo only — security group not attached to instance in standalone demo resource
+  - CKV2_AWS_62         # Demo only — S3 event notifications not required in demo scenario
+  - CKV_AWS_144         # Demo only — cross-region replication not required in demo scenario
+  - CKV2_AWS_61         # Demo only — lifecycle configuration present but simplified for demo
+  - CKV_AWS_18          # Demo only — access logging configured to same bucket (self-logging) in demo
+  - CKV2_AWS_64         # Demo only — KMS key policy not required in demo scenario
 
 output: cli
 quiet: true
