@@ -130,4 +130,4 @@ config
 # Excluds
 !/docs/config_files/main_module/secrets.auto.tfvars
 !/docs/config_files/main_module/terraform.tfvars
-!/docs/config_files/state_bucket/terraform.tfvars
+!/docs/config_files/bootstrap/terraform.tfvars
