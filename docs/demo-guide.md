@@ -26,8 +26,6 @@ demo/
 │   │   └── s3_trivy.tf      # Trivy ✅
 │   └── logging/
 │       └── cloudwatch.tf    # Checkov ✅
-├── images/
-│   └── tfstate_bucket.png   # Reference: TFState bucket in the project
 └── README.md
 ```
 
@@ -50,7 +48,7 @@ demo/
 
 ## Prerequisites
 
-Before running the demo, make sure to deploy the BrainTF platform for a repository. Follow documentation in [README.md](../README.md) for more details about the deployment process.
+Before running the demo, make sure to deploy the BrainTF platform for a repository. Follow documentation in the [main README](../README.md) for more details about the deployment process.
 
 ---
 

@@ -24,6 +24,8 @@
 
 ![ai_handler](docs/pic/ai_handler.png)
 
+For a detailed description of the flow with Mermaid diagrams, see [How It Works](docs/flow.md).
+
 ## Workflow
 
 1. If the boolean variable AI_HANDLER_CREATE is set to TRUE, and one or all stages (lint, validate, checkov, tfsec) are enabled, the logs with their errors are placed in a versioned bucket for artifacts in a subfolder with the merge request number in the logs folder and remain there until processed by the Lambda or overwritten by the next iteration of checks.
@@ -36,6 +38,8 @@
 
 ## Installation and integration process
 ### State bucket creation
+
+> For details on managing bootstrap Terraform state (including how to migrate it to S3 after the bucket is created), see [Bootstrap State Management](docs/bootstrap-state-management.md).
 
 1. Copy the [terraform.tfvars](docs/config_files/bootstrap/terraform.tfvars) into the [state_bucket/](terraform/state_bucket) directory and fill it with the correct variables.
 2. Run `terraform init` command in [state_bucket/](terraform/state_bucket) directory.
@@ -104,6 +108,10 @@ git_token = "<my_git_token>" # GitLab personal access token
 ai_token  = "<my_ai_token>"  # AI API token
 ```
  </details>
+
+## Demo
+
+A complete demo scenario with broken and fixed Terraform code is available in [docs/demo-guide.md](docs/demo-guide.md).
 
 ## View and manage MR notes from GitLab
 
