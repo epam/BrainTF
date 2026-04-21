@@ -1,0 +1,104 @@
+name: Developer Release Pipeline
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - terraform/modules/lambdas/functions/**
+
+permissions:
+  contents: write
+  checks: write
+  pull-requests: write
+
+jobs:
+
+  python-test:
+    name: Python Unit Tests
+    runs-on: ubuntu-latest
+    env:
+      PYTHONPATH: ${{ github.workspace }}/terraform/modules/lambdas/functions
+      AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Install required Python packages
+        run: pip install -r ./terraform/modules/lambdas/functions/test-requirements.txt
+
+      - name: Run pytest with coverage and JUnit report
+        run: |
+          exit_code=0
+          cd terraform/modules/lambdas/functions
+          pytest \
+            --cov=./utilities \
+            --cov=./ai_handler_comment_lambda \
+            --cov=./ai_handler_tf_errors_lambda \
+            --cov-report=term \
+            --cov-report=markdown \
+            --junit-xml=test-results.xml \
+            --cov-fail-under=25 \
+            -vv . || exit_code=$?
+          echo "Pytest exited with exit code $exit_code"
+          echo "PYTEST_EXIT_CODE=$exit_code" >> $GITHUB_ENV
+
+        continue-on-error: true
+
+      - name: Upload pytest JUnit report
+        uses: actions/upload-artifact@v7
+        with:
+          name: pytest-results
+          path: terraform/modules/lambdas/functions/test-results.xml
+          retention-days: 14
+
+      - name: Upload coverage reports
+        uses: actions/upload-artifact@v7
+        with:
+          name: coverage-reports
+          path: terraform/modules/lambdas/functions/coverage.md
+          retention-days: 14
+
+      # Explicitly fail the job if `pytest` exited with a non-zero exit code
+      - name: Fail entire job if pytest step failure
+        run: exit ${{ env.PYTEST_EXIT_CODE }}
+
+  test-report:
+    name: Publish Test Report
+    runs-on: ubuntu-latest
+    needs: python-test
+    if: always()
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Download pytest artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: pytest-results
+          path: test-results
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v3
+        with:
+          name: Pytest results
+          path: test-results/test-results.xml
+          reporter: python-xunit
+          fail-on-error: false
+
+      - name: Download coverage artifact
+        uses: actions/download-artifact@v7
+        with:
+          name: coverage-reports
+          path: coverage-results
+
+      - name: Upload coverage to GitHub UI
+        run: cat coverage-results/coverage.md >> $GITHUB_STEP_SUMMARY

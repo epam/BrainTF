@@ -15,7 +15,7 @@ Below is a guide to the supported commands:
 
 `bot approve <path/to/file1> [<path/to/file2> ...]` - triggers the approval of committing a **specific file** or **files** fixed by AI bot.
 
-`bot list` - lists files correted by AI and ready to commit.
+`bot list` - lists files corrected by AI and ready to commit.
 
 `bot prompt <user prompt>` - sends custom prompt to AI.
 
@@ -28,8 +28,7 @@ Below is a guide to the supported commands:
 > All commands must begin with a **context word** (`bot`, `help`, etc.).
 >
 > Only `bot` context supports nested command logic (e.g. `approve`).
-
-"""
+""".lstrip().removesuffix("\n")
 
 LIST_FILES_MESSAGE: str = """
 :information_source: AI Bot message
@@ -113,4 +112,3 @@ IMPORTANT: The part `<relative_path_to_file>` in line Corrected file `<relative_
    - Be followed by a blank new line.
    - Ensure the corrected file content starts on a new line within a properly formatted code block.
 """
-

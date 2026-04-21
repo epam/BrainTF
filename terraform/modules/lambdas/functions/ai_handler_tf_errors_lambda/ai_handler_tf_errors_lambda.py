@@ -70,7 +70,7 @@ def process_s3_event(event: Dict[str, Any]) -> Dict[str, Any]:
         raise error
 
 
-def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # noqa:
+def lambda_handler(event: dict[str, dict], context: Any) -> Dict[str, Any]:  # noqa:
     """AWS Lambda function handler."""
 
     try:
@@ -79,8 +79,10 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # no
         user_message: Dict = prepare_user_prompt_message(event)
         user_prompt: List = [user_message]
 
-        generated_response: Dict = generate_response_ai(user_prompt)
-        event.get("metadata").update({"ai_response": generated_response.get("message").strip()})
+        generated_response: Dict[str, Any] = generate_response_ai(user_prompt)
+        message: str = generated_response.get("message", "").strip()
+        logger.info(f"Message to UI --->\n{message}")
+        event.get("metadata").update({"ai_response": message})
 
         tool_name = event.get("metadata").get("tool_name")
 

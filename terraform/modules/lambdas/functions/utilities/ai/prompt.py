@@ -4,25 +4,26 @@ from config import config
 from utilities.logger import logger
 from utilities.parsers import (
     clean_text_for_tfsec, extract_blocks_ending_with_working_directory,
-    extract_strings_between_on_and_line, get_paths_from_errors_checkov,
-    get_paths_from_errors_tfsec, remove_no_issues_checkov_blocks,
+    get_paths_from_errors_tflint, get_paths_from_errors_checkov,
+    get_paths_from_errors_tfsec, remove_no_issues_dir_blocks_checkov_tfsec,
     replace_relative_paths_to_absolute_in_errors_checkov,
-    replace_relative_paths_to_absolute_in_errors_tfsec, replace_relative_paths_to_absolute_in_errors_terraform)
+    replace_relative_paths_to_absolute_in_errors_terraform,
+    replace_relative_paths_to_absolute_in_errors_tfsec)
 from utilities.vcs import get_all_tf_files_from_paths_list
 
 
 def _process_checkov_or_tfsec_errors(errors: str, working_directory: str, tool_name_lower: str) -> tuple[str, list]:
     if tool_name_lower == 'checkov':
-        errors = replace_relative_paths_to_absolute_in_errors_checkov(errors, working_directory)
+        errors = replace_relative_paths_to_absolute_in_errors_checkov(working_directory, errors)
         paths_to_files = get_paths_from_errors_checkov(errors)
         return errors, paths_to_files
     elif tool_name_lower == 'tfsec':
         errors = clean_text_for_tfsec(errors)
-        errors = replace_relative_paths_to_absolute_in_errors_tfsec(errors, working_directory)
+        errors = replace_relative_paths_to_absolute_in_errors_tfsec(working_directory, errors)
         paths_to_files = get_paths_from_errors_tfsec(errors)
         return errors, paths_to_files
     elif tool_name_lower == 'terraform':
-        errors = replace_relative_paths_to_absolute_in_errors_terraform(errors, working_directory)
+        errors = replace_relative_paths_to_absolute_in_errors_terraform(working_directory, errors)
         paths_to_files = [working_directory]
 
         return errors, paths_to_files
@@ -32,7 +33,7 @@ def _process_checkov_or_tfsec_errors(errors: str, working_directory: str, tool_n
 
 
 def _process_other_tool_errors(errors: str, working_directory: str) -> list:
-    paths_to_files = extract_strings_between_on_and_line(errors)
+    paths_to_files = get_paths_from_errors_tflint(errors)
     if not paths_to_files:
         paths_to_files = [working_directory]
 
@@ -48,7 +49,7 @@ def make_prompt_block_with_errors_and_files(event,
     is_checkov_or_tfsec = tool_name_lower in ['checkov', 'tfsec', 'terraform']
 
     if is_checkov_or_tfsec:
-        errors_data = remove_no_issues_checkov_blocks(errors_data)
+        errors_data = remove_no_issues_dir_blocks_checkov_tfsec(errors_data)
 
         if config.rag_enabled:
             pass
