@@ -19,30 +19,37 @@ HTTP_FORBIDDEN: int = 403
 def process_vcs_webhook_payload(event: Dict[str, Any]) -> Dict[str, Any]:
     """Process the VCS webhook payload and return the relevant information."""
     logger.info('Processing VCS webhook payload...')
+    body: str = event.get('body', '{}')
 
-    webhook_payload: Dict[str, Any] = json.loads(event['body'])
+    webhook_payload: Dict[str, Any] = json.loads(body)
+
     metadata: Dict[str, Any] = {}
 
     match config.vcs_provider:
         case 'gitlab':
+            commit_id: str | None = webhook_payload.get('merge_request', {}).get('last_commit', {}).get('id')
 
-            commit_id: str | None = webhook_payload.get('merge_request').get('last_commit', {}).get('id')
+            repo_id_or_name: str | None = webhook_payload.get('project_id')
+            source_branch: str | None = webhook_payload.get('merge_request', {}).get('source_branch')
+            comment_text: str = webhook_payload.get('object_attributes', {}).get('note', '').strip()
+            merge_or_pull_req_id: str = webhook_payload.get('merge_request', {}).get('iid')
             commit_short_sha: str | None = commit_id[:8] if commit_id else None
+            comment_id: str | None = webhook_payload.get('object_attributes', {}).get('id')
 
             metadata = {
-                'repo_id_or_name': webhook_payload.get('project_id'),
-                'source_branch': webhook_payload.get('merge_request').get('source_branch'),
-                'comment_text': webhook_payload.get('object_attributes', {}).get('note', '').strip(),
-                'merge_or_pull_req_id': webhook_payload.get('merge_request').get('iid'),
+                'repo_id_or_name': repo_id_or_name,
+                'source_branch': source_branch,
+                'comment_text': comment_text,
+                'merge_or_pull_req_id': merge_or_pull_req_id,
                 'commit_short_sha': commit_short_sha,
-                'comment_id': webhook_payload.get('object_attributes', {}).get('id'),
+                'comment_id': comment_id,
             }
 
         case 'github':
             is_github_issue_comment(event)
             repository: Dict[str, Any] = webhook_payload.get('repository', {}) or {}
             comment: Dict[str, Any] = webhook_payload.get('comment', {}) or {}
-            issue: Dict[str, Any] = webhook_payload.get('issue', {}) or {}
+            issue: Dict[str, Any] = webhook_payload.get('issue', {})
             commit_sha: str | None = get_last_commit_sha_github(repository.get('full_name'), issue.get('number'))
             commit_short_sha: str | None = commit_sha[:8] if commit_sha else None
 
@@ -56,8 +63,8 @@ def process_vcs_webhook_payload(event: Dict[str, Any]) -> Dict[str, Any]:
             }
 
         case _:
-            # Unknown or unsupported provider; leave metadata empty
-            metadata = {}
+            # Unknown or unsupported provider
+            raise Exception(f"Unsupported VCS provider: {config.vcs_provider}")
 
     event.setdefault('metadata', {}).update(metadata)
     return event
