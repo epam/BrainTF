@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/antonbabenko/pre-commit-terraform  # Use pre-commit-terraform repository
-    rev: v1.88.0  # Use specific version of the hooks
+    rev: v1.105.0  # Use specific version of the hooks
     hooks:
       - id: terraform_fmt  # This hook reformats Terraform configuration files to adhere to HashiCorp's standards
       - id: terraform_docs  # This hook generates Terraform documentation
@@ -35,7 +35,7 @@ repos:
 #          - '--args=-no-color'  # If set to true, color will be omitted in the output
 #          - --hook-config=--parallelism-limit=1  # This sets the limit for the number of concurrent operations
   - repo: https://github.com/pre-commit/pre-commit-hooks  # Use pre-commit-hooks repository
-    rev: v4.5.0  # Use specific version of the hooks
+    rev: v6.0.0  # Use specific version of the hooks
     hooks:
       - id: check-merge-conflict  # This hook checks for merge conflicts
       - id: end-of-file-fixer  # This hook ensures files end with a newline

@@ -12,11 +12,11 @@ permissions:
   issues: write
 env:
   WORK_DIRS: "test_code/" # Working directories for all stages
-  TFLINT_VERSION: "v0.61.0"
-  TERRAFORM_VERSION: "1.13.3"
-  CHECKOV_VERSION: "3.2.432"
-  TFSEC_VERSION: "v1.28.12"
-  TRIVY_VERSION: "0.69.3"
+  TFLINT_VERSION: "v0.62.0"
+  TERRAFORM_VERSION: "1.14.8"
+  CHECKOV_VERSION: "3.2.524"
+  TFSEC_VERSION: "v1.28.14"
+  TRIVY_VERSION: "0.70.0"
   AWS_S3_BUCKET: "${{ vars.ARTIFACTS_BUCKET }}"
   VCS_API_ENDPOINT: "${{ github.api_url }}"
   OIDC_ROLE_ARN: "${{ vars.OIDC_ROLE_ARN }}"
