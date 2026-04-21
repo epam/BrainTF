@@ -201,6 +201,6 @@ class _ConfigLambda:
         return response['Parameter']['Value']
 
 
-config: Optional[_ConfigLambda] = _ConfigLambda()
+config: _ConfigLambda = _ConfigLambda()
 
 __all__ = ['config']

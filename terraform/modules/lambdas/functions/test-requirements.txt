@@ -1,0 +1,8 @@
+python-gitlab==6.0.0
+requests==2.32.4
+openai==1.97.1
+beautifulsoup4==4.13.4
+PyGithub==2.8.1
+boto3==1.42.91
+pytest==7.0.0
+pytest-cov==7.1.0

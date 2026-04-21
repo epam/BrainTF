@@ -1,35 +1,69 @@
 import os
 import re
-from typing import Dict, List
+from typing import Dict
 
 
-def remove_no_issues_checkov_blocks(text):
+def remove_no_issues_dir_blocks_checkov_tfsec(text: str) -> str:
     """
-    Remove blocks that contain both:
-    1. "Running Checkov analysis in directory: <path>"
-    2. "No issues were found during Checkov analysis in the directory: <path>."
+    Removes informational blocks related to "No issues" from Checkov or TFSec analysis
+    that are found in a given text. The blocks indicate successful analysis without
+    issues in specified directories and are matched using specific patterns.
 
-    The <path> can vary but should match between both lines.
+    Args:
+        text (str): The input text containing Checkov or TFSec analysis results.
+
+    Returns:
+        str: The cleaned text with informational blocks removed.
     """
-
-    # Pattern explanation:
-    # - .*? matches any characters (non-greedy)
-    # - \s* matches optional whitespace/newlines
-    # - ([^\s\n]+) captures the directory path (non-whitespace characters)
-    # - (?=\.) positive lookahead to ensure the path ends with a period in the second line
-
     # Remove the matched blocks
     cleaned_text = re.sub(
-        r'Running (?:Checkov|TFSec) analysis in directory: ([^\s]+)\s*.*?\s*No issues were found '
-        r'during (?:Checkov|TFSec) analysis in the directory: \1\.',
-        '',
-        text,
-        flags=re.DOTALL
+        r"Running (?:Checkov|TFSec) analysis in directory: (\S+)\s*.*?\s*No issues were found "
+        r"during (?:Checkov|TFSec) analysis in the directory: \1\.\s",
+        "",
+        text
     )
 
-    # Clean up any extra whitespace left behind
-    cleaned_text = re.sub(r'\n\s*\n\s*\n', '\n\n', cleaned_text)
+    return cleaned_text.strip()
 
+
+def clean_text_for_tfsec(input_text):
+    """
+    Cleans the input text by:
+    1. Removing sections between 'timings' and 'detected'.
+    2. Removing blocks starting with 'More Information' and ending at the first empty line.
+    3. Replacing long horizontal lines with '---'.
+
+    Args:
+        input_text (str): The input text containing all sections.
+
+    Returns:
+        str: The cleaned text with the unwanted sections removed and horizontal lines replaced.
+    """
+    # Step 1: Remove the section between 'timings' and 'detected'
+    cleaned_text = re.sub(
+        r"(timings[\s\S]+?detected.*)",
+        "",
+        input_text,
+        flags=re.MULTILINE
+    )
+
+    # Step 2: Remove blocks starting with 'More Information' and ending at the first empty line
+    cleaned_text = re.sub(
+        r" {2}More Information[\s\S]*?─+\n",
+        "",
+        cleaned_text,
+        flags=re.MULTILINE
+    )
+
+    # Step 3: Replace long horizontal lines with '───' pattern_long_lines = r"─{10,}"
+    # Matches 10 or more consecutive '─' characters
+    cleaned_text = re.sub(
+        r"─{10,}",  # Matches 10 or more consecutive '─' characters
+        "───",
+        cleaned_text
+    )
+
+    # Strip leading and trailing whitespace
     return cleaned_text.strip()
 
 
@@ -67,10 +101,28 @@ def extract_blocks_ending_with_working_directory(text: str, tool_name: str) -> l
     return result
 
 
-def replace_relative_paths_to_absolute_in_errors_terraform(errors_data: str, working_directory: str) -> str:
-    # Replace paths after two spaces and before line numbers
-    result = re.sub(
-        r"(\s{2}on\s{1})(.*?)(\sline\s.*)",
+def replace_relative_paths_to_absolute_in_errors_terraform(working_directory: str, errors_data: str) -> str:
+    """
+    Replaces relative file paths in Terraform error messages with absolute paths.
+
+    This function modifies error messages by substituting relative paths with
+    absolute paths based on the provided working directory. This makes the error
+    messages more understandable and allows for easier identification of file
+    locations.
+
+    Args:
+        working_directory (str): The absolute path to the working directory. This
+            is used as the base path to convert relative paths in the error
+            messages into absolute paths.
+        errors_data (str): The error messages string in which relative paths are to
+            be replaced by absolute paths.
+
+    Returns:
+        str: A string containing the modified error messages where relative paths
+        have been replaced with absolute paths.
+    """
+    result: str = re.sub(
+        r"(\s{2}on\s)(.*?)(\sline\s.*)",
         lambda match: f"{match.group(1)}{os.path.join(working_directory, match.group(2))}{match.group(3)}",
         errors_data
     )
@@ -78,7 +130,7 @@ def replace_relative_paths_to_absolute_in_errors_terraform(errors_data: str, wor
     return result
 
 
-def replace_relative_paths_to_absolute_in_errors_tfsec(errors_data: str, working_directory: str) -> str:
+def replace_relative_paths_to_absolute_in_errors_tfsec(working_directory: str, errors_data: str) -> str:
     """Replace relative file paths with absolute paths in TFSec error output.
 
     Takes TFSec error output text and replaces all relative file paths with absolute paths
@@ -108,13 +160,10 @@ def replace_relative_paths_to_absolute_in_errors_tfsec(errors_data: str, working
     return result
 
 
-def replace_relative_paths_to_absolute_in_errors_checkov(
-        errors_data: str,
-        working_directory: str
-) -> str:
+def replace_relative_paths_to_absolute_in_errors_checkov(working_directory: str, errors_data: str) -> str:
     """Replace relative file paths with absolute paths in Checkov error output.
 
-    Converts relative paths in "File:" and "Calling File:" lines to absolute paths
+    Converts relative paths in File: and Calling File: lines to absolute paths
     by joining them with the working directory.
 
     Args:
@@ -133,70 +182,25 @@ def replace_relative_paths_to_absolute_in_errors_checkov(
     )
 
 
-def get_paths_from_errors_checkov(errors_data: str) -> List[str]:
-    # ReGex pattern to match only `File: ` paths and exclude `Calling File: `
-
-    # Find all matches
+def get_paths_from_errors_checkov(errors_data: str) -> list:
     matches = re.findall(r'^\s*(?:Calling )?File:\s+(.+?):\d+-?\d*\n',
                          errors_data,
+                         flags=re.MULTILINE)
+    # Return the list of unique matches
+    return list({os.path.dirname(match) for match in matches if match})
+
+
+def get_paths_from_errors_tfsec(errors_data: str) -> list:
+    matches = re.findall(r"\n {2}(.+):\d+-?\d+\n",
+                         errors_data,
                          re.MULTILINE)
-
-    matches = list(set(matches))
-    paths_to_tf_files = []
-    for match in matches:
-        directory = os.path.dirname(match)
-
-        paths_to_tf_files.append(directory)
-    return paths_to_tf_files
+    # Return the list of unique matches
+    return list({os.path.dirname(match) for match in matches if match})
 
 
-def get_paths_from_errors_tfsec(errors_data: str) -> List[str]:
-    # Find all matches
-    matches = re.findall(r"\n {2}(.+):\d+-?\d+\n", errors_data, re.MULTILINE)
-
-    unique_matches = list(set(matches))
-
-    paths_to_tf_files = []
-
-    for match in unique_matches:
-        directory = os.path.dirname(match)
-        paths_to_tf_files.append(directory)
-
-    return paths_to_tf_files
-
-
-def clean_text_for_tfsec(input_text):
+def get_paths_from_errors_tflint(text: str) -> list:
     """
-    Cleans the input text by:
-    1. Removing sections between 'timings' and 'detected'.
-    2. Removing blocks starting with 'More Information' and ending at the first empty line.
-    3. Replacing long horizontal lines with '---'.
-
-    Args:
-        input_text (str): The input text containing all sections.
-
-    Returns:
-        str: The cleaned text with the unwanted sections removed and horizontal lines replaced.
-    """
-    # Step 1: Remove the section between 'timings' and 'detected'
-    pattern_timings_to_detected = r"(timings[\s\S]+?detected.*)"
-    cleaned_text = re.sub(pattern_timings_to_detected, "", input_text, flags=re.MULTILINE)
-
-    # Step 2: Remove blocks starting with 'More Information' and ending at the first empty line
-    pattern_more_information = r" {2}More Information[\s\S]*?─+\n"
-    cleaned_text = re.sub(pattern_more_information, "", cleaned_text, flags=re.MULTILINE)
-
-    # Step 3: Replace long horizontal lines with '───'
-    pattern_long_lines = r"─{10,}"  # Matches 10 or more consecutive '─' characters
-    cleaned_text = re.sub(pattern_long_lines, "───", cleaned_text)
-
-    # Strip leading and trailing whitespace
-    return cleaned_text.strip()
-
-
-def extract_strings_between_on_and_line(text: str) -> List[str]:
-    """
-    Extracts strings between 'on ' and h' line' from the given text
+    Extracts strings between 'on ' and ' line' from the given text
     and returns them as a list.
 
     Args:
@@ -205,9 +209,9 @@ def extract_strings_between_on_and_line(text: str) -> List[str]:
     Returns:
         list: A list of strings found between 'on ' and ' line'.
     """
-    # Use a regular expression to find all matches between 'on ' and ' line'
-    pattern = r'on (.*?) line \d'
-    matches = re.findall(pattern, text)  # Find all matches
+
+    matches = re.findall(r"on (.*?) line \d",
+                         text)  # Find all matches
 
     # Return the list of unique matches
     return list({os.path.dirname(match) for match in matches if match})
