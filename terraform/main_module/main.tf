@@ -246,7 +246,7 @@ module "tfstate_bucket" {
 
 # ======================= SSM Parameters =======================
 module "ssm_parameters" {
-  source      = "git::https://github.com/terraform-aws-modules/terraform-aws-ssm-parameter.git?ref=25083ba701549cfe4eb0d57c3fa659fb381f53ac"
+  source      = "git::https://github.com/terraform-aws-modules/terraform-aws-ssm-parameter.git?ref=c0456aa1960c2b13080f3968be9a7cdc687f2c8c"
   for_each    = local.ssm_parameters
   name        = try(each.value.name, each.key)
   value       = try(each.value.value, null)

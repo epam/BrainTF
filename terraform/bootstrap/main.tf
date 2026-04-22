@@ -192,7 +192,7 @@ EOT
 data "aws_caller_identity" "current" {}
 
 module "s3_bucket_kms_key" {
-  source = "git::https://github.com/terraform-aws-modules/terraform-aws-kms.git?ref=e0171db13c467d93e79e2bd82981ba3b207dfe6d"
+  source = "git::https://github.com/terraform-aws-modules/terraform-aws-kms.git?ref=407e3db34a65b384c20ef718f55d9ceacb97a846"
 
   description              = "KMS key for encrypting resources"
   enable_key_rotation      = true
@@ -264,7 +264,7 @@ module "s3_bucket_kms_key" {
 
 # ======================= Create an S3 Bucket for Terraform State =======================
 module "s3_state_bucket" {
-  source                                = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=2dd4364b67d89cb9c881be465e5e4196ef8dea8f"
+  source                                = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=6c5e082b5d2fde77cb59c387a7f553dd2ed5da29"
   create_bucket                         = true
   bucket                                = local.state_bucket
   force_destroy                         = true
