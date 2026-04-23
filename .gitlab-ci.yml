@@ -14,11 +14,11 @@ stages:
 variables:
   WORK_DIRS: "test_code/modules/dynamodb, test_code/modules/s3_bucket"# Working directories for all stages
   # Utility versions
-  TFLINT_VERSION: "v0.56.0" # TFLint version to install
-  TERRAFORM_VERSION: "1.5.6" # Terraform versio
-  CHECKOV_VERSION: "3.2.432" # Checkov version to install
-  TFSEC_VERSION: "v1.28.12" # TFSec version to install
-  TRIVY_VERSION: "0.69.3" # Trivy version to install
+  TFLINT_VERSION: "v0.62.0" # TFLint version to install
+  TERRAFORM_VERSION: "1.14.8" # Terraform versio
+  CHECKOV_VERSION: "3.2.524" # Checkov version to install
+  TFSEC_VERSION: "v1.28.14" # TFSec version to install
+  TRIVY_VERSION: "0.70.0" # Trivy version to install
 
   # Automatically defined variables (Don't change anything, all variables are managed by Terraform only!!)
   AWS_S3_BUCKET: "${ARTIFACTS_BUCKET}" # AWS S3 bucket to upload logs
