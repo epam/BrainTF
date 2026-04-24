@@ -12,7 +12,7 @@ stages:
   - apply
 
 variables:
-  WORK_DIRS: "test_code/modules/dynamodb, test_code/modules/s3_bucket"# Working directories for all stages
+  WORK_DIRS: "test_code/" # Working directories for all stages
   # Utility versions
   TFLINT_VERSION: "v0.62.0" # TFLint version to install
   TERRAFORM_VERSION: "1.14.8" # Terraform versio
@@ -21,12 +21,12 @@ variables:
   TRIVY_VERSION: "0.70.0" # Trivy version to install
 
   # Automatically defined variables (Don't change anything, all variables are managed by Terraform only!!)
-  AWS_S3_BUCKET: "${ARTIFACTS_BUCKET}" # AWS S3 bucket to upload logs
-  GIT_API_ENDPOINT: "${GIT_API_ENDPOINT}" # GitLab API base URL
+  AWS_S3_BUCKET:    "${ARTIFACTS_BUCKET}"  # AWS S3 bucket to upload logs
+  GIT_API_ENDPOINT: "${GIT_API_ENDPOINT}"  # GitLab API base URL
   # OIDC variables
-  OIDC_ROLE_ARN: "${OIDC_ROLE_ARN}" # Replace with your AWS Role ARN
-  OIDC_AUDIENCE: "${OIDC_PROVIDER}"# The OIDC AUDIENCE
-  JOB_TOKEN: "${JOB_TOKEN}" # The VCS token for API calls
+  OIDC_ROLE_ARN:    "${OIDC_ROLE_ARN}"     # Replace with your AWS Role ARN
+  OIDC_AUDIENCE:    "${OIDC_PROVIDER}"     # The OIDC AUDIENCE
+  JOB_TOKEN:        "${JOB_TOKEN}"         # The VCS token for API calls
   # Enable/Disable AI Tools
   AI_HANDLER_CREATE: "${AI_HANDLER_CREATE}" # Enable or disable AI Handler
 

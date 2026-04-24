@@ -11,20 +11,23 @@ permissions:
   pull-requests: write
   issues: write
 env:
-  WORK_DIRS: "test_code/" # Working directories for all stages
-  TFLINT_VERSION: "v0.62.0"
-  TERRAFORM_VERSION: "1.14.8"
-  CHECKOV_VERSION: "3.2.524"
-  TFSEC_VERSION: "v1.28.14"
-  TRIVY_VERSION: "0.70.0"
-  AWS_S3_BUCKET: "${{ vars.ARTIFACTS_BUCKET }}"
-  VCS_API_ENDPOINT: "${{ github.api_url }}"
-  OIDC_ROLE_ARN: "${{ vars.OIDC_ROLE_ARN }}"
-  OIDC_AUDIENCE: "${{ vars.OIDC_AUDIENCE }}"
-  GITHUB_TOKEN: "${{ secrets.GITHUB_TOKEN }}"
-  AI_HANDLER_CREATE: "${{ vars.AI_HANDLER_CREATE }}"
-  VCS_PROVIDER: "${{ vars.VCS_PROVIDER }}"
-  GITHUB_RUN_URL: "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"
+  WORK_DIRS: "test_code/"     # Working directories for all stages
+  TFLINT_VERSION: "v0.62.0"   # TFLint version to install
+  TERRAFORM_VERSION: "1.14.8" # Terraform version to install
+  CHECKOV_VERSION: "3.2.524"  # Checkov version to install
+  TFSEC_VERSION: "v1.28.14"   # TFSec version to install
+  TRIVY_VERSION: "0.70.0"     # Trivy version to install
+
+  # Automatically defined variables (Don't change anything, all variables are managed by Terraform only!!)
+  AWS_S3_BUCKET:     "${{ vars.ARTIFACTS_BUCKET }}" # AWS S3 bucket to upload logs
+  VCS_API_ENDPOINT:  "${{ github.api_url }}"        # GitHub API base URL
+  # OIDC variables
+  OIDC_ROLE_ARN:     "${{ vars.OIDC_ROLE_ARN }}"      # The OIDC AWS Role ARN
+  OIDC_AUDIENCE:     "${{ vars.OIDC_AUDIENCE }}"      # The OIDC AUDIENCE
+  GITHUB_TOKEN:      "${{ secrets.GITHUB_TOKEN }}"    # The VCS token for API calls
+  AI_HANDLER_CREATE: "${{ vars.AI_HANDLER_CREATE }}"  # Enable or disable AI Handler
+  VCS_PROVIDER:      "${{ vars.VCS_PROVIDER }}"       # The VCS provider
+  GITHUB_RUN_URL:    "${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}"  # The run URL for  GitHub repository
 
 # Workflow-level notes:
 # - Each analysis job is gated by a repository variable (expects the exact string 'true').
