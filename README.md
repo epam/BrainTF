@@ -1,4 +1,4 @@
-# AI tools for remediation and security analysis of Terraform code
+# BrainTF Project
 <hr>
 
 > **Disclaimer!** *When using our solution to review your IaC and application code with any external or internal AI platform, we strongly recommend paying particular attention to your responsibility for securing confidential data.*
@@ -6,131 +6,98 @@
 > *Always ensure that all the code and data you share do not contain any confidential or sensitive information. Disclosed data should be de-identified or otherwise prepared in compliance with all data protection requirements. Be informed and clearly understand that you only share data that can be safely disclosed.*
 > *By confirming the use of our solution, you agree to take full responsibility for any potential risks associated with revealing your data.*
 
-## Prerequisites for installing AI tools
+The BrainTF is AI-powered tool for automatically finding and fixing linting, validation, and security analysis errors in Terraform code. It ensures rigorous validation, testing, and security of the code before applying it to a real environment. 
 ### Diagram
-![gitlab_ci](docs/pic/gitlab_ci.png)
-1. Enter all directories with Terraform code that will be checked into the WORK_DIRS variable. It is necessary to take into account that the pipeline can only process code located within the repository with tools.
-2. To start working with AI Tools, you need to set up a GitLab CI pipeline with the necessary tools that will provide log files with errors found and warnings. To do this, you need to fill in [.gitlab-ci.yml](.gitlab-ci.yml) with the correct values of the Boolean variables opposite the tools used.
-3. Specify the versions of the tools used.
-4. Fill in the Common variables and raise the infrastructure using the Terraform code, which will be discussed below.
+![pipeline](docs/pic/pipeline.png)
 
-![gitlab_config](docs/pic/gitlab_config.png)
+The process includes the following stages:
 
-## Terraform Issue AI Handler
+* **Create PR/MR (Pull Request / Merge Request)**: A developer creates a  PR/MR request, depending on the VCS, to make changes to the infrastructure code.
+* **Push Changes to PR/MR**: After creating the PR/MR, code changes are pushed to the repository (e.g., GitHub or GitLab).
+* **Start Pipeline**: The pipeline is automatically triggered upon committing changes to the PR/MR.
+* **Format Stage (Terraform fmt)**: The code is automatically checked for formatting according to Terraform standards.
+* **Lint Stage (TFLint)**: The Terraform code is checked for style and syntax issues using TFLint.
+* **Validate Stage (Terraform validate)**: The Terraform code is validated for correctness.
+* **Checkov Stage**: Security vulnerabilities and potential issues in the code are analyzed using Checkov.
+* **TFsec Stage**: Additional security analysis is performed using TFsec.
+* **Trivy Stage**: Containers and dependencies are scanned for vulnerabilities using Trivy. This stage will be added in the next release!
+* **Plan Stage (Terraform plan)**: A plan of changes to be applied to the infrastructure is created.
+* **Apply Stage (Terraform apply)**: The changes are applied to the infrastructure.
 
-**Purpose:** Terraform AI Handler is a tool for automatically applying fixes to errors and warnings received from TFLint, Terraform validate, Checkov, TFSec.
-
-### Diagram
+### Detailed Diagram
 
 ![ai_handler](docs/pic/ai_handler.png)
 
-For a detailed description of the flow with Mermaid diagrams, see [How It Works](docs/flow.md).
-
 ## Workflow
 
-1. If the boolean variable AI_HANDLER_CREATE is set to TRUE, and one or all stages (lint, validate, checkov, tfsec) are enabled, the logs with their errors are placed in a versioned bucket for artifacts in a subfolder with the merge request number in the logs folder and remain there until processed by the Lambda or overwritten by the next iteration of checks.
-2. The appearance of a new version of the logs triggers the Lambda (AI_Handler_TF_Error).
-3. The Lambda (AI_Handler_TF_Error) reads metadata from the log files and their content, sending them to the AI for processing, adding the necessary prompt with the task.
-4. The Lambda (AI_Handler_TF_Error) returns the corrected version of the files along with a comment to the MR notes.
-5. The corrected files are moved to a subfolder with the merge request number in the *artifacts* folder.
-6. Using the second Lambda (AI_Handler_Comment), the user agrees that the files are correctly fixed with the appropriate command (bot approve * or bot approve all) in the MR notes. The file/files are committed to the MR through a new commit by the bot account, which triggers a cycle of re-checking by the linter and Terraform validation (depending on the selected options).
-7. Optionally, the user can ask a question directly to the AI through the Lambda (AI_Handler_Comment).
+### Project Description According to the Diagram
 
-## Installation and integration process
-### State bucket creation
+The project represents an automated process for code verification and correction using a CI/CD pipeline, AWS Lambda functions, S3 storage, and an AI platform. The main goal is to automate code review and fix errors using AI, integrating these changes into the main repository branch.
 
-> For details on managing bootstrap Terraform state (including how to migrate it to S3 after the bucket is created), see [Bootstrap State Management](docs/bootstrap-state-management.md).
+---
 
-1. Copy the [terraform.tfvars](docs/config_files/bootstrap/terraform.tfvars) into the [state_bucket/](terraform/state_bucket) directory and fill it with the correct variables.
-2. Run `terraform init` command in [state_bucket/](terraform/state_bucket) directory.
-3. Run `terraform plan/apply` commands in [state_bucket/](terraform/state_bucket) directory.
-4. After this, the necessary variables will be automatically added to the beginning of the files: [main_module/main.tf](terraform/main_module/main.tf) and [main_module/terraform.tfvars](terraform/main_module/terraform.tfvars).
+### Details for infrastructure parts:
 
-*main_module/main.tf*
-![main.tf](docs/pic/backend_bucket.png)
-*main_module/terraform.tfvars*
-![terraform.tfvars](docs/pic/tfvars.png)
+#### **I1:** AI Handler on
+- Checks whether the AI-based handler (AI Handler) is enabled. If enabled, the process of analyzing and fixing errors using AI begins. If disabled, the fixes are performed manually.
 
+#### **I2:** Logs in S3
+- Analysis logs (e.g., `tflint_analysis.log`, `terraform_validate.log`, etc.) are stored in S3 storage with an identifier, MR_NUMBER (Merge Request number).
 
-#### Necessary environment variables for *state_bucket* modules
+#### **I3:** AI Platform
+- The AI platform is used to analyze errors and generate suggestions for fixing them. AI processes requests and returns the corrected code.
 
-Define all block variables in `terraform/state_bucket/terraform.tfvars` file:
-<details><summary>...</summary>
+#### **I4:** Lambda Function (AI_Handler_TF_Error)
+- The Lambda function initiates the process of analyzing errors in Terraform (or other tools), sending requests to the AI platform and saving the results.
 
-``` hcl
-# Tag block
-environment              = "Production"               # Environment name (e.g., Production, Staging, Development)
-team                     = "DevOps"                   # Team responsible for the infrastructure
-deployed_by              = "Terraform"                # Tool for deploying the infrastructure
-owner_mail               = "devops@example.com"       # Email address of the infrastructure owner
+#### **I5:** S3 /artifacts/
+- Corrected files (e.g., `fixed_file_1.tf`, `fixed_file_x.tf`) are stored in S3 storage in the `/artifacts/` directory with the identifier MR_NUMBER.
 
-# Block of common variables
-account_id               = "<my_account_id>"          # AWS account ID
-region                   = "<my_region>"              # AWS region where resources will be deployed
-project_name             = "<my_project>"             # Name of the project
-```
+#### **I6:** DynamoDB
+- DynamoDB is used to store request history (Get/Put requests). This allows tracking of changes and results from the AI processing.
 
- </details>
+#### **I7:** Lambda Function (AI_Handler_Comment)
+- The Lambda function processes comments from the Pull Request. After analysis, AI adds comments with suggestions for corrections or automatically fixes the code.
 
-### GitLab CI Integration and Infrastructure Elements Setup
-1. Copy the [terraform.tfvars](docs/config_files/main_module/terraform.tfvars) and the [secrets.auto.tfvars](docs/config_files/main_module/secrets.auto.tfvars) into the [main_module/](terraform/main_module) directory and fill it with the correct variables. The values of some variables will be filled in automatically after creating the state bucket in the previous step.
-2. Run `terraform init` command in [main_module/](terraform/main_module) directory.
-3. Run `terraform plan/apply` commands in [main_module/](terraform/main_module) directory.
+#### **I8:** Pull Request and Comments
+- A Pull Request to the main branch is the starting point of the process. AI analyzes the comments, and the user can accept or reject the suggested code fixes.
 
-#### Necessary environment variables for *main_modules* modules
-Define GitLab variables and AI Handler block in `terraform/main_module/terraform.tfvars` file:
-<details><summary>...</summary>
+---
 
-``` hcl
-# Block of GitLab variables
-git_hostname     = "<my_git.com>"                                     # Hostname of the GitLab instance
-git_project_path = "<my_organization_name>/<my_project_name>" # Path to the GitLab project
+### Details for CI/CD Stages:
+#### **P1:** terraform fmt
+- Code formatting check. If errors are found, the process stops. The further checks will not proceed until the entire code is manually formatted locally with `terraform -fmt -recursive` and re-pushed.
 
-# AI Handler block
-ai_handler_create       = "false"                                     # Flag to enable or disable AI handler creation
-ai_api_endpoint         = "<my_ai_api_endpoint>"                      # Endpoint for AI API
-git_api_endpoint        = "<my_git_api_endpoint>"                     # GitLab API endpoint
-llm_model               = "<my_llm_model_name>"                       # Name of the AI model used
-oidc_provider           = "<my_oidc_provider>"                        # URL for OIDC provider (GitLab)
-artifacts_bucket_prefix = "ai-handler-artifacts-bucket"               # Prefix for the name of the artifacts S3 bucket
-private_subnet_ids      = ["<subnet_a>", "<subnet_b>", "<subnet_c>"]  # List of private subnet IDs for Lambda functions
-security_groups         = ["<sg_a>", ...]                             # List of security groups with inbound rules for 80 and 443 ports for Lambda functions
-```
+#### **P2:** lint
+- Code analysis using a linter (`TFLint`). If errors are found, the process stops. Further stages will not proceed until the user fixes the errors manually or approves the AI-corrected files.
 
- </details>
+#### **P3:** validate
+- Validation of Terraform configurations. If errors are found, the process stops. Further stages will not proceed until the user fixes the errors manually or approves the AI-corrected files.
 
-Define all tokens in `terraform/main_module/secrets.auto.tfvars` file:
-<details><summary>...</summary>
+#### **P4:** checkov
+- Code analysis using Checkov (infrastructure security analysis). If errors are found, the process stops. Further stages will not proceed until the user fixes the errors manually or approves the AI-corrected files.
 
-``` hcl
-# Secrets block (should be stored securely)
-git_token = "<my_git_token>" # GitLab personal access token
-ai_token  = "<my_ai_token>"  # AI API token
-```
- </details>
+#### **P5:** tfsec
+- Security analysis of Terraform code using `tfsec`. If errors are found, the process stops. Further stages will not proceed until the user fixes the errors manually or approves the AI-corrected files.
 
-## Demo
+#### **P6:** trivy
+- Vulnerability scanning using `trivy`. If errors are found, the process stops. Further stages will not proceed until the user fixes the errors manually or approves the AI-corrected files. This stage will be added in the next release!
 
-A complete demo scenario with broken and fixed Terraform code is available in [docs/demo-guide.md](docs/demo-guide.md).
+#### **P7:**plan
+- Terraform plan generation. At this stage, Terraform verifies the infrastructure's deployability and creates a file with a list of objects to be deployed/modified/deleted for transfer to the next stage, where they will be deployed. This stage will not begin until the user manually fixes errors or approves files fixed by the AI in all previous stages. Currently, only the first directory specified in the 'WORK_DIRS' variable is processed! This limitation may be revised in future releases!
 
-## View and manage MR notes from GitLab
+#### **P8:** apply
+- Applying changes to the infrastructure. This stage is only triggered after all previous checks are successfully passed. Currently, only the first directory specified in the 'WORK_DIRS' variable is processed! This limitation may be revised in future releases!
 
-**1. AI Handler automatically attempts to fix the Terraform bug:**
+## Bot usage guidance
+This Bot supports next structured comment commands to trigger automation:
+* **"bot approve"** or **"bot approve all"** - triggers the approval of committing all files fixed by AI bot.
+* **"bot approve <path/to/file1> [<path/to/file2> ...]"** - triggers the approval of committing a specific file or files fixed by AI bot.
+* **"bot list"** - lists files correted by AI and ready to commit.
+* **"bot prompt <user prompt>"** - sends custom prompt to AI.
+* **"help"** - shows this help information in the MR/PR notes.
 
-![ai_handler_suggestion](docs/pic/ai_handler_suggestion.png)
+## Guides and Instructions
 
-**2. bot list:**
-
-![ai_handler_list](docs/pic/ai_handler_list.png)
-
-**3. bot approve <path/to/file1>:**
-
-![ai_handler_approve](docs/pic/ai_handler_approve.png)
-
-**4. bot prompt:**
-
-![ai_handler_prompt](docs/pic/ai_handler_prompt.png)
-
-**5. help:**
-
-![ai_handler_help](docs/pic/ai_handler_help.png)
+* [Installation and configuration processes](docs/installation.md)
+* [BrainTF Demo Scenario](docs/demo_guide.md)
