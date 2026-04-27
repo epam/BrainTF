@@ -59,7 +59,7 @@ def handle_help_command(event: Dict[str, Any]):
 
 
 def handle_comment_commands(event: Dict[str, Any]):
-    comment_context, *rest_comment = event.get('metadata').get('comment_text').split()
+    comment_context, *rest_comment = event.get('metadata', {}).get('comment_text', '_').split()
     logger.info(f'Comment context --->  {comment_context}')
     if comment_context == 'bot':
         logger.info('Bot context found in the comment.')
