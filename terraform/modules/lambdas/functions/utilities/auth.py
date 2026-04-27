@@ -48,12 +48,12 @@ def webhook_authenticator(event: Dict[str, Any]):
         HTTPException: If the VCS provider is invalid or if authentication fails.
     """
     match config.vcs_provider:
-        case "gitlab" if 'x-gitlab-token' in event.get('headers'):
+        case "gitlab" if 'x-gitlab-token' in event.get('headers', {}):
             # Verify the GitLab token
             token_from_header: str = event.get('headers', {}).get('x-gitlab-token')
             logger.info(f"Webhook authentication for {config.vcs_provider}")
             verify_token(token_from_header, config.webhook_secret)
-        case 'github' if 'x-hub-signature-256' in event.get('headers'):
+        case 'github' if 'x-hub-signature-256' in event.get('headers', {}):
 
             # Verify the GitHub signature
             logger.info(f"Webhook authentication for {config.vcs_provider}")
