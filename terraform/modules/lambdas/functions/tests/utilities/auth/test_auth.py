@@ -4,6 +4,7 @@ import pytest
 def test_verify_token_gitlab(patched_config_gitlab, x_gitlab_token, expected_token_gitlab, caplog):
     from utilities.auth import verify_token
     verify_token(x_gitlab_token, expected_token_gitlab)
+
     assert 'Token successfully verified!' in caplog.text
 
 
@@ -69,7 +70,8 @@ def test_verify_signature_missing_signature_header_github(webhook_event_github, 
 
 def test_is_github_issue_comment_success(webhook_event_github):
     from utilities.auth import is_github_issue_comment
-    assert is_github_issue_comment(webhook_event_github) == True
+    result = is_github_issue_comment(webhook_event_github)
+    assert result == True
 
 
 def test_is_github_issue_comment_failure(webhook_event_not_issue_github):
@@ -78,6 +80,7 @@ def test_is_github_issue_comment_failure(webhook_event_not_issue_github):
 
     with pytest.raises(MissingCommentContextException):
         is_github_issue_comment(webhook_event_not_issue_github)
+
 
 def test_is_github_issue_action_is_not_created(webhook_event_action_is_not_created_github):
     from utilities.auth import is_github_issue_comment

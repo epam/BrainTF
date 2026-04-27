@@ -3,7 +3,7 @@ from typing import Any, Dict
 
 from config import config
 from utilities.auth import is_github_issue_comment, webhook_authenticator
-from utilities.exceptions import (InvalidTokenException,
+from utilities.exceptions import (HTTPException, InvalidTokenException,
                                   MissingCommentContextException,
                                   MissingTokenException,
                                   MissingWebhookDataException)
@@ -48,23 +48,27 @@ def process_vcs_webhook_payload(event: Dict[str, Any]) -> Dict[str, Any]:
         case 'github':
             is_github_issue_comment(event)
             repository: Dict[str, Any] = webhook_payload.get('repository', {}) or {}
+            repo_id_or_name: str = repository.get('full_name', '')
             comment: Dict[str, Any] = webhook_payload.get('comment', {}) or {}
+            comment_text: str = comment.get('body', '').strip()
+            comment_id: str | None = comment.get('id')
             issue: Dict[str, Any] = webhook_payload.get('issue', {})
-            commit_sha: str | None = get_last_commit_sha_github(repository.get('full_name'), issue.get('number'))
+            merge_or_pull_req_id: int = issue.get('number', 0)
+            commit_sha: str | None = get_last_commit_sha_github(repo_id_or_name, merge_or_pull_req_id)
             commit_short_sha: str | None = commit_sha[:8] if commit_sha else None
 
             metadata = {
-                'repo_id_or_name': repository.get('full_name'),
+                'repo_id_or_name': repo_id_or_name,
                 'source_branch': None,
-                'comment_text': (comment.get('body') or '').strip(),
-                'merge_or_pull_req_id': issue.get('number'),
+                'comment_text': comment_text,
+                'merge_or_pull_req_id': merge_or_pull_req_id,
                 'commit_short_sha': commit_short_sha,
-                'comment_id': comment.get('id'),
+                'comment_id': comment_id,
             }
 
         case _:
             # Unknown or unsupported provider
-            raise Exception(f"Unsupported VCS provider: {config.vcs_provider}")
+            raise ValueError(f"Unsupported VCS provider founded in config: {config.vcs_provider}")
 
     event.setdefault('metadata', {}).update(metadata)
     return event
@@ -88,8 +92,6 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # no
         # Handle bot commands from the comment
         handle_comment_commands(event)
 
-        # logger.info(event)
-
         logger.info('Successfully invoked')
         return {'statusCode': HTTP_SUCCESS, 'body': 'Successfully invoked'}
 
@@ -101,6 +103,6 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # no
         logger.warning(f'No comment context: {str(e)}')
         return {'statusCode': HTTP_SUCCESS, 'body': 'Out of bot context, no action taken'}
 
-    except (json.JSONDecodeError, MissingWebhookDataException, MissingTokenException) as e:
+    except (json.JSONDecodeError, HTTPException, MissingWebhookDataException, MissingTokenException) as e:
         logger.error(f'Error in webhook payload: {str(e)}')
         return {'statusCode': HTTP_BAD_REQUEST, 'body': 'Invalid payload'}
