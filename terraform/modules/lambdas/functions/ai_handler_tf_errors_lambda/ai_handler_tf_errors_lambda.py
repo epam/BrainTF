@@ -13,16 +13,16 @@ from utilities.vcs import post_comment
 
 def process_s3_event(event: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Processes an S3 event to extract relevant information, enrich it with metadata, 
+    Processes an S3 event to extract relevant information, enrich it with metadata,
     and return the updated event data.
 
-    The function extracts the S3 bucket name and object key from the event, retrieves 
-    the file content and metadata from the S3 object, and then constructs additional 
-    metadata information based on the content and system configuration. The enriched 
+    The function extracts the S3 bucket name and object key from the event, retrieves
+    the file content and metadata from the S3 object, and then constructs additional
+    metadata information based on the content and system configuration. The enriched
     event data is returned for further use.
 
     Args:
-        event (Dict[str, Any]): The event object containing details about the S3 event, 
+        event (Dict[str, Any]): The event object containing details about the S3 event,
             typically following the AWS S3 event notification format.
 
     Returns:
