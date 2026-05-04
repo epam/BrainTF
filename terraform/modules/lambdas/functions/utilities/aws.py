@@ -222,12 +222,12 @@ def get_particular_files_from_s3_directory(
     """
     Retrieve (filename, file_content) tuples for specific files from an S3 prefix.
     Downloads only the requested files by their names (relative to path_to_files).
-    
+
     Args:
         bucket_name (str): Name of the S3 bucket.
         path_to_files (str): Prefix/path to the files (e.g. 'artifacts/123/').
         file_names (List[str]): List of file names to retrieve (relative to path_to_files).
-    
+
     Returns:
         List[Tuple[str, str]]: List of (filename, file_content) tuples for requested files.
     """

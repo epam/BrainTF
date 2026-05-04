@@ -21,8 +21,3 @@ resource "aws_security_group" "demo_broken" {
     ManagedBy   = "Terraform"
   }
 }
-
-# Issues caught by TFSec (tfsec):
-# - Ingress open to 0.0.0.0/0 on all ports (AVD-AWS-0105)
-# - Ingress rule missing description (AVD-AWS-0107)
-

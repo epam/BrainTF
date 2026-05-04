@@ -6,7 +6,7 @@
 > *Always ensure that all the code and data you share do not contain any confidential or sensitive information. Disclosed data should be de-identified or otherwise prepared in compliance with all data protection requirements. Be informed and clearly understand that you only share data that can be safely disclosed.*
 > *By confirming the use of our solution, you agree to take full responsibility for any potential risks associated with revealing your data.*
 
-The BrainTF is AI-powered tool for automatically finding and fixing linting, validation, and security analysis errors in Terraform code. It ensures rigorous validation, testing, and security of the code before applying it to a real environment. 
+The BrainTF is AI-powered tool for automatically finding and fixing linting, validation, and security analysis errors in Terraform code. It ensures rigorous validation, testing, and security of the code before applying it to a real environment.
 ### Diagram
 ![pipeline](docs/pic/pipeline.png)
 

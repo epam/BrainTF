@@ -20,8 +20,8 @@
 
 | Name | Source | Version |
 |------|--------|---------|
-| <a name="module_s3_bucket_kms_key"></a> [s3\_bucket\_kms\_key](#module\_s3\_bucket\_kms\_key) | git::https://github.com/terraform-aws-modules/terraform-aws-kms.git | e0171db13c467d93e79e2bd82981ba3b207dfe6d |
-| <a name="module_s3_state_bucket"></a> [s3\_state\_bucket](#module\_s3\_state\_bucket) | git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git | 2dd4364b67d89cb9c881be465e5e4196ef8dea8f |
+| <a name="module_s3_bucket_kms_key"></a> [s3\_bucket\_kms\_key](#module\_s3\_bucket\_kms\_key) | git::https://github.com/terraform-aws-modules/terraform-aws-kms.git | 407e3db34a65b384c20ef718f55d9ceacb97a846 |
+| <a name="module_s3_state_bucket"></a> [s3\_state\_bucket](#module\_s3\_state\_bucket) | git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git | 6c5e082b5d2fde77cb59c387a7f553dd2ed5da29 |
 
 ## Resources
 

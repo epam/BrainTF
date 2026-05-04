@@ -46,6 +46,7 @@ No modules.
 | <a name="input_sub_values"></a> [sub\_values](#input\_sub\_values) | The subject values for the OIDC provider | `list(string)` | n/a | yes |
 | <a name="input_sub_variable"></a> [sub\_variable](#input\_sub\_variable) | The subject variable for the OIDC provider | `string` | n/a | yes |
 | <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to all resources | `map(string)` | `{}` | no |
+| <a name="input_tfstate_bucket"></a> [tfstate\_bucket](#input\_tfstate\_bucket) | The name for a Terraform bucket | `string` | n/a | yes |
 | <a name="input_vcs_provider"></a> [vcs\_provider](#input\_vcs\_provider) | The VCS provider (e.g., github, gitlab) | `string` | n/a | yes |
 
 ## Outputs

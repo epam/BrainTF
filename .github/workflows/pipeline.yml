@@ -11,7 +11,7 @@ permissions:
   pull-requests: write
   issues: write
 env:
-  WORK_DIRS: "test_code/"     # Working directories for all stages
+  WORK_DIRS: "demo/broken/"     # Working directories for all stages
   TFLINT_VERSION: "v0.62.0"   # TFLint version to install
   TERRAFORM_VERSION: "1.14.8" # Terraform version to install
   CHECKOV_VERSION: "3.2.524"  # Checkov version to install
@@ -117,7 +117,7 @@ jobs:
           tar -xzf trivy.tar.gz -C project-tools
           rm trivy.tar.gz
           chmod +x project-tools/trivy
-          echo -e "\033[32mTrivy installed successfully.\033[0m"             
+          echo -e "\033[32mTrivy installed successfully.\033[0m"
 
           # Add project-tools to PATH
           export PATH="$GITHUB_WORKSPACE/project-tools:$PATH"
@@ -215,7 +215,7 @@ jobs:
             echo -e "\033[34mRunning $TOOL_NAME analysis in directory: $dir\033[0m"
 
             # Run TFLint and capture output
-            tflint --no-color --force --chdir="$dir" 2>&1 | tee temp.log || true      
+            tflint --no-color --force --chdir="$dir" 2>&1 | tee temp.log || true
 
             # Process output and update exit code if issues are found
             if [[ -f temp.log && -s temp.log ]]; then

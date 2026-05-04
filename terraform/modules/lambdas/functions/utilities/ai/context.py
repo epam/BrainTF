@@ -15,8 +15,8 @@ def cutoff_large_text(
         max_length_bytes: int = 400000,
 ) -> str:
     """
-    Truncates a large text string to fit within a specified maximum byte length.  
-    If the string exceeds the byte limit, it adds a marker indicating truncation and retains 
+    Truncates a large text string to fit within a specified maximum byte length.
+    If the string exceeds the byte limit, it adds a marker indicating truncation and retains
     a portion of the start and end of the string. The text is truncated in UTF-8 encoding.
 
     Args:
@@ -24,8 +24,8 @@ def cutoff_large_text(
         max_length_bytes (int): The maximum allowed byte length of the output. Defaults to 400000.
 
     Returns:
-        str: The text string truncated to adhere to the specified byte length, 
-        if necessary, with a cutoff marker. The truncation preserves the start and 
+        str: The text string truncated to adhere to the specified byte length,
+        if necessary, with a cutoff marker. The truncation preserves the start and
         end parts of the input text.
     """
     byte_string: bytes = text.encode('utf-8')
