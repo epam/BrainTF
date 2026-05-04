@@ -4,6 +4,7 @@ repos:
     hooks:
       - id: terraform_fmt  # This hook reformats Terraform configuration files to adhere to HashiCorp's standards
       - id: terraform_docs  # This hook generates Terraform documentation
+        exclude: demo/
         args:
           - --hook-config=--path-to-file=README.md  # Path to the file where the documentation will be written
           - --hook-config=--add-to-existing-file=true  # If set to true, the documentation will be added to the existing file
@@ -11,7 +12,7 @@ repos:
           - --hook-config=--use-standard-markers=true  # If set to true, standard markers will be used in the documentation
           - '--args=--lockfile=false'  # If set to false, the lockfile will not be used in the documentation
       - id: terraform_tflint  # This hook runs tflint, a linter for Terraform
-        exclude: test_code/
+        exclude: demo/
         args:
           # The following arguments specify the rules for tflint to check. Only these rules will be checked
           - '--args=--only=terraform_deprecated_interpolation'
@@ -28,18 +29,20 @@ repos:
           - '--args=--only=terraform_standard_module_structure'
           - '--args=--only=terraform_workspace_remote'
           - '--args=--only=terraform_unused_required_providers'
-#      - id: terraform_validate  # This hook validates the syntax of Terraform files
-#        exclude: test_code/  # This argument excludes a specific module from the validation
-#        args:
-#          - --hook-config=--retry-once-with-cleanup=true  # If set to true, the validation will be retried once with cleanup if it fails
-#          - '--args=-no-color'  # If set to true, color will be omitted in the output
-#          - --hook-config=--parallelism-limit=1  # This sets the limit for the number of concurrent operations
+      - id: terraform_validate  # This hook validates the syntax of Terraform files
+        exclude: demo/  # This argument excludes demo directory from the validation
+        args:
+          - --hook-config=--retry-once-with-cleanup=true  # If set to true, the validation will be retried once with cleanup if it fails
+          - '--args=-no-color'  # If set to true, color will be omitted in the output
+          - --hook-config=--parallelism-limit=1  # This sets the limit for the number of concurrent operations
   - repo: https://github.com/pre-commit/pre-commit-hooks  # Use pre-commit-hooks repository
     rev: v6.0.0  # Use specific version of the hooks
     hooks:
       - id: check-merge-conflict  # This hook checks for merge conflicts
       - id: end-of-file-fixer  # This hook ensures files end with a newline
+        exclude: terraform/modules/lambdas/functions/tests/
       - id: trailing-whitespace  # This hook checks for trailing whitespaces
+        exclude: terraform/modules/lambdas/functions/tests/
 #  - repo: https://github.com/gitleaks/gitleaks
 #    rev: v8.19.2
 #    hooks:
