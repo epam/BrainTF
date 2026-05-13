@@ -1,4 +1,4 @@
-# Block of GitLab variables
+# Block of VCS variables
 vcs_hostname     = "<my_vcs.com>"                             # Hostname of the VCS instance (github.com, gitlab.com, or custom variant)
 vcs_project_path = "<my_organization_name>/<my_project_name>" # Path to the VCS project
 

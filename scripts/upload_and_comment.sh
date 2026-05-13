@@ -145,7 +145,7 @@ if [ "$VCS_PROVIDER" = "gitlab" ]; then
     "$COMMENTS_URL")
 
 elif [ "$VCS_PROVIDER" = "github" ]; then
-  echo -e "\033[34mPPosting job comment to GitHub PR $MR_OR_PR_NUMBER...\033[0m"
+  echo -e "\033[34mPosting job comment to GitHub PR $MR_OR_PR_NUMBER...\033[0m"
   COMMENT_BODY_JSON=$(jq -n --arg body "$COMMENT_BODY" '{"body": $body}')
   HTTP_CODE=$(curl -L -s -o /dev/null -w "%{http_code}" -X POST \
     -H "Accept: application/vnd.github+json" \
