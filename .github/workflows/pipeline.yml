@@ -1,7 +1,7 @@
 name: CI Pipeline
 
 on:
-  pull_request: # Trigger pipeline on pull requests (similar to merge_request_event in GitHub)
+  pull_request: # Trigger pipeline on pull requests
     branches:
       - main
   workflow_dispatch: # Allow manual triggering of the workflow
@@ -319,7 +319,7 @@ jobs:
           echo Check if ${TOOL_NAME} is installed
           terraform --version || { echo -e "\033[31m$TOOL_NAME not found in project-tools.\033[0m"; exit 1; }
 
-          # Run TFLint analysis for each directory in WORK_DIRS
+          # Run Terraform validate for each directory in WORK_DIRS
           IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
           for dir in "${DIRS[@]}"; do
             echo -e "\033[34mRunning Terraform init in directory: $dir\033[0m"

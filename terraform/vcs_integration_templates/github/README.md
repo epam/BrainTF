@@ -1,4 +1,4 @@
-# gitlab
+# github
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements

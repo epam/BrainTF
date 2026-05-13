@@ -5,7 +5,6 @@ on:
   pull_request:
     branches:
       - main
-      - master
 
 env:
   TERRAFORM_DOCS_VERSION: v0.16.0
@@ -54,7 +53,7 @@ jobs:
       - name: Pre-commit Terraform ${{ steps.minMax.outputs.minVersion }}
         # Run only validate pre-commit check on min version supported
         if: ${{ matrix.directory !=  '.' }}
-        uses: ./.github/actions/pre-commit
+        uses: clowdhaus/terraform-composite-actions/pre-commit@v1.14.0
         with:
           terraform-version: ${{ steps.minMax.outputs.minVersion }}
           tflint-version: ${{ env.TFLINT_VERSION }}
@@ -63,7 +62,7 @@ jobs:
       - name: Pre-commit Terraform ${{ steps.minMax.outputs.minVersion }}
         # Run only validate pre-commit check on min version supported
         if: ${{ matrix.directory ==  '.' }}
-        uses: ./.github/actions/pre-commit
+        uses: clowdhaus/terraform-composite-actions/pre-commit@v1.14.0
         with:
           terraform-version: ${{ steps.minMax.outputs.minVersion }}
           tflint-version: ${{ env.TFLINT_VERSION }}
@@ -93,7 +92,7 @@ jobs:
         uses: clowdhaus/terraform-min-max@v3.0.1
 
       - name: Pre-commit Terraform ${{ steps.minMax.outputs.maxVersion }}
-        uses: ./.github/actions/pre-commit
+        uses: clowdhaus/terraform-composite-actions/pre-commit@v1.14.0
         with:
           terraform-version: ${{ steps.minMax.outputs.maxVersion }}
           tflint-version: ${{ env.TFLINT_VERSION }}

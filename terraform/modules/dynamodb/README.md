@@ -1,4 +1,4 @@
-# state_bucket
+# dynamodb
 
 <!-- BEGIN_TF_DOCS -->
 ## Requirements
