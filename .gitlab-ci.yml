@@ -12,7 +12,7 @@ stages:
   - apply
 
 variables:
-  WORK_DIRS: "test_code/" # Working directories for all stages
+  WORK_DIRS: "demo/broken" # Working directories for all stages
   # Utility versions
   TFLINT_VERSION: "v0.62.0" # TFLint version to install
   TERRAFORM_VERSION: "1.14.8" # Terraform versio
