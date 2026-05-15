@@ -4,160 +4,86 @@ import json
 from copy import deepcopy
 
 import pytest
-
 from tests.data.events import WEBHOOK_EVENT_GITLAB
 
+GITHUB_SIGNATURE_HEADER = "x-hub-signature-256"
+GITLAB_TOKEN_HEADER = "x-gitlab-token"
 
-def generate_x_hub_signature_256(secret, payload):
-    # Ensure the payload is in bytes
-    if isinstance(payload, str):
-        payload = payload.encode('utf-8')
-    # Compute the HMAC-SHA256 signature
-    signature = hmac.new(secret.encode('utf-8'), payload, hashlib.sha256).hexdigest()
-    # Return the formatted signature
+EXPECTED_TOKEN_GITLAB = "SoMeSeCrEtToKeN_737"
+EXPECTED_TOKEN_GITHUB = "SoMeSeCrEtToKeN_737_777"
+INVALID_TOKEN_GITLAB = "SoMeSeCrEtToKeN_737_727"
+INVALID_TOKEN_GITHUB = "SoMeSeCrEtToKeN_737_727"
+
+
+def generate_github_signature(secret: str, payload: str | bytes) -> str:
+    payload_bytes = payload.encode("utf-8") if isinstance(payload, str) else payload
+    signature = hmac.new(secret.encode("utf-8"), payload_bytes, hashlib.sha256).hexdigest()
     return f"sha256={signature}"
+
+
+def _clone_github_event() -> dict:
+    from tests.data.events import WEBHOOK_EVENT_GITHUB
+    return deepcopy(WEBHOOK_EVENT_GITHUB)
+
+
+def _set_github_signature_header(event: dict, secret: str) -> dict:
+    payload_str: str = event.get("body", "")
+    headers = event.get("headers", {})
+    headers[GITHUB_SIGNATURE_HEADER] = generate_github_signature(secret, payload_str)
+    event["headers"] = headers
+    return event
 
 
 @pytest.fixture
 def webhook_event_gitlab():
-    event = WEBHOOK_EVENT_GITLAB.copy()
-    return event
+    return deepcopy(WEBHOOK_EVENT_GITLAB)
 
 
 @pytest.fixture
 def webhook_event_github(expected_token_github):
-    from tests.data.events import WEBHOOK_EVENT_GITHUB
-    event = WEBHOOK_EVENT_GITHUB.copy()
-    payload: str = event.get('body')
-    generated_signature: str = generate_x_hub_signature_256(expected_token_github, payload)
-
-    headers = event.get('headers', {})
-    headers.update({'x-hub-signature-256': generated_signature})
-    event.update({'headers': headers})
-    return event
+    event = _clone_github_event()
+    return _set_github_signature_header(event, expected_token_github)
 
 
 @pytest.fixture
 def webhook_event_action_is_not_created_github(expected_token_github):
-    from tests.data.events import WEBHOOK_EVENT_GITHUB
-    event = WEBHOOK_EVENT_GITHUB.copy()
-    webhook_payload = json.loads(event.get('body', {}))
-    webhook_payload.update({'action': 'else'})
-    event.update({'body': json.dumps(webhook_payload)})
-    payload: str = event.get('body')
-    generated_signature: str = generate_x_hub_signature_256(expected_token_github, payload)
-
-    headers = event.get('headers', {})
-    headers.update({'x-hub-signature-256': generated_signature})
-    event.update({'headers': headers})
-    return event
+    event = _clone_github_event()
+    webhook_payload = json.loads(event.get("body", "{}"))
+    webhook_payload["action"] = "else"
+    event["body"] = json.dumps(webhook_payload)
+    return _set_github_signature_header(event, expected_token_github)
 
 
 @pytest.fixture
 def expected_token_gitlab():
-    return 'SoMeSeCrEtToKeN_737'
+    return EXPECTED_TOKEN_GITLAB
 
 
 @pytest.fixture
 def expected_token_github():
-    return 'SoMeSeCrEtToKeN_737_777'
+    return EXPECTED_TOKEN_GITHUB
 
 
 @pytest.fixture
 def invalid_token_gitlab():
-    return 'SoMeSeCrEtToKeN_737_727'
+    return INVALID_TOKEN_GITLAB
 
 
 @pytest.fixture
 def invalid_token_github():
-    return 'SoMeSeCrEtToKeN_737_727'
+    return INVALID_TOKEN_GITHUB
 
 
 @pytest.fixture
 def x_gitlab_token():
     event = deepcopy(WEBHOOK_EVENT_GITLAB)
-    token = event.get('headers', {}).get('x-gitlab-token')
-    return token
+    return event.get("headers", {}).get(GITLAB_TOKEN_HEADER)
 
 
 @pytest.fixture
 def webhook_event_invalid_token_gitlab(invalid_token_gitlab):
     event = deepcopy(WEBHOOK_EVENT_GITLAB)
-    headers = event.get('headers', {})
-    headers.update({'x-gitlab-token': invalid_token_gitlab})
-    event.update({'headers': headers})
+    headers = event.get("headers", {})
+    headers[GITLAB_TOKEN_HEADER] = invalid_token_gitlab
+    event["headers"] = headers
     return event
-
-
-@pytest.fixture
-def patched_environment(monkeypatch):
-    # Set environment variables for consistency
-    monkeypatch.setenv("VCS_PROVIDER", "gitlab")
-    monkeypatch.setenv("VCS_TOKEN_NAME", "x-gitlab-token")
-    monkeypatch.setenv("VCS_API_ENDPOINT", "https://gitlab.com")
-    monkeypatch.setenv("WEBHOOK_SECRET_NAME", "webhook_secret")
-    monkeypatch.setenv("ARTIFACTS_BUCKET", "artifacts_bucket")
-    monkeypatch.setenv("ARTIFACTS_PATH", "artifacts")
-    monkeypatch.setenv("AI_API_TOKEN_NAME", "token")
-    monkeypatch.setenv("LLM_MODEL", "gpt-3.5-turbo")
-    monkeypatch.setenv("AI_API_ENDPOINT", "https://ai.example.com")
-    monkeypatch.setenv("DYNAMODB_TABLE_NAME", "table_name")
-    monkeypatch.setenv("LOG_LEVEL", "DEBUG")
-    monkeypatch.setenv("RAG_ENABLED", "true")
-    monkeypatch.setenv("TTL_DELTA_DAYS", "30")
-
-    return monkeypatch
-
-
-@pytest.fixture
-def patched_config_gitlab(patched_environment, expected_token_gitlab):
-    from utilities.auth import config
-
-    # Patch the cached_property `webhook_secret`
-    new_object = type(config)
-    patched_environment.setattr(
-        new_object,
-        "webhook_secret",
-        property(lambda self: expected_token_gitlab),
-    )
-    return patched_environment
-
-
-@pytest.fixture
-def patched_config_github(patched_environment, expected_token_github):
-    from utilities.auth import config
-
-    # Patch the cached_property `webhook_secret`
-    new_object = type(config)
-
-    patched_environment.setattr(
-        new_object,
-        "webhook_secret",
-        property(lambda self: expected_token_github),
-    )
-
-    patched_environment.setattr(
-        "utilities.auth.config.vcs_provider",
-        "github"
-    )
-    return patched_environment
-
-
-@pytest.fixture
-def patched_config_wrong_vcs(patched_environment, expected_token_github):
-    from utilities.auth import config
-
-    # Patch the cached_property `webhook_secret`
-    new_object = type(config)
-
-    patched_environment.setattr(
-        new_object,
-        "webhook_secret",
-        property(lambda self: expected_token_github),
-    )
-
-    patched_environment.setattr(
-        "utilities.auth.config.vcs_provider",
-        "bitbucket"
-    )
-    return patched_environment

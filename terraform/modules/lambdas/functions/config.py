@@ -1,6 +1,6 @@
 import os
 from functools import cached_property
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import boto3
 from botocore.config import Config
@@ -18,7 +18,7 @@ class _ConfigLambda:
             boto3 operations.
         boto3_config (Config): boto3 configuration instance initialized with shared
             timeout values.
-        vcs_provider (str): Name of the VCS vendor (github, gitlab, bitbucket).
+        vcs_provider (str): Name of the VCS vendor (GitHub, GitLab, Bitbucket).
         vcs_token_name (str): SSM parameter name holding the VCS API token.
         vcs_api_endpoint (str): Fully qualified base URL for VCS REST requests.
         webhook_secret_name (str): SSM parameter name containing the webhook secret.
@@ -56,6 +56,7 @@ class _ConfigLambda:
         * Validation raises ``ValueError`` with descriptive messages whenever required
           configuration is missing or malformed.
     """
+
     def __init__(self) -> None:
         self.default_timeout: tuple[float, float] = (361, 361)
         self.boto3_config: Config = Config(connect_timeout=self.default_timeout[0],
@@ -198,7 +199,15 @@ class _ConfigLambda:
             Name=self.ai_api_token_name,
             WithDecryption=True
         )
-        return response['Parameter']['Value']
+        return response['Parameter']['Value'] @ cached_property
+
+    @cached_property
+    def aws_account_id(self) -> str:
+        sts_client = boto3.client('sts', config=self.boto3_config)
+        # Extract the account ID
+        aws_account_id: str = sts_client.get_caller_identity()['Account']
+
+        return aws_account_id
 
 
 config: _ConfigLambda = _ConfigLambda()

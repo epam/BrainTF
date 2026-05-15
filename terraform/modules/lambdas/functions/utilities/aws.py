@@ -2,24 +2,20 @@ from typing import Any, Dict, List, Tuple
 
 import boto3
 from boto3.dynamodb.conditions import Key
+
 from config import config
 from utilities.logger import logger
 
-ssm = boto3.client('ssm', config=config.boto3_config)
 
-s3 = boto3.resource('s3', config=config.boto3_config)
-
-# Create an S3 client
-s3_client = boto3.client('s3', config=config.boto3_config)
-
-db = boto3.resource('dynamodb', config=config.boto3_config)
-
-# Initialize STS client
-sts_client = boto3.client('sts', config=config.boto3_config)
+def _ssm_client():
+    return boto3.client('ssm', config=config.boto3_config)
 
 
-# Extract the account ID
-# aws_account_id: str = sts_client.get_caller_identity()['Account']
+def _s3_client():
+    return boto3.client('s3', config=config.boto3_config)
+
+def _db_resource():
+    return boto3.resource('dynamodb', config=config.boto3_config)
 
 
 def get_parameter_from_ssm(parameter_name: str) -> str:
@@ -31,6 +27,8 @@ def get_parameter_from_ssm(parameter_name: str) -> str:
     Returns:
         str: The decrypted value of the parameter.
     """
+
+    ssm = _ssm_client()
     response: Dict[str, Any] = ssm.get_parameter(
         Name=parameter_name,
         WithDecryption=True
@@ -64,11 +62,12 @@ def upload_files_to_s3(
         body = file_content.encode("utf-8")
 
         try:
+            s3_client = _s3_client()
             s3_client.put_object(
                 Bucket=bucket_name,
                 Key=s3_key,
                 Body=body,
-                # ExpectedBucketOwner=aws_account_id
+                ExpectedBucketOwner=config.aws_account_id
             )
             uploaded.append(file_path)
             logger.info(
@@ -88,49 +87,6 @@ def upload_files_to_s3(
     }
 
 
-def upload_file_s3(bucket_name: str, pull_number: int, full_path_to_file: str, file_content: str):
-    """
-    Uploads a file to an Amazon S3 bucket under a specified key path.
-
-    This function encodes the given file content into UTF-8 and constructs
-    an S3 key path for the file using the provided pull request number and
-    file path. It attempts to upload the file to the specified bucket and logs
-    a success or failure message.
-
-    Args:
-        full_path_to_file (str): The file path/name to upload in the S3 bucket.
-        bucket_name (str): The name of the target S3 bucket.
-        pull_number (int): The pull request number used for key construction.
-        file_content (str): The content of the file to upload, as a string.
-    """
-
-    s3_key = f"artifacts/{pull_number}/{full_path_to_file}"
-
-    body = file_content.encode('utf-8')
-
-    try:
-        # Upload the file
-        s3_client.put_object(Bucket=bucket_name, Key=s3_key, Body=body,
-                             # ExpectedBucketOwner=aws_account_id
-                             )
-        logger.info(f"File '{full_path_to_file}' uploaded successfully to bucket '{bucket_name}' with key '{s3_key}'.")
-
-    except Exception as e:
-        logger.info(f"Failed to upload file '{full_path_to_file}' to bucket '{bucket_name}'. Error: {e}")
-
-
-def get_files_from_s3_directory_(bucket_name: str, path_to_files: str) -> List[tuple[str, str]]:
-    # path_to_mr_artifacts = f"{config.path_to_artifacts}/{merge_request_id}/"
-    bucket = s3.Bucket(bucket_name)
-    files_key_content = [
-        (obj.key.removeprefix(path_to_files), obj.get()['Body'].read().decode('utf-8'))
-        for obj in bucket.objects.filter(Prefix=path_to_files)
-        if not obj.key.endswith('/') and obj.size > 0  # Filter out directories and empty objects
-    ]
-
-    return files_key_content
-
-
 def get_file_names_from_s3_directory(bucket_name: str, path_to_files: str) -> List[str]:
     """
     Retrieve only file names (object keys without the prefix) from an S3 'directory'
@@ -144,8 +100,8 @@ def get_file_names_from_s3_directory(bucket_name: str, path_to_files: str) -> Li
         List[str]: List of file names under the given prefix.
     """
     file_names: List[str] = []
-    continuation_token = None
-
+    continuation_token: str | None = None
+    s3_client = _s3_client()
     while True:
         list_kwargs: Dict[str, Any] = {
             "Bucket": bucket_name,
@@ -172,14 +128,13 @@ def get_file_names_from_s3_directory(bucket_name: str, path_to_files: str) -> Li
     return file_names
 
 
-def get_all_files_from_s3_directory(bucket_name: str, path_to_files: str) -> List[Tuple[str, str]]:
-    """
-    Retrieve (filename, file_content) tuples from an S3 prefix using s3_client.
-    Downloads only object bodies for actual files (skips directories and zero-size objects).
-    """
+def get_all_files_from_s3_directory(
+        bucket_name: str,
+        path_to_files: str
+) -> List[Tuple[str, str]]:
     files: List[Tuple[str, str]] = []
-    continuation_token = None
-
+    continuation_token: str | None = None
+    s3_client = _s3_client()
     while True:
         list_kwargs = {
             "Bucket": bucket_name,
@@ -200,7 +155,11 @@ def get_all_files_from_s3_directory(bucket_name: str, path_to_files: str) -> Lis
                 continue
 
             # Download file body
-            get_resp = s3_client.get_object(Bucket=bucket_name, Key=key)
+            get_resp = s3_client.get_object(
+                Bucket=bucket_name,
+                Key=key,
+                ExpectedBucketOwner=config.aws_account_id
+            )
             body_bytes = get_resp["Body"].read()
             body_text = body_bytes.decode("utf-8")
 
@@ -232,14 +191,18 @@ def get_particular_files_from_s3_directory(
         List[Tuple[str, str]]: List of (filename, file_content) tuples for requested files.
     """
     files: List[Tuple[str, str]] = []
-
+    s3_client = _s3_client()
     for file_name in file_names:
         # Construct the full S3 key
         key = f"{path_to_files}{file_name}"
 
         try:
             # Download file body
-            get_resp = s3_client.get_object(Bucket=bucket_name, Key=key)
+            get_resp = s3_client.get_object(
+                Bucket=bucket_name,
+                Key=key,
+                ExpectedBucketOwner=config.aws_account_id
+            )
             body_bytes = get_resp["Body"].read()
             body_text = body_bytes.decode("utf-8")
 
@@ -248,6 +211,7 @@ def get_particular_files_from_s3_directory(
 
         except s3_client.exceptions.NoSuchKey:
             logger.warning(f"File '{file_name}' not found at key '{key}' in bucket '{bucket_name}'.")
+
         except Exception as e:
             logger.exception(f"Failed to retrieve file '{file_name}' from S3. Error: {e}")
 
@@ -256,18 +220,19 @@ def get_particular_files_from_s3_directory(
 
 def get_file_content_with_metadata_from_s3(s3_bucket: str, s3_key: str) -> Dict | None:
     try:
+        s3_client = _s3_client()
         # Get the metadata of the object
         head_object_response = s3_client.head_object(
             Bucket=s3_bucket,
             Key=s3_key,
-            # ExpectedBucketOwner=aws_account_id
+            ExpectedBucketOwner=config.aws_account_id
         )
 
         # Retrieve the uploaded object from S3
         object_response: Dict[str, Any] = s3_client.get_object(
             Bucket=s3_bucket,
             Key=s3_key,
-            # ExpectedBucketOwner=aws_account_id
+            ExpectedBucketOwner=config.aws_account_id
         )
 
         # Extract metadata
@@ -285,6 +250,7 @@ def get_file_content_with_metadata_from_s3(s3_bucket: str, s3_key: str) -> Dict 
 
 def get_messages_from_db(table_name: str, partition_key: str) -> list:
     logger.info(f"Getting messages from table '{table_name}' with partition key '{partition_key}'...")
+    db = _db_resource()
     table = db.Table(table_name)
 
     # Query items using the partition key and sort by sort key
@@ -297,6 +263,7 @@ def get_messages_from_db(table_name: str, partition_key: str) -> list:
 
 
 def put_message_to_db(table_name: str, commit_short_sha: str, sort_key, message: str):
+    db = _db_resource()
     table = db.Table(table_name)
     user_item = {
         'pk': commit_short_sha,  # Partition key
@@ -313,6 +280,7 @@ def put_messages_to_db(
         table_name: str,
         messages: List[Dict[str, Any]],
 ) -> None:
+    db = _db_resource()
     client = db.meta.client
 
     transact_items = [
@@ -339,10 +307,12 @@ def delete_files_from_s3(bucket_name: str, path_to_files: str) -> None:
     """
     logger.info(f"Deleting files from bucket '{bucket_name}' with prefix '{path_to_files}'...")
     try:
+        s3_client = _s3_client()
         # Fetch the list of objects with the specified prefix
         response = s3_client.list_objects_v2(
             Bucket=bucket_name,
-            Prefix=path_to_files
+            Prefix=path_to_files,
+            ExpectedBucketOwner=config.aws_account_id
         )
         objects = response.get("Contents", [])
 
@@ -358,7 +328,8 @@ def delete_files_from_s3(bucket_name: str, path_to_files: str) -> None:
             Bucket=bucket_name,
             Delete={
                 "Objects": object_keys,
-            }
+            },
+            ExpectedBucketOwner=config.aws_account_id
         )
 
         deleted = delete_response.get("Deleted", [])

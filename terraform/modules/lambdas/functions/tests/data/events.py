@@ -344,3 +344,44 @@ WEBHOOK_EVENT_METADATA_GITLAB: dict = \
      'merge_or_pull_req_id': 86,
      'commit_short_sha': 'c1a2c57a',
      'comment_id': 13791132}
+
+S3_BUCKET_EVENT_TFLINT: dict = \
+    {
+        "Records": [
+            {
+                "eventVersion": "2.1",
+                "eventSource": "aws:s3",
+                "awsRegion": "eu-central-1",
+                "eventTime": "2026-05-10T07:36:19.789Z",
+                "eventName": "ObjectCreated:Put",
+                "userIdentity": {
+                    "principalId": "AWS:ASOMEPRICIPALID123:VCSRunner-role--eu-central-1"
+                },
+                "requestParameters": {
+                    "sourceIPAddress": "0.0.0.0"
+                },
+                "responseElements": {
+                    "x-amz-request-id": "JT3F96KE6SNW1E56",
+                    "x-amz-id-2": "U4IW9PqAhMOVxYb1UgrQVytsdSUv1b0xOiHKr0sjdfAJckALRRMxO2FcoIzFfkCgMRnYJ8qa5YV/lAvwGTqjF1bTiF8CquCAjLyLSV9dFrw="
+                },
+                "s3": {
+                    "s3SchemaVersion": "1.0",
+                    "configurationId": "tf-s3-lambda-20260507124617635500000001",
+                    "bucket": {
+                        "name": "artifacts-bucket-eu-central-1",
+                        "ownerIdentity": {
+                            "principalId": "ASOMEPRICIPALID111"
+                        },
+                        "arn": "arn:aws:s3:::artifacts-bucket-eu-central-1"
+                    },
+                    "object": {
+                        "key": "logs/22/tflint_analysis.log",
+                        "size": 649,
+                        "eTag": "fd64e6048f143c93317086cb10d16d77",
+                        "versionId": "U1y4LxlNxDyU6zXqjUEsLDe7_XqkwXyf",
+                        "sequencer": "006A003573945569DA"
+                    }
+                }
+            }
+        ]
+    }
