@@ -39,7 +39,10 @@ def process_s3_event(event: Dict[str, Any]) -> Dict[str, Any]:
 
         logger.info(f"Processing S3 event for bucket '{s3_bucket}' and key '{s3_key}'...")
 
-        log_file_content_with_metadata: Dict[str, Any] = get_file_content_with_metadata_from_s3(s3_bucket, s3_key)
+        log_file_content_with_metadata: Dict[str, Any] | None = get_file_content_with_metadata_from_s3(s3_bucket,
+                                                                                                       s3_key)
+
+        logger.info(f"log_file_content_with_metadata --->\n{log_file_content_with_metadata}")
 
         log_file_content: str = log_file_content_with_metadata.get('content')
 
@@ -72,13 +75,11 @@ def process_s3_event(event: Dict[str, Any]) -> Dict[str, Any]:
 
 def lambda_handler(event: dict[str, dict], context: Any) -> Dict[str, Any]:  # noqa:
     """AWS Lambda function handler."""
-
     try:
         process_s3_event(event)
 
         user_message: Dict = prepare_user_prompt_message(event)
         user_prompt: List = [user_message]
-
         generated_response: Dict[str, Any] = generate_response_ai(user_prompt)
         message: str = generated_response.get("message", "").strip()
         logger.info(f"Message to UI --->\n{message}")
@@ -93,7 +94,6 @@ def lambda_handler(event: dict[str, dict], context: Any) -> Dict[str, Any]:  # n
                                              completion_tokens=generated_response["tokens"]["completion_tokens"])
 
         post_comment(event, message)
-
         handle_ai_response_message(event)
         create_context_memory_window(event)
 
