@@ -1,11 +1,13 @@
 from functools import lru_cache
 from typing import Any, Dict, List, Union
 
-from config import config
 from github import Auth, Github, InputGitTreeElement
 from github.GithubException import (BadCredentialsException, GithubException,
                                     UnknownObjectException)
+
+from config import config
 from utilities.logger import logger
+from utilities.messages import HELP_MESSAGE
 
 
 @lru_cache(maxsize=1)
@@ -37,7 +39,7 @@ def _get_github_client() -> Github:
         client.get_user()  # verifies the token and session
     except Exception as e:
         # Do NOT cache a failed session, let the exception propagate
-        logger.error(f"GitLab client verification failed: {e}")
+        logger.error(f"GitHub client verification failed: {e}")
         raise
 
     return client  # gets cached only if everything above succeeds
@@ -159,8 +161,13 @@ def post_pr_comment_github(event: Dict[str, Any], comment_text: str):
         logger.error(f"GitHub API error: {e}")
         raise
     except Exception as e:
-        logger.error(f"Unexpected error adding reaction to GitHub PR comment: {e}")
+        logger.error(f"Unexpected error posting comment to GitHub PR: {e}")
         raise
+
+
+def post_help_message_github(event: Dict[str, Any]):
+    """Post a help message on a GitHub pull request."""
+    return post_pr_comment_github(event, HELP_MESSAGE.format(spec_provider='GitHub PR comments'))
 
 
 def check_files_exist_in_repo_github(event: Dict[str, Any],

@@ -1,13 +1,14 @@
 import base64
 from functools import lru_cache
 from pathlib import PurePosixPath
-from typing import Dict, Any, List
+from typing import Any, Dict, List
 
 import gitlab
 from gitlab import GitlabAuthenticationError, GitlabGetError
 
 from config import config
 from utilities.logger import logger
+from utilities.messages import HELP_MESSAGE
 
 
 @lru_cache(maxsize=1)
@@ -141,6 +142,11 @@ def post_gitlab_comment(event: Dict[str, Any], comment_text: str) -> Dict[str, A
     except Exception as e:
         logger.error(f"Unexpected error posting GitLab comment: {e}")
         raise
+
+
+def post_help_message_gitlab(event: Dict[str, Any]) -> Dict[str, Any]:
+    """Post a help message on a GitLab merge request."""
+    return post_gitlab_comment(event, HELP_MESSAGE.format(spec_provider='GitLab MR notes'))
 
 
 def check_files_exist_in_repo_gitlab(

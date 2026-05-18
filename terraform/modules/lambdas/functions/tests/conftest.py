@@ -1,7 +1,11 @@
 import boto3
 import pytest
+from moto import mock_aws
 
 from data.events import WEBHOOK_EVENT_GITHUB, WEBHOOK_EVENT_METADATA_GITHUB
+
+EXPECTED_TOKEN_GITLAB = "SoMeSeCrEtToKeN_737"
+EXPECTED_TOKEN_GITHUB = "SoMeSeCrEtToKeN_737_777"
 
 
 @pytest.fixture
@@ -43,6 +47,35 @@ def aws_env_and_session(monkeypatch):
     yield
     boto3.DEFAULT_SESSION = None
 
+
+@pytest.fixture
+def ssm_setup():
+    """Fixture to set up a mock SSM environment."""
+    with mock_aws():
+        client = boto3.client("ssm")
+        # Create parameters in the mock SSM
+        client.put_parameter(
+            Name="test-parameter",
+            Value="test-value",
+            Type="String",
+        )
+
+        client.put_parameter(
+            Name="x-gitlab-token",
+            Value=EXPECTED_TOKEN_GITLAB,
+            Type="String",
+        )
+        yield
+
+
+@pytest.fixture
+def expected_token_gitlab():
+    return EXPECTED_TOKEN_GITLAB
+
+
+@pytest.fixture
+def expected_token_github():
+    return EXPECTED_TOKEN_GITHUB
 
 @pytest.fixture
 def patched_config_gitlab(patched_environment, expected_token_gitlab):
