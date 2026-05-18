@@ -4,13 +4,12 @@ import json
 from copy import deepcopy
 
 import pytest
+
 from tests.data.events import WEBHOOK_EVENT_GITLAB
 
 GITHUB_SIGNATURE_HEADER = "x-hub-signature-256"
 GITLAB_TOKEN_HEADER = "x-gitlab-token"
 
-EXPECTED_TOKEN_GITLAB = "SoMeSeCrEtToKeN_737"
-EXPECTED_TOKEN_GITHUB = "SoMeSeCrEtToKeN_737_777"
 INVALID_TOKEN_GITLAB = "SoMeSeCrEtToKeN_737_727"
 INVALID_TOKEN_GITHUB = "SoMeSeCrEtToKeN_737_727"
 
@@ -52,16 +51,6 @@ def webhook_event_action_is_not_created_github(expected_token_github):
     webhook_payload["action"] = "else"
     event["body"] = json.dumps(webhook_payload)
     return _set_github_signature_header(event, expected_token_github)
-
-
-@pytest.fixture
-def expected_token_gitlab():
-    return EXPECTED_TOKEN_GITLAB
-
-
-@pytest.fixture
-def expected_token_github():
-    return EXPECTED_TOKEN_GITHUB
 
 
 @pytest.fixture

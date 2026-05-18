@@ -6,20 +6,6 @@ from tests.data.file_samples import MAIN_TF_FILE
 
 
 @pytest.fixture
-def ssm_setup():
-    """Fixture to set up a mock SSM environment."""
-    with mock_aws():
-        client = boto3.client("ssm")
-        # Create a parameter in the mock SSM
-        client.put_parameter(
-            Name="test-parameter",
-            Value="test-value",
-            Type="String",
-        )
-        yield
-
-
-@pytest.fixture
 def s3_setup():
     with mock_aws():
         client = boto3.client("s3")

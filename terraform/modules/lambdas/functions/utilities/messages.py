@@ -19,7 +19,7 @@ Below is a guide to the supported commands:
 
 `bot prompt <user prompt>` - sends custom prompt to AI.
 
-`help` - shows this help information in the GitLab MR notes.
+`help` - shows this help information in the {spec_provider}.
 
 ---
 

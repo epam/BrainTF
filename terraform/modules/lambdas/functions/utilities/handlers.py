@@ -11,12 +11,11 @@ from utilities.aws import (delete_files_from_s3,
                            upload_files_to_s3)
 from utilities.exceptions import InvalidEventMetadata
 from utilities.logger import logger
-from utilities.messages import (AI_RESPONSE_MESSAGE, HELP_MESSAGE,
-                                LIST_FILES_MESSAGE)
+from utilities.messages import (AI_RESPONSE_MESSAGE, LIST_FILES_MESSAGE)
 from utilities.parsers import parse_hcl_blocks
 from utilities.vcs import (FAILURE, SUCCESS, add_award_to_note,
                            check_files_exist_in_repo, commit_files_to_branch,
-                           post_comment)
+                           post_comment, post_help_message)
 
 
 def handle_ai_response_message(event: Dict[str, Any]) -> None:
@@ -55,7 +54,7 @@ def handle_ai_response_message(event: Dict[str, Any]) -> None:
 def handle_help_command(event: Dict[str, Any]):
     """Handle the 'help' bot command."""
     logger.info('Processing help command...')
-    post_comment(event, HELP_MESSAGE)
+    post_help_message(event)
 
 
 def handle_comment_commands(event: Dict[str, Any]):
