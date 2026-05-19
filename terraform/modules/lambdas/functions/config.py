@@ -199,7 +199,7 @@ class _ConfigLambda:
             Name=self.ai_api_token_name,
             WithDecryption=True
         )
-        return response['Parameter']['Value'] @ cached_property
+        return response['Parameter']['Value']
 
     @cached_property
     def aws_account_id(self) -> str:
