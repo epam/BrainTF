@@ -39,13 +39,11 @@ jobs:
           exit_code=0
           cd terraform/modules/lambdas/functions
           pytest \
-            --cov=./utilities \
-            --cov=./ai_handler_comment_lambda \
-            --cov=./ai_handler_tf_errors_lambda \
+            --cov=./ \
             --cov-report=term \
             --cov-report=markdown \
             --junit-xml=test-results.xml \
-            --cov-fail-under=25 \
+            --cov-fail-under=70 \
             -vv . || exit_code=$?
           echo "Pytest exited with exit code $exit_code"
           echo "PYTEST_EXIT_CODE=$exit_code" >> $GITHUB_ENV

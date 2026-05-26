@@ -22,7 +22,6 @@ def _get_gitlab_client() -> gitlab.Gitlab:
 
     # Authenticate token
     client.auth()
-
     # Perform a lightweight health check before caching
     try:
 
