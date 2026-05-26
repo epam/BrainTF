@@ -1,11 +1,10 @@
 import boto3
 import pytest
 from moto import mock_aws
+from copy import deepcopy
 
 from data.events import WEBHOOK_EVENT_GITHUB, WEBHOOK_EVENT_METADATA_GITHUB
-
-EXPECTED_TOKEN_GITLAB = "SoMeSeCrEtToKeN_737"
-EXPECTED_TOKEN_GITHUB = "SoMeSeCrEtToKeN_737_777"
+from data.expected import EXPECTED_TOKEN_GITHUB, EXPECTED_TOKEN_GITLAB
 
 
 @pytest.fixture
@@ -65,6 +64,11 @@ def ssm_setup():
             Value=EXPECTED_TOKEN_GITLAB,
             Type="String",
         )
+        client.put_parameter(
+            Name="token",
+            Value="token",
+            Type="String",
+        )
         yield
 
 
@@ -76,6 +80,7 @@ def expected_token_gitlab():
 @pytest.fixture
 def expected_token_github():
     return EXPECTED_TOKEN_GITHUB
+
 
 @pytest.fixture
 def patched_config_gitlab(patched_environment, expected_token_gitlab):
@@ -138,42 +143,53 @@ def webhook_event_dummy():
 
 @pytest.fixture
 def webhook_event_not_issue_github():
-    headers = WEBHOOK_EVENT_GITHUB.get('headers', {})
+    event = deepcopy(WEBHOOK_EVENT_GITHUB)
+    headers = event.get('headers', {})
     headers.update({'x-github-event': 'else'})
-    WEBHOOK_EVENT_GITHUB.update({'headers': headers})
-    return WEBHOOK_EVENT_GITHUB
+    event.update({'headers': headers})
+    return event
 
 
 @pytest.fixture
 def webhook_event_command_help_github():
-    WEBHOOK_EVENT_METADATA_GITHUB.update({'comment_text': 'help'})
-    WEBHOOK_EVENT_GITHUB.update({'metadata': WEBHOOK_EVENT_METADATA_GITHUB})
-    return WEBHOOK_EVENT_GITHUB
+    event = deepcopy(WEBHOOK_EVENT_GITHUB)
+    metadata = deepcopy(WEBHOOK_EVENT_METADATA_GITHUB)
+    metadata.update({'comment_text': 'help'})
+    event.update({'metadata': metadata})
+    return event
 
 
 @pytest.fixture
 def webhook_event_command_help_rest_context_github():
-    WEBHOOK_EVENT_METADATA_GITHUB.update({'comment_text': 'help to'})
-    WEBHOOK_EVENT_GITHUB.update({'metadata': WEBHOOK_EVENT_METADATA_GITHUB})
-    return WEBHOOK_EVENT_GITHUB
+    event = deepcopy(WEBHOOK_EVENT_GITHUB)
+    metadata = deepcopy(WEBHOOK_EVENT_METADATA_GITHUB)
+    metadata.update({'comment_text': 'help to'})
+    event.update({'metadata': metadata})
+    return event
 
 
 @pytest.fixture
 def webhook_event_command_bot_list_github():
-    WEBHOOK_EVENT_METADATA_GITHUB.update({'comment_text': 'bot list'})
-    WEBHOOK_EVENT_GITHUB.update({'metadata': WEBHOOK_EVENT_METADATA_GITHUB})
-    return WEBHOOK_EVENT_GITHUB
+    event = deepcopy(WEBHOOK_EVENT_GITHUB)
+    metadata = deepcopy(WEBHOOK_EVENT_METADATA_GITHUB)
+    metadata.update({'comment_text': 'bot list'})
+    event.update({'metadata': metadata})
+    return event
 
 
 @pytest.fixture
 def webhook_event_command_bot_approve_context_missing_all_github():
-    WEBHOOK_EVENT_METADATA_GITHUB.update({'comment_text': 'bot approve'})
-    WEBHOOK_EVENT_GITHUB.update({'metadata': WEBHOOK_EVENT_METADATA_GITHUB})
-    return WEBHOOK_EVENT_GITHUB
+    event = deepcopy(WEBHOOK_EVENT_GITHUB)
+    metadata = deepcopy(WEBHOOK_EVENT_METADATA_GITHUB)
+    metadata.update({'comment_text': 'bot approve'})
+    event.update({'metadata': metadata})
+    return event
 
 
 @pytest.fixture
 def webhook_event_command_bot_approve_all_context_github():
-    WEBHOOK_EVENT_METADATA_GITHUB.update({'comment_text': 'bot approve all'})
-    WEBHOOK_EVENT_GITHUB.update({'metadata': WEBHOOK_EVENT_METADATA_GITHUB})
-    return WEBHOOK_EVENT_GITHUB
+    event = deepcopy(WEBHOOK_EVENT_GITHUB)
+    metadata = deepcopy(WEBHOOK_EVENT_METADATA_GITHUB)
+    metadata.update({'comment_text': 'bot approve all'})
+    event.update({'metadata': metadata})
+    return event
