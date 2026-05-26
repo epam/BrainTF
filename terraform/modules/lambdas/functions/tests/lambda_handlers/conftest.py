@@ -1,4 +1,6 @@
 from tests.utilities.auth.conftest import *
+from copy import deepcopy
+
 import pytest
 
 from tests.data.events import WEBHOOK_EVENT_METADATA_GITHUB, WEBHOOK_EVENT_METADATA_GITLAB, S3_BUCKET_EVENT_TFLINT

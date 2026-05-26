@@ -11,7 +11,7 @@ permissions:
   pull-requests: write
   issues: write
 env:
-  WORK_DIRS: "demo/broken/"     # Working directories for all stages
+  WORK_DIRS: "demo/broken"     # Working directories for all stages
   TFLINT_VERSION: "v0.62.0"   # TFLint version to install
   TERRAFORM_VERSION: "1.14.8" # Terraform version to install
   CHECKOV_VERSION: "3.2.524"  # Checkov version to install
