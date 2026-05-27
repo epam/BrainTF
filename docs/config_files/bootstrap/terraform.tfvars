@@ -8,4 +8,3 @@ owner_mail  = "<my_mail@example.com>" # Email address of the infrastructure owne
 account_id    = "<my_account_id>" # AWS account ID
 region        = "<my_region>"     # AWS region where resources will be deployed
 vcs_repo_name = "<my_project>"    # Name of the project
-vcs_provider  = "github"          # The VCS provider used for deployment (github or gitlab)

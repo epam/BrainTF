@@ -1,3 +1,19 @@
+provider "github" {
+  # Only meaningful when vcs_provider == "github"
+  token = var.vcs_provider == "github" ? var.vcs_token : null
+  owner = var.vcs_provider == "github" ? local.git_owner : null
+}
+
+provider "gitlab" {
+  # Only meaningful when vcs_provider == "gitlab"
+  token            = var.vcs_provider == "gitlab" ? var.vcs_token : "null"
+  base_url         = var.vcs_provider == "gitlab" ? local.vcs_api_endpoint : null
+  early_auth_check = var.vcs_provider == "gitlab" ? true : false
+}
+
+data "aws_kms_alias" "kms_key" {
+  name = "alias/kms_key_${var.vcs_repo_name}_${var.region}"
+}
 locals {
 
   tags = {
@@ -32,6 +48,7 @@ locals {
   ]) # Backend parameters string for Terraform pipeline
 
   # VCS variables for GitHub or GitLab
+  git_owner = regex("^([^/]+)", var.vcs_project_path)[0]
   vcs_variables = concat(
     var.ai_handler_create ? [
       {
@@ -160,28 +177,31 @@ locals {
   # Parameter Strings
   ssm_parameters = var.ai_handler_create ? {
     "vcs_token_parameter" = {
-      name        = local.vcs_token_name
-      type        = "SecureString"
-      value       = var.vcs_token
-      tier        = "Standard"
-      description = "VCS Access Token (Managed by Terraform)"
-      tags        = local.tags
+      name             = local.vcs_token_name
+      type             = "SecureString"
+      value            = var.vcs_token
+      value_wo_version = parseint(substr(sha256(var.vcs_token), 0, 8), 16)
+      tier             = "Standard"
+      description      = "VCS Access Token (Managed by Terraform)"
+      tags             = local.tags
     }
     "ai_token_parameter" = {
-      name        = local.ai_api_token_name
-      type        = "SecureString"
-      value       = var.ai_token
-      tier        = "Standard"
-      description = "AI Access Token (Managed by Terraform)"
-      tags        = local.tags
+      name             = local.ai_api_token_name
+      type             = "SecureString"
+      value            = var.ai_token
+      value_wo_version = parseint(substr(sha256(var.ai_token), 0, 8), 16)
+      tier             = "Standard"
+      description      = "AI Access Token (Managed by Terraform)"
+      tags             = local.tags
     }
     "webhook_secret_parameter" = {
-      name        = local.webhook_secret_name
-      type        = "SecureString"
-      value       = random_password.lambda_webhook_secret[0].result
-      tier        = "Standard"
-      description = "Webhook secret for AI Handler (Managed by Terraform)"
-      tags        = local.tags
+      name             = local.webhook_secret_name
+      type             = "SecureString"
+      value            = random_password.lambda_webhook_secret[0].result
+      value_wo_version = null
+      tier             = "Standard"
+      description      = "Webhook secret for AI Handler (Managed by Terraform)"
+      tags             = local.tags
     }
   } : {}
 }
@@ -246,13 +266,14 @@ module "tfstate_bucket" {
 
 # ======================= SSM Parameters =======================
 module "ssm_parameters" {
-  source      = "git::https://github.com/terraform-aws-modules/terraform-aws-ssm-parameter.git?ref=c0456aa1960c2b13080f3968be9a7cdc687f2c8c"
-  for_each    = local.ssm_parameters
-  name        = try(each.value.name, each.key)
-  value       = try(each.value.value, null)
-  type        = try(each.value.type, null)
-  description = try(each.value.description, null)
-  tier        = try(each.value.tier, null)
+  source           = "git::https://github.com/terraform-aws-modules/terraform-aws-ssm-parameter.git?ref=c0456aa1960c2b13080f3968be9a7cdc687f2c8c"
+  for_each         = local.ssm_parameters
+  name             = try(each.value.name, each.key)
+  value            = try(each.value.value, null)
+  value_wo_version = try(each.value.value_wo_version, null)
+  type             = try(each.value.type, null)
+  description      = try(each.value.description, null)
+  tier             = try(each.value.tier, null)
 }
 
 # ======================= OIDC Provider =======================
@@ -264,7 +285,6 @@ module "oidc" {
   oidc_policy_name = local.oidc_policy_name
   oidc_provider    = var.oidc_provider
   artifacts_bucket = local.artifacts_bucket
-  tfstate_bucket   = local.tfstate_bucket
   kms_key_arn      = data.aws_kms_alias.kms_key.target_key_arn
   client_id_list   = local.client_id_list
   aud_variable     = local.aud_variable
@@ -338,13 +358,21 @@ module "ai_lambda" {
 }
 
 # ======================= VCS Integration =======================
-module "vcs_integration" {
-  source            = "../modules/vcs_integration"
-  vcs_token         = var.vcs_token
+module "vcs_integration_github" {
+  count             = var.vcs_provider == "github" ? 1 : 0
+  source            = "../modules/vcs_integration/github"
   vcs_project_path  = var.vcs_project_path
   vcs_variables     = local.vcs_variables
   webhook_secret    = try(random_password.lambda_webhook_secret[0].result, null)
   function_url      = try(module.ai_lambda[0].function_url, null)
   ai_handler_create = var.ai_handler_create
-  vcs_api_endpoint  = var.vcs_provider == "gitlab" ? local.vcs_api_endpoint : null
+}
+module "vcs_integration_gitlab" {
+  count             = var.vcs_provider == "gitlab" ? 1 : 0
+  source            = "../modules/vcs_integration/gitlab"
+  vcs_project_path  = var.vcs_project_path
+  vcs_variables     = local.vcs_variables
+  webhook_secret    = try(random_password.lambda_webhook_secret[0].result, null)
+  function_url      = try(module.ai_lambda[0].function_url, null)
+  ai_handler_create = var.ai_handler_create
 }

@@ -4,21 +4,24 @@
 ## Requirements
 
 | Name | Version |
-|------|---------|
-| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.0 |
+| ---- | ------- |
+| <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.11 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.0 |
+| <a name="requirement_github"></a> [github](#requirement\_github) | ~> 6.2 |
+| <a name="requirement_gitlab"></a> [gitlab](#requirement\_gitlab) | ~> 18.1.1 |
 | <a name="requirement_random"></a> [random](#requirement\_random) | >= 3.0 |
 
 ## Providers
 
 | Name | Version |
-|------|---------|
+| ---- | ------- |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.0 |
 | <a name="provider_random"></a> [random](#provider\_random) | >= 3.0 |
 
 ## Modules
 
 | Name | Source | Version |
-|------|--------|---------|
+| ---- | ------ | ------- |
 | <a name="module_ai_dynamodb_table"></a> [ai\_dynamodb\_table](#module\_ai\_dynamodb\_table) | ../modules/dynamodb | n/a |
 | <a name="module_ai_lambda"></a> [ai\_lambda](#module\_ai\_lambda) | ../modules/lambdas | n/a |
 | <a name="module_artifacts_bucket"></a> [artifacts\_bucket](#module\_artifacts\_bucket) | ../modules/bucket | n/a |
@@ -26,18 +29,20 @@
 | <a name="module_oidc"></a> [oidc](#module\_oidc) | ../modules/oidc | n/a |
 | <a name="module_ssm_parameters"></a> [ssm\_parameters](#module\_ssm\_parameters) | git::https://github.com/terraform-aws-modules/terraform-aws-ssm-parameter.git | c0456aa1960c2b13080f3968be9a7cdc687f2c8c |
 | <a name="module_tfstate_bucket"></a> [tfstate\_bucket](#module\_tfstate\_bucket) | ../modules/bucket | n/a |
-| <a name="module_vcs_integration"></a> [vcs\_integration](#module\_vcs\_integration) | ../modules/vcs_integration | n/a |
+| <a name="module_vcs_integration_github"></a> [vcs\_integration\_github](#module\_vcs\_integration\_github) | ../modules/vcs_integration/github | n/a |
+| <a name="module_vcs_integration_gitlab"></a> [vcs\_integration\_gitlab](#module\_vcs\_integration\_gitlab) | ../modules/vcs_integration/gitlab | n/a |
 
 ## Resources
 
 | Name | Type |
-|------|------|
+| ---- | ---- |
 | [random_password.lambda_webhook_secret](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
+| [aws_kms_alias.kms_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/kms_alias) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
+| ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_account_id"></a> [account\_id](#input\_account\_id) | AWS account ID | `string` | n/a | yes |
 | <a name="input_ai_api_endpoint"></a> [ai\_api\_endpoint](#input\_ai\_api\_endpoint) | The API endpoint for the AI service | `string` | n/a | yes |
 | <a name="input_ai_handler_create"></a> [ai\_handler\_create](#input\_ai\_handler\_create) | Whether to create AI handler webhooks. | `bool` | `false` | no |
@@ -64,11 +69,11 @@
 | <a name="input_security_groups"></a> [security\_groups](#input\_security\_groups) | Security Groups for Lambda-Git Connection | `list(string)` | n/a | yes |
 | <a name="input_team"></a> [team](#input\_team) | The owner team | `string` | n/a | yes |
 | <a name="input_tfstate_bucket_prefix"></a> [tfstate\_bucket\_prefix](#input\_tfstate\_bucket\_prefix) | The prefix to be used for naming a TFState bucket | `string` | n/a | yes |
-| <a name="input_vcs_hostname"></a> [vcs\_hostname](#input\_vcs\_hostname) | The GitLab url for the project | `string` | n/a | yes |
-| <a name="input_vcs_project_path"></a> [vcs\_project\_path](#input\_vcs\_project\_path) | The path to the GitLab project | `string` | n/a | yes |
+| <a name="input_vcs_hostname"></a> [vcs\_hostname](#input\_vcs\_hostname) | The VCS hostname for the project | `string` | n/a | yes |
+| <a name="input_vcs_project_path"></a> [vcs\_project\_path](#input\_vcs\_project\_path) | The path to the VCS project | `string` | n/a | yes |
 | <a name="input_vcs_provider"></a> [vcs\_provider](#input\_vcs\_provider) | The VCS provider used for deployment (e.g., github, gitlab) | `string` | n/a | yes |
 | <a name="input_vcs_repo_name"></a> [vcs\_repo\_name](#input\_vcs\_repo\_name) | The Project name | `string` | n/a | yes |
-| <a name="input_vcs_token"></a> [vcs\_token](#input\_vcs\_token) | The GitLab token | `string` | `""` | no |
+| <a name="input_vcs_token"></a> [vcs\_token](#input\_vcs\_token) | The VCS token | `string` | `""` | no |
 
 ## Outputs
 

@@ -4,7 +4,7 @@
 ## Requirements
 
 | Name | Version |
-|------|---------|
+| ---- | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.5.7, < 2.0 |
 
 ## Providers
@@ -14,7 +14,7 @@ No providers.
 ## Modules
 
 | Name | Source | Version |
-|------|--------|---------|
+| ---- | ------ | ------- |
 | <a name="module_dynamodb_table"></a> [dynamodb\_table](#module\_dynamodb\_table) | git::https://github.com/terraform-aws-modules/terraform-aws-dynamodb-table.git | 495d7a5e6ee9a45ae985a4160d9242c8b8727d69 |
 
 ## Resources
@@ -24,8 +24,8 @@ No resources.
 ## Inputs
 
 | Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
-| <a name="input_attributes"></a> [attributes](#input\_attributes) | Attributes for the DynamoDB table | <pre>list(object({<br>    name = string<br>    type = string<br>  }))</pre> | n/a | yes |
+| ---- | ----------- | ---- | ------- | :------: |
+| <a name="input_attributes"></a> [attributes](#input\_attributes) | Attributes for the DynamoDB table | <pre>list(object({<br/>    name = string<br/>    type = string<br/>  }))</pre> | n/a | yes |
 | <a name="input_billing_mode"></a> [billing\_mode](#input\_billing\_mode) | The billing mode for the DynamoDB table | `string` | `"PAY_PER_REQUEST"` | no |
 | <a name="input_hash_key"></a> [hash\_key](#input\_hash\_key) | The primary key of the DynamoDB table | `string` | n/a | yes |
 | <a name="input_name"></a> [name](#input\_name) | The name of the DynamoDB table | `string` | n/a | yes |
