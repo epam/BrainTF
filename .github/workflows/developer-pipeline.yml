@@ -21,6 +21,8 @@ jobs:
       PYTHONPATH: ${{ github.workspace }}/terraform/modules/lambdas/functions
       AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }}
       AWS_REGION: ${{ vars.AWS_REGION }}
+      PYTEST_COV_FAIL_UNDER: 70
+      ARTIFACT_RETENTION_DAYS: 14
 
     steps:
       - name: Checkout repository
@@ -43,7 +45,7 @@ jobs:
             --cov-report=term \
             --cov-report=markdown \
             --junit-xml=test-results.xml \
-            --cov-fail-under=70 \
+            --cov-fail-under=${{env.PYTEST_COV_FAIL_UNDER}} \
             -vv . || exit_code=$?
           echo "Pytest exited with exit code $exit_code"
           echo "PYTEST_EXIT_CODE=$exit_code" >> $GITHUB_ENV
@@ -55,14 +57,14 @@ jobs:
         with:
           name: pytest-results
           path: terraform/modules/lambdas/functions/test-results.xml
-          retention-days: 14
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
       - name: Upload coverage reports
         uses: actions/upload-artifact@v7
         with:
           name: coverage-reports
           path: terraform/modules/lambdas/functions/coverage.md
-          retention-days: 14
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
 
       # Explicitly fail the job if `pytest` exited with a non-zero exit code
       - name: Fail entire job if pytest step failure
