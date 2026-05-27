@@ -23,11 +23,6 @@ variable "artifacts_bucket" {
   type        = string
 }
 
-variable "tfstate_bucket" {
-  description = "The name for a Terraform bucket"
-  type        = string
-}
-
 variable "kms_key_arn" {
   description = "The ARN of the KMS key for encryption"
   type        = string

@@ -5,10 +5,11 @@ on:
   pull_request:
     branches:
       - main
+  workflow_dispatch:
 
 env:
-  TERRAFORM_DOCS_VERSION: v0.16.0
-  TFLINT_VERSION: v0.50.3
+  TERRAFORM_DOCS_VERSION: v0.24.0
+  TFLINT_VERSION: v0.62.0
 
 jobs:
   collectInputs:

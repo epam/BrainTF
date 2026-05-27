@@ -4,7 +4,7 @@ variable "region" {
 }
 
 variable "vcs_hostname" {
-  description = "The GitLab url for the project"
+  description = "The VCS hostname for the project"
   type        = string
 }
 
@@ -39,7 +39,7 @@ variable "account_id" {
 }
 
 variable "vcs_token" {
-  description = "The GitLab token"
+  description = "The VCS token"
   type        = string
   sensitive   = true
   default     = ""
@@ -58,7 +58,7 @@ variable "vcs_provider" {
 }
 
 variable "vcs_project_path" {
-  description = "The path to the GitLab project"
+  description = "The path to the VCS project"
   type        = string
 }
 

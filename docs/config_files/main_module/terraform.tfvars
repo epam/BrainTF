@@ -1,4 +1,5 @@
 # Block of VCS variables
+vcs_provider     = "<vcs_provider>"                           # The VCS provider used for deployment (github or gitlab)
 vcs_hostname     = "<my_vcs.com>"                             # Hostname of the VCS instance (github.com, gitlab.com, or custom variant)
 vcs_project_path = "<my_organization_name>/<my_project_name>" # Path to the VCS project
 

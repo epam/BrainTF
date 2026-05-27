@@ -1,14 +1,3 @@
-variable "vcs_api_endpoint" {
-  description = "VCS API endpoint(Valid only for GitLab)"
-  type        = string
-  default     = null
-}
-
-variable "vcs_token" {
-  description = "The vcs token for authentication"
-  type        = string
-}
-
 variable "vcs_project_path" {
   description = "The vcs project path or ID"
   type        = string

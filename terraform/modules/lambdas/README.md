@@ -4,7 +4,7 @@
 ## Requirements
 
 | Name | Version |
-|------|---------|
+| ---- | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.7, < 2.0 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.0 |
 | <a name="requirement_null"></a> [null](#requirement\_null) | >=3.0 |
@@ -12,21 +12,21 @@
 ## Providers
 
 | Name | Version |
-|------|---------|
+| ---- | ------- |
 | <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.0 |
 | <a name="provider_null"></a> [null](#provider\_null) | >=3.0 |
 
 ## Modules
 
 | Name | Source | Version |
-|------|--------|---------|
+| ---- | ------ | ------- |
 | <a name="module_ai_lambda_vcs"></a> [ai\_lambda\_vcs](#module\_ai\_lambda\_vcs) | git::https://github.com/terraform-aws-modules/terraform-aws-lambda.git | 4cfa5b42d1928afbc8946393e36eeee77eca0851 |
 | <a name="module_process_comment_lambda_vcs"></a> [process\_comment\_lambda\_vcs](#module\_process\_comment\_lambda\_vcs) | git::https://github.com/terraform-aws-modules/terraform-aws-lambda.git | 4cfa5b42d1928afbc8946393e36eeee77eca0851 |
 
 ## Resources
 
 | Name | Type |
-|------|------|
+| ---- | ---- |
 | [aws_lambda_function_url.webhook_url_vcs](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_function_url) | resource |
 | [aws_lambda_layer_version.layer](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_layer_version) | resource |
 | [aws_lambda_permission.allow_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_permission) | resource |
@@ -36,7 +36,7 @@
 ## Inputs
 
 | Name | Description | Type | Default | Required |
-|------|-------------|------|---------|:--------:|
+| ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_ai_api_endpoint"></a> [ai\_api\_endpoint](#input\_ai\_api\_endpoint) | The API endpoint for the AI service | `string` | n/a | yes |
 | <a name="input_ai_api_token_name"></a> [ai\_api\_token\_name](#input\_ai\_api\_token\_name) | The name of the secret storing the AI API token | `string` | n/a | yes |
 | <a name="input_ai_handler_create"></a> [ai\_handler\_create](#input\_ai\_handler\_create) | AI handler creation trigger | `string` | n/a | yes |
@@ -60,6 +60,6 @@
 ## Outputs
 
 | Name | Description |
-|------|-------------|
+| ---- | ----------- |
 | <a name="output_function_url"></a> [function\_url](#output\_function\_url) | Lambda function to be triggered if PR Comment is updated |
 <!-- END_TF_DOCS -->

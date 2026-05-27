@@ -1,8 +1,7 @@
 # ======================= Local Variables =======================
 locals {
   # Define the S3 bucket name for storing the Terraform state
-  state_bucket  = lower(replace(replace(replace("backend-state-bucket-${var.vcs_repo_name}-${var.region}", "_", "-"), " ", "-"), "[^a-z0-9.-]", ""))
-  aws_kms_alias = "alias/kms_key_${var.vcs_repo_name}_${var.region}"
+  state_bucket = lower(replace(replace(replace("backend-state-bucket-${var.vcs_repo_name}-${var.region}", "_", "-"), " ", "-"), "[^a-z0-9.-]", ""))
 
   # Define tags to apply to resources
   tags = {
@@ -27,9 +26,6 @@ terraform {
     encrypt        = \"true\"
     use_lockfile   = \"true\"
   }
-}
-data \"aws_kms_alias\" \"kms_key\" {
-  name = \"${local.aws_kms_alias}\"
 }
 EOT
   }
@@ -158,33 +154,6 @@ rm -f "$PROCESSED_VARS_FILE" "$PROCESSED_COMMENTS_FILE"
 echo "File updated successfully: $DEST_FILE"
 EOT
     interpreter = ["/bin/bash", "-c"]
-  }
-}
-
-# ======================= Null Resource for Selecting VCS Module =======================
-resource "null_resource" "select_vcs_module" {
-  triggers = {
-    vcs_provider = var.vcs_provider
-  }
-
-  provisioner "local-exec" {
-    command = <<EOT
-if [ "${var.vcs_provider}" = "github" ]; then
-  if [ -d "../vcs_integration_templates/github" ]; then
-    rm -rf ../modules/vcs_integration && mkdir -p ../modules/vcs_integration && cp -r ../vcs_integration_templates/github/* ../modules/vcs_integration/
-  else
-    echo "Error: Directory ./vcs_integration_templates/github does not exist." >&2
-    exit 1
-  fi
-else
-  if [ -d "../vcs_integration_templates/gitlab" ]; then
-    rm -rf ../modules/vcs_integration && mkdir -p ../modules/vcs_integration && cp -r ../vcs_integration_templates/gitlab/* ../modules/vcs_integration/
-  else
-    echo "Error: Directory ../vcs_integration_templates/gitlab does not exist." >&2
-    exit 1
-  fi
-fi
-EOT
   }
 }
 

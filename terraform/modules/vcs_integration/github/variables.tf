@@ -1,13 +1,3 @@
-variable "vcs_api_endpoint" {
-  description = "The API endpoint for VCS integration (e.g., GitLab, GitHub)"
-  type        = string
-}
-
-variable "vcs_token" {
-  description = "The vcs token for authentication"
-  type        = string
-}
-
 variable "vcs_project_path" {
   description = "The vcs project path or ID"
   type        = string
