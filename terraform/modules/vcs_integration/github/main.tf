@@ -1,22 +1,15 @@
 #======================= GitHub integration with AWS Lambda ===========================#
 locals {
-  git_owner       = regex("^([^/]+)", var.vcs_project_path)[0]
   repository_name = regex("([^/]+)$", var.vcs_project_path)[0]
-}
-
-# GitHub Provider
-provider "github" {
-  token = var.vcs_token
-  owner = local.git_owner
 }
 
 # Create GitHub Actions secrets
 resource "github_actions_secret" "secrets" {
   for_each = { for var in var.vcs_variables : var.key => var if var.masked }
 
-  repository      = local.repository_name
-  secret_name     = each.value.key
-  plaintext_value = each.value.value
+  repository  = local.repository_name
+  secret_name = each.value.key
+  value       = each.value.value
 }
 
 # Create GitHub Actions variables

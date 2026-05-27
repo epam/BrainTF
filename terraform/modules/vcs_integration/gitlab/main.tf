@@ -1,9 +1,4 @@
 #======================= GitLab integration with AWS Lambda ===========================#
-provider "gitlab" {
-  base_url = var.vcs_api_endpoint
-  token    = var.vcs_token
-}
-
 resource "gitlab_project_variable" "project_variables" {
   for_each    = { for var in var.vcs_variables : var.key => var }
   project     = var.vcs_project_path

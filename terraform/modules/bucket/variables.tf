@@ -34,7 +34,7 @@ variable "lifecycle_rules" {
         (rule.abort_incomplete_multipart_upload_days >= 1 && rule.abort_incomplete_multipart_upload_days <= 7)
       )
     ])
-    error_message = "abort_incomplete_multipart_upload_days must be between 1 and 7 if set."
+    error_message = "Property \"abort_incomplete_multipart_upload_days\" must be between 1 and 7 if set."
   }
 }
 

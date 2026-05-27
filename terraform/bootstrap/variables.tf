@@ -13,11 +13,6 @@ variable "account_id" {
   type        = string
 }
 
-variable "vcs_provider" {
-  description = "The VCS provider used for deployment (e.g., github, gitlab)"
-  type        = string
-}
-
 variable "environment" {
   description = "The Project environment"
   type        = string
