@@ -1,14 +1,13 @@
 # ======================= Create S3 Bucket =======================
 module "s3_bucket" {
-  source                                = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=2dd4364b67d89cb9c881be465e5e4196ef8dea8f"
-  bucket                                = var.bucket_name
-  force_destroy                         = var.force_destroy
-  attach_policy                         = false # Bucket policy will be added manually
-  block_public_acls                     = true
-  block_public_policy                   = true
-  ignore_public_acls                    = true
-  restrict_public_buckets               = true
-  attach_deny_insecure_transport_policy = true
+  source                  = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=2dd4364b67d89cb9c881be465e5e4196ef8dea8f"
+  bucket                  = var.bucket_name
+  force_destroy           = var.force_destroy
+  attach_policy           = false # Bucket policy will be added manually
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 
   versioning = {
     enabled = true
@@ -78,6 +77,24 @@ resource "aws_s3_bucket_lifecycle_configuration" "lifecycle" {
 
 # ======================= Generate Custom IAM Policy =======================
 data "aws_iam_policy_document" "s3_bucket_policy" {
+  statement {
+    sid     = "denyInsecureTransport"
+    effect  = "Deny"
+    actions = ["s3:*"]
+    resources = [
+      "arn:aws:s3:::${var.bucket_name}",
+      "arn:aws:s3:::${var.bucket_name}/*"
+    ]
+    principals {
+      type        = "*"
+      identifiers = ["*"]
+    }
+    condition {
+      test     = "Bool"
+      variable = "aws:SecureTransport"
+      values   = ["false"]
+    }
+  }
   statement {
     sid    = "ForAccountsRoles"
     effect = "Allow"

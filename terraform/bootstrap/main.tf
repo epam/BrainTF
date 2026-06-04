@@ -47,114 +47,14 @@ EOT
   }
 }
 
-# ======================= Null Resource to Add or Update Outputs in outputs.tf =======================
-resource "null_resource" "sync_tfvars" {
-  triggers = {
-    # Read the content of the source terraform.tfvars file
-    source_file = file("${path.module}/terraform.tfvars")
-  }
-
-  provisioner "local-exec" {
-    command     = <<EOT
-#!/bin/bash
-set -euo pipefail
-
-# Define the destination file path
-DEST_FILE="../main_module/terraform.tfvars"
-
-# Ensure the destination file exists
-if [ ! -f "$DEST_FILE" ]; then
-  echo "Creating $DEST_FILE as it does not exist."
-  touch "$DEST_FILE"
-fi
-
-# Read the content of the source file
-SOURCE_CONTENT="${self.triggers.source_file}"
-
-# Temporary files to store updated content
-TEMP_FILE=$(mktemp)
-PROCESSED_VARS_FILE=$(mktemp)
-PROCESSED_COMMENTS_FILE=$(mktemp)
-
-# Function to extract the exact formatting of a line
-extract_formatting() {
-  local line="$1"
-  local var_name=$(echo "$line" | awk -F '=' '{print $1}' | sed 's/[[:space:]]*$//')
-  local rest=$(echo "$line" | awk -F '=' '{print $2}')
-  local var_value=$(echo "$rest" | awk -F '#' '{print $1}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-  local comment=$(echo "$rest" | awk -F '#' '{if (NF > 1) print $2}' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//')
-
-  echo "$var_name" "$var_value" "$comment"
+# ======================= Sync terraform.tfvars =======================
+data "local_file" "this" {
+  filename = "${path.module}/terraform.tfvars"
 }
 
-# Process each line in the source file
-while IFS= read -r line; do
-  # Check if the line is a comment
-  if [[ "$line" =~ ^# ]]; then
-    # Avoid duplicate comments
-    if grep -Fxq "$line" "$PROCESSED_COMMENTS_FILE"; then
-      continue
-    fi
-    echo "$line" >> "$PROCESSED_COMMENTS_FILE"
-    echo "$line" >> "$TEMP_FILE"
-    continue
-  fi
-
-  # Extract the variable name, value, and comment
-  read -r VAR_NAME VAR_VALUE VAR_COMMENT <<< $(extract_formatting "$line")
-
-  # Skip lines that don't look like valid variable assignments
-  if [[ -z "$VAR_NAME" || -z "$VAR_VALUE" ]]; then
-    echo "$line" >> "$TEMP_FILE" # Keep comments or empty lines intact
-    continue
-  fi
-
-  # Wrap the value in quotes if necessary
-  VAR_VALUE="\"$VAR_VALUE\""
-
-  # Mark the variable as processed
-  echo "$VAR_NAME" >> "$PROCESSED_VARS_FILE"
-
-  # Add the variable and its comment to the temporary file
-  if [[ -n "$VAR_COMMENT" ]]; then
-    printf "%-24s = %-24s   # %s\n" "$VAR_NAME" "$VAR_VALUE" "$VAR_COMMENT" >> "$TEMP_FILE"
-  else
-    printf "%-24s = %-24s\n" "$VAR_NAME" "$VAR_VALUE" >> "$TEMP_FILE"
-  fi
-done <<< "$SOURCE_CONTENT"
-
-# Process the destination file and merge with the source
-while IFS= read -r line; do
-  VAR_NAME=$(echo "$line" | awk -F '=' '{print $1}' | xargs)
-
-  # If the variable was already processed, skip it
-  if grep -Fxq "$VAR_NAME" "$PROCESSED_VARS_FILE"; then
-    continue
-  fi
-
-  # If the comment was already processed, skip it
-  if [[ "$line" =~ ^# ]] && grep -Fxq "$line" "$PROCESSED_COMMENTS_FILE"; then
-    continue
-  fi
-
-  # Keep the variable or comment as is
-  echo "$line" >> "$TEMP_FILE"
-done < "$DEST_FILE"
-
-# Remove trailing empty lines from the temporary file
-awk 'NF || last {print} {last=NF}' "$TEMP_FILE" > "$TEMP_FILE.cleaned"
-mv "$TEMP_FILE.cleaned" "$TEMP_FILE"
-
-# Replace the destination file with the updated content
-mv "$TEMP_FILE" "$DEST_FILE"
-
-# Clean up temporary files
-rm -f "$PROCESSED_VARS_FILE" "$PROCESSED_COMMENTS_FILE"
-
-echo "File updated successfully: $DEST_FILE"
-EOT
-    interpreter = ["/bin/bash", "-c"]
-  }
+resource "local_file" "this" {
+  content  = data.local_file.this.content
+  filename = "${path.module}/../main_module/terraform.auto.tfvars"
 }
 
 # ======================= Create a KMS Key for Encryption =======================
@@ -233,16 +133,15 @@ module "s3_bucket_kms_key" {
 
 # ======================= Create an S3 Bucket for Terraform State =======================
 module "s3_state_bucket" {
-  source                                = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=6c5e082b5d2fde77cb59c387a7f553dd2ed5da29"
-  create_bucket                         = true
-  bucket                                = local.state_bucket
-  force_destroy                         = true
-  attach_policy                         = true
-  block_public_acls                     = true
-  block_public_policy                   = true
-  ignore_public_acls                    = true
-  restrict_public_buckets               = true
-  attach_deny_insecure_transport_policy = true
+  source                  = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=6c5e082b5d2fde77cb59c387a7f553dd2ed5da29"
+  create_bucket           = true
+  bucket                  = local.state_bucket
+  force_destroy           = true
+  attach_policy           = false # Bucket policy will be added manually
+  block_public_acls       = true
+  block_public_policy     = true
+  ignore_public_acls      = true
+  restrict_public_buckets = true
 
   versioning = {
     enabled = true
@@ -270,6 +169,21 @@ resource "aws_s3_bucket_policy" "state_bucket_policy" {
     Version = "2012-10-17",
     Statement = [
       {
+        Sid    = "denyInsecureTransport",
+        Effect = "Deny",
+        Action = "s3:*",
+        Resource = [
+          module.s3_state_bucket.s3_bucket_arn,
+          "${module.s3_state_bucket.s3_bucket_arn}/*"
+        ],
+        Principal = "*",
+        Condition = {
+          Bool = {
+            "aws:SecureTransport" = "false"
+          }
+        }
+      },
+      {
         Sid    = "AllowRootAccountAccess",
         Effect = "Allow",
         Action = [
@@ -291,23 +205,6 @@ resource "aws_s3_bucket_policy" "state_bucket_policy" {
         ],
         Principal = {
           AWS = "arn:aws:iam::${var.account_id}:root"
-        }
-      },
-      {
-        Sid    = "AllowRoleAccess",
-        Effect = "Allow",
-        Action = [
-          "s3:ListBucket",
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:DeleteObject"
-        ],
-        Resource = [
-          module.s3_state_bucket.s3_bucket_arn,
-          "${module.s3_state_bucket.s3_bucket_arn}/*"
-        ],
-        Principal = {
-          AWS = data.aws_caller_identity.current.arn
         }
       }
     ]
