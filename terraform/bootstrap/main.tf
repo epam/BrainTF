@@ -3,6 +3,28 @@ locals {
   # Define the S3 bucket name for storing the Terraform state
   state_bucket = lower(replace(replace(replace("backend-state-bucket-${var.vcs_repo_name}-${var.region}", "_", "-"), " ", "-"), "[^a-z0-9.-]", ""))
 
+  # list of .tf files in the main module to check for existing backend blocks
+  main_module_tf_files = fileset("${path.module}/../main_module", "*.tf")
+  # Find any existing backend blocks in the main module using regular expressions
+  existing_backend_files = [
+    for tf_file in local.main_module_tf_files : tf_file
+    if length(regexall("(?s)terraform\\s*\\{.*?backend\\s*\"[^\"]+\"\\s*\\{", file("${path.module}/../main_module/${tf_file}"))) > 0
+  ]
+
+  # Generate the backend configuration content for the main_module
+  backend_config = <<EOT
+#======================= The Main module for application infrastructure =======================#
+terraform {
+  backend "s3" {
+    bucket       = "${local.state_bucket}"
+    key          = "terraform.tfstate"
+    region       = "${var.region}"
+    encrypt      = true
+    use_lockfile = true
+  }
+}
+EOT
+
   # Define tags to apply to resources
   tags = {
     Project     = var.vcs_repo_name
@@ -13,38 +35,16 @@ locals {
   }
 }
 
-# ======================= Null Resource to Add or Overwrite Backend and Remote State =======================
-resource "null_resource" "add_or_update_backend_and_remote_state" {
-  triggers = {
-    backend_config = <<EOT
-#======================= The Main module for application infrastructure =======================#
-terraform {
-  backend \"s3\" {
-    bucket         = \"${local.state_bucket}\"
-    key            = \"terraform.tfstate\"
-    region         = \"${var.region}\"
-    encrypt        = \"true\"
-    use_lockfile   = \"true\"
-  }
-}
-EOT
-  }
+# ======================= Generate Backend Configuration for Main Module =======================
+resource "local_file" "backend_config" {
+  # Skip silently if a backend block already exists in any file other than the generated one
+  count = (
+    length(local.existing_backend_files) == 0 ||
+    (length(local.existing_backend_files) == 1 && contains(local.existing_backend_files, "backend.generated.tf"))
+  ) ? 1 : 0
 
-  provisioner "local-exec" {
-    # Append the backend configuration and remote state data to the top of the file
-    command = <<EOT
-if [ ! -f ../main_module/main.tf ]; then
-  echo "Creating main.tf as it does not exist."
-  touch ../main_module/main.tf
-fi
-
-if ! grep -q 'terraform {' ../main_module/main.tf; then
-  echo "${self.triggers.backend_config}" | cat - ../main_module/main.tf > ../main_module/main.tf.tmp && mv ../main_module/main.tf.tmp ../main_module/main.tf
-else
-  echo "Backend configuration and remote state already exist in main.tf"
-fi
-EOT
-  }
+  content  = local.backend_config
+  filename = "${path.module}/../main_module/backend.generated.tf"
 }
 
 # ======================= Sync terraform.tfvars =======================
