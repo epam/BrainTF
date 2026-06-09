@@ -1,7 +1,8 @@
+from copy import deepcopy
+
 import boto3
 import pytest
 from moto import mock_aws
-from copy import deepcopy
 
 from data.events import WEBHOOK_EVENT_GITHUB, WEBHOOK_EVENT_METADATA_GITHUB
 from data.expected import EXPECTED_TOKEN_GITHUB, EXPECTED_TOKEN_GITLAB
@@ -37,12 +38,7 @@ def aws_env_and_session(monkeypatch):
     monkeypatch.setenv("AWS_REGION", "eu-central-1")
     monkeypatch.setenv("AWS_EC2_METADATA_DISABLED", "true")  # important in CI
 
-    boto3.setup_default_session(
-        aws_access_key_id="testing",
-        aws_secret_access_key="testing",
-        aws_session_token="testing",
-        region_name="eu-central-1",
-    )
+    boto3.setup_default_session()
     yield
     boto3.DEFAULT_SESSION = None
 
