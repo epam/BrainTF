@@ -7,9 +7,9 @@ locals {
 resource "github_actions_secret" "secrets" {
   for_each = { for var in var.vcs_variables : var.key => var if var.masked }
 
-  repository  = local.repository_name
-  secret_name = each.value.key
-  value       = each.value.value
+  repository      = local.repository_name
+  secret_name     = each.value.key
+  plaintext_value = each.value.value
 }
 
 # Create GitHub Actions variables
