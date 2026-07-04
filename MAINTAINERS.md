@@ -5,3 +5,5 @@ The current Maintainers Group for the **BrAInTF** Project consists of:
 | Taras Mazurak      | [mazuraktaras](https://github.com/mazuraktaras)    | EPAM     | Maintainer       |
 | Kateryna Kotova    | [KotovaK](https://github.com/KotovaK)         | EPAM     | Maintainer       |
 | Valerii Mykhailov  | [MykhVal](https://github.com/MykhVal)         | EPAM     | Maintainer       |
+| Dmytro Kabachenko  | [Dimpison](https://github.com/Dimpison)        | EPAM     | Maintainer       |
+| Kostiantyn Severenchuk | [vidoque](https://github.com/vidoque)      | EPAM     | Maintainer       |
