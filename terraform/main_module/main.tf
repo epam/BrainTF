@@ -66,9 +66,9 @@ locals {
         protected   = false
       },
       {
-        key         = "OIDC_PROVIDER"
+        key         = "OIDC_AUDIENCE"
         value       = local.client_id_list[0]
-        description = "OIDC provider (Managed by Terraform)"
+        description = "OIDC token audience (aud claim) for AWS STS validation (Managed by Terraform)"
         masked      = false
         protected   = false
       },

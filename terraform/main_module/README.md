@@ -54,7 +54,7 @@
 | <a name="input_job_token"></a> [job\_token](#input\_job\_token) | Git Notes token used for GitLab integration | `string` | n/a | yes |
 | <a name="input_llm_model"></a> [llm\_model](#input\_llm\_model) | The name or identifier of the LLM (Large Language Model) to be used | `string` | n/a | yes |
 | <a name="input_log_level"></a> [log\_level](#input\_log\_level) | The logging level for AWS Lambda functions. Possible values: DEBUG, INFO, WARN, ERROR. | `string` | `"INFO"` | no |
-| <a name="input_oidc_provider"></a> [oidc\_provider](#input\_oidc\_provider) | The oidc provider | `string` | n/a | yes |
+| <a name="input_oidc_provider"></a> [oidc\_provider](#input\_oidc\_provider) | OIDC identity provider domain (issuer). Used to construct IAM trust policy condition keys (e.g. <provider>:aud, <provider>:sub) and the OIDC provider URL. Use 'token.actions.githubusercontent.com' for GitHub or 'gitlab.com' for GitLab. | `string` | n/a | yes |
 | <a name="input_owner_mail"></a> [owner\_mail](#input\_owner\_mail) | The owner e-mail | `string` | n/a | yes |
 | <a name="input_private_subnet_ids"></a> [private\_subnet\_ids](#input\_private\_subnet\_ids) | VPC Private Subnet IDs | `list(string)` | n/a | yes |
 | <a name="input_rag_enable"></a> [rag\_enable](#input\_rag\_enable) | Whether to turn on RAG for AI handler. | `bool` | `false` | no |
