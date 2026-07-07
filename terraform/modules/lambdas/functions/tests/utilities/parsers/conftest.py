@@ -2,7 +2,7 @@ import pytest
 
 from tests.data.logs_s3 import (LOG_TEXT_CHECKOV, LOG_TEXT_TERRAFORM,
                                 LOG_TEXT_TFLINT, LOG_TEXT_TFSEC, LOG_TEXT_SINGLE_DIR_TFLINT,
-                                LOG_TEXT_NO_ISSUES_DIR_TFSEC)
+                                LOG_TEXT_NO_ISSUES_DIR_TFSEC, LOG_TEXT_TRIVY)
 
 EXTRACTED_BLOCKS_TFLINT = [('test_code/modules/dynamodb',
                             '2 issue(s) found:\n\nWarning: Missing version constraint for provider "aws" in '
@@ -2134,27 +2134,32 @@ PARSED_CORRECTED_FILENAMES_AND_CONTENT = \
 
 @pytest.fixture
 def log_file_text_tflint():
-    return LOG_TEXT_TFLINT, 'tflint'
+    return LOG_TEXT_TFLINT
 
 
 @pytest.fixture
 def log_file_text_no_tool_name():
-    return LOG_TEXT_TFLINT, 'other_tool'
+    return LOG_TEXT_TFLINT
 
 
 @pytest.fixture
 def log_file_text_checkov():
-    return LOG_TEXT_CHECKOV, 'checkov'
+    return LOG_TEXT_CHECKOV
 
 
 @pytest.fixture
 def log_file_text_tfsec():
-    return LOG_TEXT_TFSEC, 'tfsec'
+    return LOG_TEXT_TFSEC
 
 
 @pytest.fixture
 def log_file_text_terraform():
-    return LOG_TEXT_TERRAFORM, 'Terraform'
+    return LOG_TEXT_TERRAFORM
+
+
+@pytest.fixture
+def log_file_text_trivy():
+    return LOG_TEXT_TRIVY
 
 
 @pytest.fixture
@@ -2215,6 +2220,11 @@ def extracted_paths_to_tf_files_tflint():
 @pytest.fixture
 def replaced_paths_one_block_tfsec():
     return REPLACED_SINGLE_WORKDIR_BLOCK_TFSEC
+
+
+@pytest.fixture
+def extracted_paths_to_tf_files_trivy():
+    return ['demo/broken', 'demo/broken/network', 'demo/broken/storage']
 
 
 @pytest.fixture

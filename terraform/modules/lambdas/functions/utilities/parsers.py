@@ -3,29 +3,6 @@ import re
 from typing import Dict
 
 
-def remove_no_issues_dir_blocks_checkov_tfsec(text: str) -> str:
-    """
-    Removes informational blocks related to "No issues" from Checkov or TFSec analysis
-    that are found in a given text. The blocks indicate successful analysis without
-    issues in specified directories and are matched using specific patterns.
-
-    Args:
-        text (str): The input text containing Checkov or TFSec analysis results.
-
-    Returns:
-        str: The cleaned text with informational blocks removed.
-    """
-    # Remove the matched blocks
-    cleaned_text = re.sub(
-        r"Running (?:Checkov|TFSec) analysis in directory: (\S+)\s*.*?\s*No issues were found "
-        r"during (?:Checkov|TFSec) analysis in the directory: \1\.\s",
-        "",
-        text
-    )
-
-    return cleaned_text.strip()
-
-
 def clean_text_for_tfsec(input_text):
     """
     Cleans the input text by:
@@ -67,36 +44,80 @@ def clean_text_for_tfsec(input_text):
     return cleaned_text.strip()
 
 
-def extract_blocks_ending_with_working_directory(text: str, tool_name: str) -> list[tuple[str, str]]:
+def clean_text_for_trivy(input_text: str) -> str:
     """
-    Extracts blocks of content from a given text that end with a working directory
-    based on specific tool analysis or the general format.
+    Cleans Trivy output by removing summary sections before findings.
 
-    This function parses the input `text` to extract blocks of text followed by
-    working directory paths. Depending on the value of `tool_name`, it applies patterns
-    specifically for 'Checkov' or 'TFSec' or uses a generic pattern when the tool name
-    doesn't match these specific cases.
+    Args:
+        input_text (str): The input text containing Trivy sections.
+
+    Returns:
+        str: The cleaned text with Trivy summary headers removed.
+    """
+
+    # Remove top-level Trivy report summary table and its legend section.
+    cleaned_text = re.sub(
+        r"(?m)^\s*Report Summary\r?\n(?:\r?\n)?"
+        r"(?:\s*[┌├│└][^\r\n]*\r?\n)+"
+        r"\s*Legend:\r?\n"
+        r"(?:\s*-\s*'[^']+':[^\r\n]*\r?\n)+\s*",
+        "",
+        input_text,
+    )
+
+    # Remove per-target Trivy summary headers before each finding section.
+    cleaned_text = re.sub(
+        r"(?m)^\s*(?:\.|[A-Za-z0-9_./-]+) \(terraform\)\r?\n"
+        r"=+\r?\n"
+        r"Tests: \d+ \(SUCCESSES: \d+, FAILURES: \d+\)\r?\n"
+        r"Failures: \d+ \([^)]+\)\r?\n+",
+        "",
+        cleaned_text
+    )
+
+    # Replace long horizontal lines with '───' pattern_long_lines = r"─{10,}"
+    # Matches 10 or more consecutive '─' characters
+    cleaned_text = re.sub(
+        r"─{10,}",  # Matches 10 or more consecutive '─' characters
+        "───",
+        cleaned_text
+    )
+
+    cleaned_text = re.sub(
+        r"^\s*═{10,}\r?\n?",
+        "",
+        cleaned_text,
+        flags=re.MULTILINE,
+    )
+
+    return cleaned_text.strip()
+
+
+def extract_blocks_working_directory(text: str) -> list[tuple[str, str]]:
+    """
+    Extract blocks of tool output keyed by the working directory being analyzed.
+
+    The parser scans the combined log text for supported tool run markers and
+    returns each matched working directory together with the error block that
+    follows it.
 
     Args:
         text: The input text containing analysis logs and working directory paths.
-        tool_name: The name of the tool ("Checkov" or "TFSec") that determines the
-            parsing approach.
 
     Returns:
         A list of tuples where each tuple contains a working directory path as the
         first element and the preceding block of content as the second element.
     """
-    if tool_name.lower() == 'checkov' or tool_name.lower() == 'tfsec':
-        # Find all occurrences of the pattern and their preceding content
-        matches = re.findall(
-            r"Running (?:Checkov|TFSec) analysis in directory: (\S+)\n(.*?)(?=\n+Running (?:Checkov|TFSec)|$)",  # noqa:
-            text, flags=re.DOTALL)
-        # Create a list with the path as key and content as value
-        result = [(match[0], match[1].strip()) for match in matches]
 
-    else:
-        matches = re.findall(r'(.*?)\nWorking Directory: (.+?)(?=\n|$)', text, flags=re.DOTALL)  # noqa:
-        result = [(match[1], match[0].strip()) for match in matches]
+    # Find all occurrences of the pattern and their preceding content
+    matches = re.finditer(
+        r"Running (?:TFLint|Terraform|Checkov|TFSec|Trivy) (?:analysis|validate|init) in directory: (\S+)\n(.*?)"
+        r"(?=\n+Running (?:TFLint|Terraform|Checkov|TFSec|Trivy)|$)",
+        # noqa:
+        text, flags=re.DOTALL)
+
+    # Create a list with the path as key and content as value
+    result = [(match.group(1), match.group(2).strip()) for match in matches]
 
     return result
 
@@ -182,6 +203,29 @@ def replace_relative_paths_to_absolute_in_errors_checkov(working_directory: str,
     )
 
 
+def replace_relative_paths_to_absolute_in_errors_trivy(working_directory: str, errors_data: str) -> str:
+    """Replace relative Trivy file paths with absolute paths."""
+
+    def _replace_path(match: re.Match[str]) -> str:
+        return f"{match.group(1)}{match.group(2)}{os.path.join(working_directory, match.group(3))}{match.group(4)}"
+
+    result = re.sub(
+        r"(^|\n)(\s*)([A-Za-z0-9_./-]+\.(?:tf|tfvars))(\s+\([^)]+\))",
+        _replace_path,
+        errors_data,
+        flags=re.MULTILINE,
+    )
+
+    result = re.sub(
+        r"(^|\n)(\s*)([A-Za-z0-9_./-]+\.(?:tf|tfvars))(:\d+(?:-\d+)?)",
+        _replace_path,
+        result,
+        flags=re.MULTILINE,
+    )
+
+    return result
+
+
 def get_paths_from_errors_checkov(errors_data: str) -> list:
     matches = re.findall(r'^\s*(?:Calling )?File:\s+(.+?):\d+-?\d*\n',
                          errors_data,
@@ -195,6 +239,18 @@ def get_paths_from_errors_tfsec(errors_data: str) -> list:
                          errors_data,
                          re.MULTILINE)
     # Return the list of unique matches
+    return list({os.path.dirname(match) for match in matches if match})
+
+
+def get_paths_from_errors_trivy(errors_data: str) -> list:
+    """Extract unique Terraform directories from Trivy findings."""
+
+    matches = re.findall(
+        r"^\s*([A-Za-z0-9_./-]+\.(?:tf|tfvars))(?::\d+(?:-\d+)?)?$",
+        errors_data,
+        flags=re.MULTILINE,
+    )
+
     return list({os.path.dirname(match) for match in matches if match})
 
 

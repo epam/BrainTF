@@ -1,5 +1,7 @@
 import pytest
 
+from tests.data.logs_s3 import LOG_TEXT_TRIVY
+
 
 # Constants
 MOCK_FILE_CONTENT = {
@@ -46,9 +48,30 @@ def mock_ai_response(messages: list, retries: int = 3) -> dict:
     }
 
 
+MOCK_TRIVY_FILE_CONTENT = {
+    "content": LOG_TEXT_TRIVY,
+    "metadata": {
+        "base_repo_name": "some-org/BrainTF",
+        "base_repo_owner": "some-org",
+        "commit_sha": "a65f6658342bb3b91afc1d2588f0744b320c8366",
+        "head_branch_name": "FEAT-branch",
+        "pull_num": "22",
+        "tool_name": "Trivy",
+    },
+}
+
+
 def setup_monkeypatches(monkeypatch):
     """Common setup for monkeypatching dependencies in tests."""
     monkeypatch.setattr("utilities.aws.get_file_content_with_metadata_from_s3", mock_s3_file_content)
+    monkeypatch.setattr("utilities.vcs.get_all_tf_files_from_paths_list", mock_tf_files_list)
+    monkeypatch.setattr("utilities.ai.chat_completions.generate_response_ai", mock_ai_response)
+    monkeypatch.setattr("utilities.vcs.post_comment", lambda x, y: {})
+    monkeypatch.setattr("utilities.ai.context.create_context_memory_window", lambda event: None)
+
+
+def setup_monkeypatches_trivy(monkeypatch):
+    monkeypatch.setattr("utilities.aws.get_file_content_with_metadata_from_s3", lambda bucket, key: MOCK_TRIVY_FILE_CONTENT)
     monkeypatch.setattr("utilities.vcs.get_all_tf_files_from_paths_list", mock_tf_files_list)
     monkeypatch.setattr("utilities.ai.chat_completions.generate_response_ai", mock_ai_response)
     monkeypatch.setattr("utilities.vcs.post_comment", lambda x, y: {})
@@ -61,6 +84,14 @@ def test_lambda_invokes_ai_handler_successfully(patched_config_github, monkeypat
     from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import lambda_handler
 
     lambda_handler(s3_bucket_event_tflint, {})
+    assert 'Successfully invoked' in caplog.text
+
+
+def test_lambda_invokes_ai_handler_successfully_for_trivy(patched_config_github, monkeypatch, s3_bucket_event_trivy, caplog):
+    setup_monkeypatches_trivy(monkeypatch)
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import lambda_handler
+
+    lambda_handler(s3_bucket_event_trivy, {})
     assert 'Successfully invoked' in caplog.text
 
 
