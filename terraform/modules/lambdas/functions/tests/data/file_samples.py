@@ -16,3 +16,15 @@ provider "aws" {
 }
 
 """.lstrip().removesuffix("\n")
+
+DEMO_BROKEN_MAIN_TF_FILE = \
+    """
+terraform {
+}
+
+provider "aws" {
+  region = "eu-west-1"
+}
+
+""".lstrip().removesuffix("\n")
+

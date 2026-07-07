@@ -57,8 +57,8 @@ def upload_files_to_s3(
     failed: List[str] = []
 
     for file_path, file_content in file_paths_with_content.items():
-        # TODO: Get path to artifacts from config
-        s3_key = f"artifacts/{pull_number}/{file_path}"
+
+        s3_key = f"{config.path_to_artifacts}/{pull_number}/{file_path}"
         body = file_content.encode("utf-8")
 
         try:
