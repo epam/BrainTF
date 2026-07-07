@@ -1,3 +1,4 @@
+import textwrap
 from typing import Any, Dict, List
 
 from config import config
@@ -11,7 +12,7 @@ from utilities.aws import (delete_files_from_s3,
                            upload_files_to_s3)
 from utilities.exceptions import InvalidEventMetadata
 from utilities.logger import logger
-from utilities.messages import (AI_RESPONSE_MESSAGE, LIST_FILES_MESSAGE)
+from utilities.messages import AI_RESPONSE_MESSAGE, LIST_FILES_MESSAGE
 from utilities.parsers import parse_hcl_blocks
 from utilities.vcs import (FAILURE, SUCCESS, add_award_to_note,
                            check_files_exist_in_repo, commit_files_to_branch,
@@ -19,30 +20,27 @@ from utilities.vcs import (FAILURE, SUCCESS, add_award_to_note,
 
 
 def handle_ai_response_message(event: Dict[str, Any]) -> None:
-    """
-    Handles the AI-generated response message, identifies HCL blocks, and processes them according
-    to the associated pull/merge request.
+    """Process an AI response and upload extracted HCL blocks to S3.
 
-    This function extracts the AI response message from the event metadata and processes it to locate
-    HCL blocks. If valid HCL blocks are found, it performs associated operations like deleting old
-    files from S3 and uploading new ones for the pull/merge request. Additionally, it logs relevant
-    information for debugging purposes.
+    The function reads the AI response from event metadata, extracts HCL blocks,
+    and replaces the current artifacts for the associated merge or pull request
+    when blocks are found.
 
     Args:
-        event (Dict[str, Any]): The event containing metadata, which includes the AI response message
-            and merge/pull request ID.
+        event: Event payload containing metadata with ``ai_response`` and
+            ``merge_or_pull_req_id``.
 
     Raises:
-        InvalidEventMetadata: If the required pull/merge request ID is not found in the event metadata.
+        InvalidEventMetadata: If the merge or pull request ID is missing.
     """
-    response_message = event.get('metadata').get('ai_response')
+    response_message = event.get('metadata', {}).get('ai_response')
     if not response_message:
         logger.debug("No response message from AI found in the event metadata.")
         return
-    filenames_with_hcl_blocks: Dict[str, str] = parse_hcl_blocks(response_message)
+    filenames_with_hcl_blocks: dict[str, str] = parse_hcl_blocks(response_message)
     if filenames_with_hcl_blocks:
         logger.info(f"Found HCL blocks in the response: {filenames_with_hcl_blocks}")
-        pull_number = event.get('metadata').get('merge_or_pull_req_id')
+        pull_number = event.get('metadata', {}).get('merge_or_pull_req_id')
         if not pull_number:
             raise InvalidEventMetadata("Pull/Merge request ID not found in the event metadata.")
         path_to_artifacts = f"{config.path_to_artifacts}/{pull_number}/"
@@ -51,15 +49,24 @@ def handle_ai_response_message(event: Dict[str, Any]) -> None:
         upload_files_to_s3(config.artifacts_bucket, pull_number, filenames_with_hcl_blocks)
 
 
-def handle_help_command(event: Dict[str, Any]):
-    """Handle the 'help' bot command."""
+def handle_help_command(event: Dict[str, Any]) -> None:
+    """Handle the ``help`` bot command.
+
+    Args:
+        event: Event payload for the current comment or webhook update.
+    """
     logger.info('Processing help command...')
     post_help_message(event)
 
 
-def handle_comment_commands(event: Dict[str, Any]):
+def handle_comment_commands(event: Dict[str, Any]) -> None:
+    """Dispatch a comment to the matching bot handler.
+
+    Args:
+        event: Event payload containing ``comment_text`` in metadata.
+    """
     comment_context, *rest_comment = event.get('metadata', {}).get('comment_text', '_').split()
-    logger.info(f'Comment context --->  {comment_context}')
+    logger.info(f'Comment context --->\n{comment_context}')
     if comment_context == 'bot':
         logger.info('Bot context found in the comment.')
         handle_bot_commands(event, rest_comment)
@@ -74,10 +81,14 @@ def handle_comment_commands(event: Dict[str, Any]):
         logger.info('No actionable context found in the comment.')
 
 
-def handle_list_command(event: Dict[str, Any]):
-    """Handle the 'list' bot command."""
+def handle_list_command(event: Dict[str, Any]) -> None:
+    """Handle the ``list`` bot command.
+
+    Args:
+        event: Event payload used to locate the current artifact directory.
+    """
     logger.info('Processing list command...')
-    merge_request_id = event.get('metadata').get('merge_or_pull_req_id')
+    merge_request_id = event.get('metadata', {}).get('merge_or_pull_req_id')
     path_to_mr_artifacts = f"{config.path_to_artifacts}/{merge_request_id}/"
     file_names = get_file_names_from_s3_directory(config.artifacts_bucket, path_to_mr_artifacts)
     if file_names:
@@ -90,16 +101,11 @@ def handle_list_command(event: Dict[str, Any]):
 
 
 def handle_bot_commands(event: Dict[str, Any], rest_comment: List[str]) -> None:
-    """
-    Processes bot commands extracted from a comment and delegates actions to appropriate handlers
-    based on the command type. Updates the corresponding note or feedback mechanism depending on
-    the command execution result.
+    """Route a parsed bot command to the appropriate handler.
 
     Args:
-        event (Dict[str, Any]): Event data carrying context and metadata for the bot's operation, including
-            details of the triggering interaction or note.
-        rest_comment (List[str]): Remaining parts of the user comment after extracting the command, typically a list
-            where the first element is the command type, and subsequent elements may provide additional arguments.
+        event: Event payload carrying comment and request metadata.
+        rest_comment: Comment tokens after the leading ``bot`` keyword.
     """
     logger.info('Processing bot commands...')
 
@@ -129,8 +135,13 @@ def handle_bot_commands(event: Dict[str, Any], rest_comment: List[str]) -> None:
         add_award_to_note(event, FAILURE)
 
 
-def handle_prompt_command(event: Dict[str, Any], rest_comment: List[str]):
-    """Handle the 'prompt' bot command."""
+def handle_prompt_command(event: Dict[str, Any], rest_comment: List[str]) -> None:
+    """Handle the ``prompt`` bot command.
+
+    Args:
+        event: Event payload used to load context and persist the AI response.
+        rest_comment: Prompt tokens after the command keyword.
+    """
     logger.info('Processing prompt command...')
     prompt = ' '.join(rest_comment)
     user_message = {'content': prompt, 'role': 'user'}
@@ -141,8 +152,7 @@ def handle_prompt_command(event: Dict[str, Any], rest_comment: List[str]):
 
     logger.info(f"Response from AI ---> {response}")
 
-    event.get("metadata").update({"prompt": prompt})
-    event.get("metadata").update({"ai_response": response["message"].strip()})
+    event.setdefault("metadata", {}).update({"prompt": prompt, "ai_response": response["message"].strip()})
 
     ai_response_message_to_ui = AI_RESPONSE_MESSAGE.format(ai_response=response["message"],
                                                            total_tokens=response["tokens"]["total_tokens"],
@@ -153,16 +163,71 @@ def handle_prompt_command(event: Dict[str, Any], rest_comment: List[str]):
     create_context_memory_window(event)
 
 
-def handle_approve_command(event: Dict[str, Any], rest_comment: List[str]):
-    """Handle the 'approve' bot command."""
+def render_approval_commit_message(approved_files: List[str], include_suffix: bool = False) -> str:
+    """Render a wrapped commit message for approved AI-generated files.
+
+    Args:
+        approved_files: Approved repository paths to include in the message.
+        include_suffix: Whether to append ``and others`` to the message.
+
+    Returns:
+        A wrapped commit message that fits the repository's line-width limit.
+    """
+    commit_message_prefix = f"AI-bot fixed issues in {'the file' if len(approved_files) == 1 else 'files'}"
+    commit_message_suffix = 'and others'
+    message_parts = [commit_message_prefix]
+    if approved_files:
+        message_parts.append(', '.join(approved_files))
+    if include_suffix:
+        message_parts.append(commit_message_suffix)
+
+    message = ' '.join(message_parts)
+    return textwrap.fill(message, width=72, break_long_words=False, break_on_hyphens=False)
+
+
+def build_approval_commit_message(approved_files: List[str]) -> str:
+    """Build a commit message for approved AI-generated file changes.
+
+    Args:
+        approved_files: Approved repository paths to include in the message.
+
+    Returns:
+        A commit message trimmed to the repository length constraints.
+    """
+    commit_message = render_approval_commit_message(approved_files)
+
+    if len(commit_message) <= 1000:
+        return commit_message
+
+    selected_files: List[str] = []
+    for file_name in approved_files:
+        candidate_files = selected_files + [file_name]
+        candidate_message = render_approval_commit_message(candidate_files, include_suffix=True)
+        if len(candidate_message) <= 1000:
+            selected_files.append(file_name)
+        else:
+            break
+
+    return render_approval_commit_message(selected_files, include_suffix=True)
+
+
+def handle_approve_command(event: Dict[str, Any], rest_comment: List[str]) -> None:
+    """Handle the ``approve`` bot command.
+
+    Args:
+        event: Event payload used to resolve artifacts and commit changes.
+        rest_comment: File names or approval keywords supplied by the user.
+    """
     logger.info('Processing approve command...')
     if rest_comment[0] in {'*', 'all'}:
         logger.info('Approving all rest_comment...')
         add_award_to_note(event, SUCCESS)
 
-        merge_or_pull_req_id = event.get('metadata').get('merge_or_pull_req_id')
+        merge_or_pull_req_id = event.get('metadata', {}).get('merge_or_pull_req_id')
         path_to_files_for_approval = f"{config.path_to_artifacts}/{merge_or_pull_req_id}/"
-        file_names_with_content = get_all_files_from_s3_directory(config.artifacts_bucket, path_to_files_for_approval)
+        file_names_with_content: list[tuple[str, str]] = get_all_files_from_s3_directory(
+            config.artifacts_bucket, path_to_files_for_approval
+        )
 
         logger.debug(f"Files with its content ---> {file_names_with_content}")
 
@@ -170,21 +235,22 @@ def handle_approve_command(event: Dict[str, Any], rest_comment: List[str]):
             logger.info('Committing all corrected files...')
 
             # Check if files exist in VCS repository
-            files_to_check = [file_key for file_key, _ in file_names_with_content]
+            files_to_check: list[str] = [file_key for file_key, _ in file_names_with_content]
 
             if not check_files_exist_in_repo(event, files_to_check):
                 logger.warning('Some files do not exist in the repository')
                 add_award_to_note(event, FAILURE)
                 post_comment(event, 'Some files do not exist in the repository')
-            # post_comment(event, 'All files exist in the repository. Committing changes...')
+                return
 
-            commit_files_to_branch(event, file_names_with_content, 'Test commit from AI Handler Lambda')
+            commit_message = build_approval_commit_message(files_to_check)
+            commit_files_to_branch(event, file_names_with_content, commit_message)
             delete_files_from_s3(config.artifacts_bucket, path_to_files_for_approval)
     else:
         logger.info('Approving specific rest_comment...')
-        merge_or_pull_req_id = event.get('metadata').get('merge_or_pull_req_id')
+        merge_or_pull_req_id = event.get('metadata', {}).get('merge_or_pull_req_id')
         path_to_files_for_approval = f"{config.path_to_artifacts}/{merge_or_pull_req_id}/"
-        fixed_files = get_file_names_from_s3_directory(config.artifacts_bucket, path_to_files_for_approval)
+        fixed_files: list[str] = get_file_names_from_s3_directory(config.artifacts_bucket, path_to_files_for_approval)
 
         wrong_files = [file_name for file_name in rest_comment if file_name not in fixed_files]
         #
@@ -195,8 +261,16 @@ def handle_approve_command(event: Dict[str, Any], rest_comment: List[str]):
         else:
             add_award_to_note(event, SUCCESS)
             logger.info(f"Fixed files ---> {fixed_files}")
-            files_names_with_content = get_particular_files_from_s3_directory(config.artifacts_bucket,
-                                                                              path_to_files_for_approval, rest_comment)
+            if not check_files_exist_in_repo(event, rest_comment):
+                logger.warning('Some requested files do not exist in the repository')
+                add_award_to_note(event, FAILURE)
+                post_comment(event, 'Some requested files do not exist in the repository')
+                return
+
+            files_names_with_content: list[tuple[str, str]] = get_particular_files_from_s3_directory(
+                config.artifacts_bucket, path_to_files_for_approval, rest_comment
+            )
             logger.info(f"Files with its content ---> {files_names_with_content}")
-            commit_files_to_branch(event, files_names_with_content, 'Test commit from AI Handler Lambda')
+            commit_message = build_approval_commit_message(rest_comment)
+            commit_files_to_branch(event, files_names_with_content, commit_message)
             delete_files_from_s3(config.artifacts_bucket, path_to_files_for_approval)
