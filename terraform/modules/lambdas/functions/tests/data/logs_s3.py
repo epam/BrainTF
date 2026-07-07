@@ -1,5 +1,7 @@
 LOG_TEXT_TFLINT = \
     """
+Running TFLint analysis in directory: test_code/modules/dynamodb
+
 2 issue(s) found:
 
 Warning: Missing version constraint for provider "aws" in `required_providers` (terraform_required_providers)
@@ -15,7 +17,7 @@ Warning: terraform "required_version" attribute is required (terraform_required_
 
 Reference: https://github.com/terraform-linters/tflint-ruleset-terraform/blob/v0.11.0/docs/rules/terraform_required_version.md
 
-Working Directory: test_code/modules/dynamodb
+Running TFLint analysis in directory: test_code/modules/s3_bucket
 
 2 issue(s) found:
 
@@ -32,7 +34,7 @@ Warning: terraform "required_version" attribute is required (terraform_required_
 
 Reference: https://github.com/terraform-linters/tflint-ruleset-terraform/blob/v0.11.0/docs/rules/terraform_required_version.md
 
-Working Directory: test_code/modules/s3_bucket
+Running TFLint analysis in directory: test_code/modules/ec2_instance
 
 2 issue(s) found:
 
@@ -49,12 +51,12 @@ Warning: Missing version constraint for provider "aws" in `required_providers` (
 
 Reference: https://github.com/terraform-linters/tflint-ruleset-terraform/blob/v0.11.0/docs/rules/terraform_required_providers.md
 
-Working Directory: test_code/modules/ec2_instance
-
 """
 
 LOG_TEXT_TERRAFORM = \
     """
+Running Terraform validate in directory: test_code/modules/dynamodb
+
 2026-02-12T17:20:30.130Z [ERROR] AttachSchemaTransformer: No resource schema available for aws_dynamodb_tabl.this
 2026-02-12T17:20:30.132Z [ERROR] vertex "output.table_name" error: Reference to undeclared resource
 2026-02-12T17:20:30.132Z [ERROR] vertex "output.table_name (expand)" error: Reference to undeclared resource
@@ -73,7 +75,8 @@ Error: Reference to undeclared resource
 
 A managed resource "aws_dynamodb_table" "this" has not been declared in the
 root module.
-Working Directory: test_code/modules/dynamodb
+
+Running Terraform validate in directory: test_code/modules/s3_bucket
 
 2026-02-12T17:20:39.263Z [ERROR] AttachSchemaTransformer: No resource schema available for aws_s3_bucke.this
 2026-02-12T17:20:39.264Z [ERROR] vertex "output.bucket_name" error: Reference to undeclared resource
@@ -93,7 +96,8 @@ Error: Reference to undeclared resource
 
 A managed resource "aws_s3_bucket" "this" has not been declared in the root
 module.
-Working Directory: test_code/modules/s3_bucket
+
+Running Terraform validate in directory: test_code/modules/ec2_instance
 
 2026-02-12T17:20:47.660Z [ERROR] AttachSchemaTransformer: No resource schema available for aws_instanc.this
 2026-02-12T17:20:47.666Z [ERROR] vertex "output.public_ip" error: Reference to undeclared resource
@@ -113,7 +117,6 @@ Error: Reference to undeclared resource
 
 A managed resource "aws_instance" "this" has not been declared in the root
 module.
-Working Directory: test_code/modules/ec2_instance
 
 """
 
@@ -979,7 +982,7 @@ Result #4 LOW Security group rule does not have a description.
 LOG_TEXT_SINGLE_DIR_CHECKOV = \
     """
 Running Checkov analysis in directory: test_code/
-Issues found in directory: test_code/.
+
 terraform scan results:
 
 Passed checks: 13, Failed checks: 16, Skipped checks: 0, Parsing errors: 1
@@ -1372,6 +1375,8 @@ Check: CKV2_AWS_41: "Ensure an IAM role is attached to EC2 instance"
 
 LOG_TEXT_SINGLE_DIR_TFLINT = \
     """
+Running TFLint analysis in directory: test_code/modules/dynamodb
+
 Failed to load configurations; test_code/modules/dynamodb/main.tf:1,36-37: Unclosed configuration block; There is no closing brace for this block before the end of the file. This may be caused by incorrect brace nesting elsewhere in this file.:
 
 Error: Unclosed configuration block
@@ -1381,7 +1386,7 @@ Error: Unclosed configuration block
 
 There is no closing brace for this block before the end of the file. This may be caused by incorrect brace nesting elsewhere in this file.
 
-Working Directory: test_code/modules/dynamodb
+Running TFLint analysis in directory: test_code/modules/ec2_instance
 
 2 issue(s) found:
 
@@ -1397,14 +1402,12 @@ Warning: Missing version constraint for provider "aws" in `required_providers` (
   15: resource "aws_security_group" "this" {
 
 Reference: https://github.com/terraform-linters/tflint-ruleset-terraform/blob/v0.11.0/docs/rules/terraform_required_providers.md
-
-Working Directory: test_code/modules/ec2_instance
 """
 
 LOG_TEXT_SINGLE_DIR_TFSEC = \
     """
 Running TFSec analysis in directory: test_code/
-Issues found in directory: test_code/.
+
 
 Results #1-2 CRITICAL Security group rule allows egress to multiple public internet addresses. (2 similar results)
 ────────────────────────────────────────────────────────────────────────────────
@@ -1630,7 +1633,7 @@ Results #10-11 LOW Security group rule does not have a description. (2 similar r
 LOG_TEXT_NO_ISSUES_DIR_TFSEC = \
     """
 Running TFSec analysis in directory: test_code/modules/ec2_instance
-Issues found in directory: test_code/modules/ec2_instance.
+
 
 Result #1 CRITICAL Security group rule allows egress to multiple public internet addresses. 
 ────────────────────────────────────────────────────────────────────────────────
@@ -1753,10 +1756,8 @@ Result #4 LOW Security group rule does not have a description.
 
   2 passed, 4 potential problem(s) detected.
 
-Running TFSec analysis in directory: test_code/modules/s3_bucket
-No issues were found during TFSec analysis in the directory: test_code/modules/s3_bucket.
 Running TFSec analysis in directory: test_code/modules/dynamodb
-Issues found in directory: test_code/modules/dynamodb.
+
 
 Result #1 HIGH Table encryption is not enabled. 
 ────────────────────────────────────────────────────────────────────────────────
@@ -1858,5 +1859,409 @@ Result #3 LOW Table encryption does not use a customer-managed KMS key.
   low                  1
 
   3 potential problem(s) detected.
+
+""".lstrip().removesuffix("\n")
+
+LOG_TEXT_TRIVY = \
+    """
+Running Trivy analysis in directory: demo/broken
+
+Report Summary
+
+┌───────────────────────┬───────────┬───────────────────┐
+│        Target         │   Type    │ Misconfigurations │
+├───────────────────────┼───────────┼───────────────────┤
+│ .                     │ terraform │         0         │
+├───────────────────────┼───────────┼───────────────────┤
+│ logging               │ terraform │         0         │
+├───────────────────────┼───────────┼───────────────────┤
+│ logging/cloudwatch.tf │ terraform │         0         │
+├───────────────────────┼───────────┼───────────────────┤
+│ network               │ terraform │         0         │
+├───────────────────────┼───────────┼───────────────────┤
+│ network/ec2.tf        │ terraform │         2         │
+├───────────────────────┼───────────┼───────────────────┤
+│ storage               │ terraform │         0         │
+├───────────────────────┼───────────┼───────────────────┤
+│ storage/s3.tf         │ terraform │         5         │
+├───────────────────────┼───────────┼───────────────────┤
+│ storage/s3_trivy.tf   │ terraform │         5         │
+├───────────────────────┼───────────┼───────────────────┤
+│ validate.tf           │ terraform │         5         │
+└───────────────────────┴───────────┴───────────────────┘
+Legend:
+- '-': Not scanned
+- '0': Clean (no security findings detected)
+
+
+network/ec2.tf (terraform)
+==========================
+Tests: 2 (SUCCESSES: 0, FAILURES: 2)
+Failures: 2 (HIGH: 1, CRITICAL: 1)
+
+AWS-0104 (CRITICAL): Security group rule allows unrestricted egress to any IP address.
+════════════════════════════════════════
+Opening up ports to connect out to the public internet is generally to be avoided. You should restrict access to IP addresses or ranges that are explicitly required where possible.
+
+
+See https://avd.aquasec.com/misconfig/aws-0104
+────────────────────────────────────────
+ network/ec2.tf:16
+   via network/ec2.tf:12-17 (egress)
+    via network/ec2.tf:1-23 (aws_security_group.demo_broken)
+────────────────────────────────────────
+   1   resource "aws_security_group" "demo_broken" {
+   .   
+  16 [     cidr_blocks = ["0.0.0.0/0"]
+  ..   
+  23   }
+────────────────────────────────────────
+
+
+AWS-0107 (HIGH): Security group rule allows unrestricted ingress from any IP address.
+════════════════════════════════════════
+Security groups provide stateful filtering of ingress and egress network traffic to AWS
+resources. It is recommended that no security group allows unrestricted ingress access to
+remote server administration ports, such as SSH to port 22 and RDP to port 3389.
+
+
+See https://avd.aquasec.com/misconfig/aws-0107
+────────────────────────────────────────
+ network/ec2.tf:9
+   via network/ec2.tf:5-10 (ingress)
+    via network/ec2.tf:1-23 (aws_security_group.demo_broken)
+────────────────────────────────────────
+   1   resource "aws_security_group" "demo_broken" {
+   .   
+   9 [     cidr_blocks = ["0.0.0.0/0"]
+  ..   
+  23   }
+────────────────────────────────────────
+
+
+
+storage/s3.tf (terraform)
+=========================
+Tests: 5 (SUCCESSES: 0, FAILURES: 5)
+Failures: 5 (HIGH: 5, CRITICAL: 0)
+
+AWS-0086 (HIGH): No public access block so not blocking public acls
+════════════════════════════════════════
+S3 buckets should block public ACLs on buckets and any objects they contain. By blocking, PUTs with fail if the object has any public ACL a.
+
+
+See https://avd.aquasec.com/misconfig/aws-0086
+────────────────────────────────────────
+ storage/s3.tf:1-8
+────────────────────────────────────────
+   1 ┌ resource "aws_s3_bucket" "demo_broken" {
+   2 │   bucket = "braintf-demo-broken-bucket"
+   3 │ 
+   4 │   tags = {
+   5 │     Environment = "Demo"
+   6 │     ManagedBy   = "Terraform"
+   7 │   }
+   8 └ }
+────────────────────────────────────────
+
+
+AWS-0087 (HIGH): No public access block so not blocking public policies
+════════════════════════════════════════
+S3 bucket policy should have block public policy to prevent users from putting a policy that enable public access.
+
+
+See https://avd.aquasec.com/misconfig/aws-0087
+────────────────────────────────────────
+ storage/s3.tf:1-8
+────────────────────────────────────────
+   1 ┌ resource "aws_s3_bucket" "demo_broken" {
+   2 │   bucket = "braintf-demo-broken-bucket"
+   3 │ 
+   4 │   tags = {
+   5 │     Environment = "Demo"
+   6 │     ManagedBy   = "Terraform"
+   7 │   }
+   8 └ }
+────────────────────────────────────────
+
+
+AWS-0091 (HIGH): No public access block so not blocking public acls
+════════════════════════════════════════
+S3 buckets should ignore public ACLs on buckets and any objects they contain. By ignoring rather than blocking, PUT calls with public ACLs will still be applied but the ACL will be ignored.
+
+
+See https://avd.aquasec.com/misconfig/aws-0091
+────────────────────────────────────────
+ storage/s3.tf:1-8
+────────────────────────────────────────
+   1 ┌ resource "aws_s3_bucket" "demo_broken" {
+   2 │   bucket = "braintf-demo-broken-bucket"
+   3 │ 
+   4 │   tags = {
+   5 │     Environment = "Demo"
+   6 │     ManagedBy   = "Terraform"
+   7 │   }
+   8 └ }
+────────────────────────────────────────
+
+
+AWS-0093 (HIGH): No public access block so not restricting public buckets
+════════════════════════════════════════
+S3 buckets should restrict public policies for the bucket. By enabling, the restrict_public_buckets, only the bucket owner and AWS Services can access if it has a public policy.
+
+
+See https://avd.aquasec.com/misconfig/aws-0093
+────────────────────────────────────────
+ storage/s3.tf:1-8
+────────────────────────────────────────
+   1 ┌ resource "aws_s3_bucket" "demo_broken" {
+   2 │   bucket = "braintf-demo-broken-bucket"
+   3 │ 
+   4 │   tags = {
+   5 │     Environment = "Demo"
+   6 │     ManagedBy   = "Terraform"
+   7 │   }
+   8 └ }
+────────────────────────────────────────
+
+
+AWS-0132 (HIGH): Bucket does not encrypt data with a customer managed key.
+════════════════════════════════════════
+Encryption using AWS keys provides protection for your S3 buckets. To gain greater control over encryption, such as key rotation, access policies, and auditability, use customer managed keys (CMKs) with SSE-KMS.
+Note that SSE-KMS is not supported for S3 server access logging destination buckets; in such cases, use SSE-S3 instead.
+
+
+See https://avd.aquasec.com/misconfig/aws-0132
+────────────────────────────────────────
+ storage/s3.tf:1-8
+────────────────────────────────────────
+   1 ┌ resource "aws_s3_bucket" "demo_broken" {
+   2 │   bucket = "braintf-demo-broken-bucket"
+   3 │ 
+   4 │   tags = {
+   5 │     Environment = "Demo"
+   6 │     ManagedBy   = "Terraform"
+   7 │   }
+   8 └ }
+────────────────────────────────────────
+
+
+
+storage/s3_trivy.tf (terraform)
+===============================
+Tests: 5 (SUCCESSES: 0, FAILURES: 5)
+Failures: 5 (HIGH: 5, CRITICAL: 0)
+
+AWS-0086 (HIGH): No public access block so not blocking public acls
+════════════════════════════════════════
+S3 buckets should block public ACLs on buckets and any objects they contain. By blocking, PUTs with fail if the object has any public ACL a.
+
+
+See https://avd.aquasec.com/misconfig/aws-0086
+────────────────────────────────────────
+ storage/s3_trivy.tf:1-8
+────────────────────────────────────────
+   1 ┌ resource "aws_s3_bucket" "demo_broken_trivy" {
+   2 │   bucket = "braintf-demo-broken-trivy-bucket"
+   3 │ 
+   4 │   tags = {
+   5 │     Environment = "Demo"
+   6 │     ManagedBy   = "Terraform"
+   7 │   }
+   8 └ }
+────────────────────────────────────────
+
+
+AWS-0087 (HIGH): No public access block so not blocking public policies
+════════════════════════════════════════
+S3 bucket policy should have block public policy to prevent users from putting a policy that enable public access.
+
+
+See https://avd.aquasec.com/misconfig/aws-0087
+────────────────────────────────────────
+ storage/s3_trivy.tf:1-8
+────────────────────────────────────────
+   1 ┌ resource "aws_s3_bucket" "demo_broken_trivy" {
+   2 │   bucket = "braintf-demo-broken-trivy-bucket"
+   3 │ 
+   4 │   tags = {
+   5 │     Environment = "Demo"
+   6 │     ManagedBy   = "Terraform"
+   7 │   }
+   8 └ }
+────────────────────────────────────────
+
+
+AWS-0091 (HIGH): No public access block so not blocking public acls
+════════════════════════════════════════
+S3 buckets should ignore public ACLs on buckets and any objects they contain. By ignoring rather than blocking, PUT calls with public ACLs will still be applied but the ACL will be ignored.
+
+
+See https://avd.aquasec.com/misconfig/aws-0091
+────────────────────────────────────────
+ storage/s3_trivy.tf:1-8
+────────────────────────────────────────
+   1 ┌ resource "aws_s3_bucket" "demo_broken_trivy" {
+   2 │   bucket = "braintf-demo-broken-trivy-bucket"
+   3 │ 
+   4 │   tags = {
+   5 │     Environment = "Demo"
+   6 │     ManagedBy   = "Terraform"
+   7 │   }
+   8 └ }
+────────────────────────────────────────
+
+
+AWS-0093 (HIGH): No public access block so not restricting public buckets
+════════════════════════════════════════
+S3 buckets should restrict public policies for the bucket. By enabling, the restrict_public_buckets, only the bucket owner and AWS Services can access if it has a public policy.
+
+
+See https://avd.aquasec.com/misconfig/aws-0093
+────────────────────────────────────────
+ storage/s3_trivy.tf:1-8
+────────────────────────────────────────
+   1 ┌ resource "aws_s3_bucket" "demo_broken_trivy" {
+   2 │   bucket = "braintf-demo-broken-trivy-bucket"
+   3 │ 
+   4 │   tags = {
+   5 │     Environment = "Demo"
+   6 │     ManagedBy   = "Terraform"
+   7 │   }
+   8 └ }
+────────────────────────────────────────
+
+
+AWS-0132 (HIGH): Bucket does not encrypt data with a customer managed key.
+════════════════════════════════════════
+Encryption using AWS keys provides protection for your S3 buckets. To gain greater control over encryption, such as key rotation, access policies, and auditability, use customer managed keys (CMKs) with SSE-KMS.
+Note that SSE-KMS is not supported for S3 server access logging destination buckets; in such cases, use SSE-S3 instead.
+
+
+See https://avd.aquasec.com/misconfig/aws-0132
+────────────────────────────────────────
+ storage/s3_trivy.tf:10-18
+────────────────────────────────────────
+  10 ┌ resource "aws_s3_bucket_server_side_encryption_configuration" "demo_broken_trivy" {
+  11 │   bucket = aws_s3_bucket.demo_broken_trivy.id
+  12 │ 
+  13 │   rule {
+  14 │     apply_server_side_encryption_by_default {
+  15 │       sse_algorithm = "AES256"
+  16 │     }
+  17 │   }
+  18 └ }
+────────────────────────────────────────
+
+
+
+validate.tf (terraform)
+=======================
+Tests: 5 (SUCCESSES: 0, FAILURES: 5)
+Failures: 5 (HIGH: 5, CRITICAL: 0)
+
+AWS-0086 (HIGH): No public access block so not blocking public acls
+════════════════════════════════════════
+S3 buckets should block public ACLs on buckets and any objects they contain. By blocking, PUTs with fail if the object has any public ACL a.
+
+
+See https://avd.aquasec.com/misconfig/aws-0086
+────────────────────────────────────────
+ validate.tf:1-4
+────────────────────────────────────────
+   1 ┌ resource "aws_s3_bucket" "demo_validate" {
+   2 │   bucket        = "braintf-demo-validate-bucket"
+   3 │   unknown_field = "this-argument-does-not-exist"
+   4 └ }
+────────────────────────────────────────
+
+
+AWS-0087 (HIGH): No public access block so not blocking public policies
+════════════════════════════════════════
+S3 bucket policy should have block public policy to prevent users from putting a policy that enable public access.
+
+
+See https://avd.aquasec.com/misconfig/aws-0087
+────────────────────────────────────────
+ validate.tf:1-4
+────────────────────────────────────────
+   1 ┌ resource "aws_s3_bucket" "demo_validate" {
+   2 │   bucket        = "braintf-demo-validate-bucket"
+   3 │   unknown_field = "this-argument-does-not-exist"
+   4 └ }
+────────────────────────────────────────
+
+
+AWS-0091 (HIGH): No public access block so not blocking public acls
+════════════════════════════════════════
+S3 buckets should ignore public ACLs on buckets and any objects they contain. By ignoring rather than blocking, PUT calls with public ACLs will still be applied but the ACL will be ignored.
+
+
+See https://avd.aquasec.com/misconfig/aws-0091
+────────────────────────────────────────
+ validate.tf:1-4
+────────────────────────────────────────
+   1 ┌ resource "aws_s3_bucket" "demo_validate" {
+   2 │   bucket        = "braintf-demo-validate-bucket"
+   3 │   unknown_field = "this-argument-does-not-exist"
+   4 └ }
+────────────────────────────────────────
+
+
+AWS-0093 (HIGH): No public access block so not restricting public buckets
+════════════════════════════════════════
+S3 buckets should restrict public policies for the bucket. By enabling, the restrict_public_buckets, only the bucket owner and AWS Services can access if it has a public policy.
+
+
+See https://avd.aquasec.com/misconfig/aws-0093
+────────────────────────────────────────
+ validate.tf:1-4
+────────────────────────────────────────
+   1 ┌ resource "aws_s3_bucket" "demo_validate" {
+   2 │   bucket        = "braintf-demo-validate-bucket"
+   3 │   unknown_field = "this-argument-does-not-exist"
+   4 └ }
+────────────────────────────────────────
+
+
+AWS-0132 (HIGH): Bucket does not encrypt data with a customer managed key.
+════════════════════════════════════════
+Encryption using AWS keys provides protection for your S3 buckets. To gain greater control over encryption, such as key rotation, access policies, and auditability, use customer managed keys (CMKs) with SSE-KMS.
+Note that SSE-KMS is not supported for S3 server access logging destination buckets; in such cases, use SSE-S3 instead.
+
+
+See https://avd.aquasec.com/misconfig/aws-0132
+────────────────────────────────────────
+ validate.tf:1-4
+────────────────────────────────────────
+   1 ┌ resource "aws_s3_bucket" "demo_validate" {
+   2 │   bucket        = "braintf-demo-validate-bucket"
+   3 │   unknown_field = "this-argument-does-not-exist"
+   4 └ }
+────────────────────────────────────────
+
+
+
+""".lstrip().removesuffix("\n")
+
+LOG_TEXT_TFLINT_NEW = \
+    """
+Running TFLint analysis in directory: demo/broken
+
+2 issue(s) found:
+
+Warning: terraform "required_version" attribute is required (terraform_required_version)
+
+  on demo/broken/backend.tf line 1:
+   1: terraform {
+
+Reference: https://github.com/terraform-linters/tflint-ruleset-terraform/blob/v0.14.1/docs/rules/terraform_required_version.md
+
+Warning: Missing version constraint for provider "aws" in `required_providers` (terraform_required_providers)
+
+  on demo/broken/main.tf line 4:
+   4: provider "aws" {
+
+Reference: https://github.com/terraform-linters/tflint-ruleset-terraform/blob/v0.14.1/docs/rules/terraform_required_providers.md
 
 """.lstrip().removesuffix("\n")
