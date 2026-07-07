@@ -128,7 +128,7 @@ variable "job_token" {
 }
 
 variable "oidc_provider" {
-  description = "The oidc provider"
+  description = "OIDC identity provider domain (issuer). Used to construct IAM trust policy condition keys (e.g. <provider>:aud, <provider>:sub) and the OIDC provider URL. Use 'token.actions.githubusercontent.com' for GitHub or 'gitlab.com' for GitLab."
   type        = string
 }
 
