@@ -48,6 +48,81 @@ Workflow/pipeline described in this section can work independently and also be a
 2. Run `terraform init` command in [terraform/main_module/](terraform/main_module) directory.
 3. Run `terraform plan/apply` commands in [terraform/main_module/](terraform/main_module) directory.
 
+## GitHub Environment Setup for Terraform Apply
+
+The `terraform-apply` stage uses a GitHub Environment with manual approval (protection rules) to prevent unintended infrastructure changes. Before running the pipeline, the environment **must** be created and configured.
+
+### User permissions required
+
+To create and configure GitHub Environments with protection rules, the user must have one of the following roles:
+
+| Repository type | Minimum required role |
+|---|---|
+| Personal repository | Repository owner |
+| Organization repository (public) | **Admin** role on the repository |
+| Organization repository (private/internal) | **Admin** role on the repository |
+| Organization (GitHub Enterprise) | **Admin** role on the repository, or organization owner |
+
+> **Note:** Users with `Write` or `Maintain` roles **cannot** create environments or configure protection rules. Only repository administrators or organization owners have this capability.
+
+### Step-by-step: Create the `terraform-apply` environment
+
+1. Navigate to your GitHub repository.
+2. Go to **Settings** → **Environments**.
+3. Click **New environment**.
+4. Enter the name: `terraform-apply` (must match exactly the value specified in the pipeline YAML under `environment.name`).
+5. Click **Configure environment**.
+
+### Step-by-step: Activate Manual Approval (Required Reviewers)
+
+1. Inside the `terraform-apply` environment configuration page, locate the **Environment protection rules** section.
+2. Check the **Required reviewers** checkbox.
+3. Add one or more users or teams who are authorized to approve deployments. These reviewers will be prompted to approve the workflow run before the `terraform-apply` job proceeds.
+4. *(Optional)* Enable **Prevent self-review** if you want to prevent the person who triggered the pipeline from also approving it.
+5. Click **Save protection rules**.
+
+### Optional: Additional protection rules
+
+| Protection rule | Description |
+|---|---|
+| **Wait timer** | Adds a delay (in minutes) before the job can proceed after approval. Useful for giving teams time to react. |
+| **Deployment branches and tags** | Restricts which branches or tags can deploy to this environment. Recommended: set to **Selected branches** and add `main` only. |
+| **Custom deployment protection rules** | Available on GitHub Enterprise — allows integration with external approval systems (e.g., ServiceNow, Jira). |
+
+### How manual approval works in the pipeline
+
+The `terraform-apply` job in the pipeline is configured as follows:
+
+```yaml
+terraform-apply:
+  name: Terraform Apply
+  needs:
+    - setup
+    - terraform-plan
+  if: ${{ !cancelled() && contains(vars.RUN_TERRAFORM_APPLY, 'true') && needs.terraform-plan.result == 'success' && github.event_name == 'push' && github.ref == 'refs/heads/main' }}
+  environment:
+    name: terraform-apply
+```
+### When the pipeline reaches this stage:
+
+1. All previous stages (terraform-plan, security checks, etc.) must have completed successfully.
+2. The trigger event must be a push to the main branch (typically after a PR merge).
+3. The repository variable RUN_TERRAFORM_APPLY must be set to true.
+4. GitHub will pause the workflow and send a notification to the configured reviewers.
+5. A reviewer must navigate to the Actions tab, review the pending deployment, and click Approve and deploy.
+6. Only after approval will the terraform-apply job execute terraform apply -auto-approve.
+````
+Important: If no environment named terraform-apply exists or no protection rules are configured, the job will execute immediately without any manual gate. Always ensure the environment is properly configured in production repositories.
+````
+
+### After configuration, verify the setup:
+
+1. Trigger the pipeline by pushing a commit to main (or merge a PR).
+2. Observe that the pipeline pauses at the Terraform Apply stage.
+3. Navigate to Actions → select the running workflow → click Review deployments.
+4. Confirm that the correct environment (terraform-apply) is listed and requires approval.
+5. Approve and verify that terraform apply executes successfully.
+
 ## Post installation check
 
 **1. Create a new MR/PR**

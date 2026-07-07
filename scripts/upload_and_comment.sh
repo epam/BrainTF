@@ -17,11 +17,10 @@ JOB_TOKEN="$(echo "${10}" | xargs)"                    # VCS job token (optional
 PROJECT_ID_OR_REPOSITORY="$(echo "${11}" | xargs)"     # Project ID for GitLab or Repository (owner/repo) for GitHub
 PIPELINE_ID_OR_RUN_ID="$(echo "${12}" | xargs)"        # Pipeline ID for GitLab or Run ID for GitHub
 MR_OR_PR_NUMBER="$(echo "${13}" | xargs)"              # Merge Request IID for GitLab or Pull Request number for GitHub
-OIDC_ROLE_ARN="$(echo "${14}" | xargs)"                # OIDC role ARN (optional, for AWS authentication)
-VCS_OIDC_TOKEN="$(echo "${15}" | xargs)"               # OIDC token (optional, for AWS authentication)
-TOOL_NAME="$(echo "${16}" | xargs)"                    # Tool name (e.g., TFLint)
-PLAIN_TEXT_LOG_FILE="$(echo "${17}" | xargs)"          # Plain text log file
-JOB_URL="$(echo "${18}" | xargs)"                      # Job URL for linking console logs
+OIDC_ROLE_ARN="$(echo "${14}" | xargs)"                # OIDC role ARN (kept for argument compatibility)
+TOOL_NAME="$(echo "${15}" | xargs)"                    # Tool name (e.g., TFLint)
+PLAIN_TEXT_LOG_FILE="$(echo "${16}" | xargs)"          # Plain text log file
+JOB_URL="$(echo "${17}" | xargs)"                      # Job URL for linking console logs
 
 # Validate VCS_PROVIDER
 if [ "$VCS_PROVIDER" != "gitlab" ] && [ "$VCS_PROVIDER" != "github" ]; then
@@ -37,33 +36,8 @@ else
   exit 1
 fi
 
-# Authenticate with AWS using OIDC if action includes upload and bucket is defined
+# Upload log file to S3 using AWS credentials already present in the environment
 if [ "$ACTION" != "post" ] && [ -n "$AWS_S3_BUCKET" ]; then
-  # Authenticate with AWS using OIDC
-  if [ "$VCS_PROVIDER" = "gitlab" ] && [ -n "$OIDC_ROLE_ARN" ] && [ -n "$VCS_OIDC_TOKEN" ]; then
-    echo -e "\033[34mAuthenticating with AWS using OIDC...\033[0m"
-    set +x # Disable command echoing to hide sensitive data
-    aws_sts_output=$(aws sts assume-role-with-web-identity \
-      --role-arn "${OIDC_ROLE_ARN}" \
-      --role-session-name "VCSRunner-${CI_PROJECT_ID}-${CI_PIPELINE_ID}" \
-      --web-identity-token "${VCS_OIDC_TOKEN}" \
-      --duration-seconds 3600 \
-      --query 'Credentials.[AccessKeyId,SecretAccessKey,SessionToken]' \
-      --output text) || { echo -e "\033[31mFailed to assume role with OIDC.\033[0m"; exit 1; }
-
-    # Export AWS credentials to environment variables
-    export AWS_ACCESS_KEY_ID=$(echo "$aws_sts_output" | awk '{print $1}')
-    export AWS_SECRET_ACCESS_KEY=$(echo "$aws_sts_output" | awk '{print $2}')
-    export AWS_SESSION_TOKEN=$(echo "$aws_sts_output" | awk '{print $3}')
-
-    # Indicate that credentials have been successfully set
-    echo -e "\033[32mAWS credentials have been successfully obtained and added to the environment.\033[0m"
-
-    # Verify AWS credentials by calling sts get-caller-identity
-    echo -e "\033[34mValidating AWS credentials...\033[0m"
-    aws sts get-caller-identity || { echo -e "\033[31mFailed to validate AWS credentials.\033[0m"; exit 1; }
-  fi
-  # Upload log file to S3
   echo -e "\033[34mUploading $LOG_NAME to S3 bucket $AWS_S3_BUCKET in folder $MR_OR_PR_NUMBER...\033[0m"
   aws s3 cp "$LOG_FILE_PATH" "s3://$AWS_S3_BUCKET/$MR_OR_PR_NUMBER/$LOG_NAME" \
     --metadata "PULL_NUM=$MR_OR_PR_NUMBER,BASE_REPO_NAME=$BASE_REPO_NAME,BASE_REPO_OWNER=$BASE_REPO_OWNER,HEAD_BRANCH_NAME=$HEAD_BRANCH_NAME,TOOL_NAME=$TOOL_NAME,COMMIT_SHA=${COMMIT_SHA}" || {
@@ -75,7 +49,7 @@ else
   echo -e "\033[34mSkipping S3 upload (ACTION='$ACTION').\033[0m"
 fi
 
-# Check if PLAIN_TEXT_LOG_FILE exists and read its content
+# Ensure VCS API endpoint is configured before attempting to comment
 if [ -z "${VCS_API_ENDPOINT:-}" ]; then
   echo -e "\033[31mError: VCS_API_ENDPOINT is not set.\033[0m"
   exit 1
@@ -84,9 +58,26 @@ fi
 COMMIT_AUTHOR=""
   # Determine API endpoint based on VCS_PROVIDER
 if [ "$VCS_PROVIDER" = "gitlab" ]; then
-  COMMENTS_URL="${VCS_API_ENDPOINT}/projects/${PROJECT_ID_OR_REPOSITORY}/merge_requests/${MR_OR_PR_NUMBER}/notes"
   AUTH_HEADER="PRIVATE-TOKEN: $JOB_TOKEN"
   COMMIT_AUTHOR="${CI_COMMIT_AUTHOR:-}"
+
+  # Resolve MR IID from commit SHA when MR context is absent (post-merge push pipeline)
+  if [ -z "$MR_OR_PR_NUMBER" ] && [ -n "$COMMIT_SHA" ]; then
+    echo -e "\033[34mNo MR IID in context. Resolving MR from commit ${COMMIT_SHA}...\033[0m"
+    MR_LOOKUP_URL="${VCS_API_ENDPOINT}/projects/${PROJECT_ID_OR_REPOSITORY}/repository/commits/${COMMIT_SHA}/merge_requests"
+    MR_LOOKUP_RESPONSE=$(curl -L -s -H "$AUTH_HEADER" "$MR_LOOKUP_URL" || true)
+    MR_OR_PR_NUMBER=$(printf '%s' "$MR_LOOKUP_RESPONSE" \
+      | jq -r '[.[] | select(.state == "merged")] | sort_by(.merged_at) | last | .iid // empty' 2>/dev/null || true)
+  fi
+
+  # Skip commenting gracefully if MR still cannot be determined
+  if [ -z "$MR_OR_PR_NUMBER" ]; then
+    echo -e "\033[33mNo associated MR found for this commit. Skipping comment publication.\033[0m"
+    exit 0
+  fi
+
+  COMMENTS_URL="${VCS_API_ENDPOINT}/projects/${PROJECT_ID_OR_REPOSITORY}/merge_requests/${MR_OR_PR_NUMBER}/notes"
+
 elif [ "$VCS_PROVIDER" = "github" ]; then
   MR_OR_PR_NUMBER=$(echo "$PROJECT_ID_OR_REPOSITORY" | cut -d'/' -f3)
   COMMENTS_URL="${VCS_API_ENDPOINT}/repos/${BASE_REPO_NAME}/issues/${MR_OR_PR_NUMBER}/comments"
@@ -97,9 +88,10 @@ else
   exit 1
 fi
 
+# S3 link is only relevant when the log was actually uploaded
 if [ "$ACTION" = "both" ] && [ -n "$AWS_S3_BUCKET" ]; then
   LOG_LINK_TEXT="s3://$AWS_S3_BUCKET/$MR_OR_PR_NUMBER/$LOG_NAME"
-  else
+else
   LOG_LINK_TEXT="No log uploaded to S3"
 fi
 
@@ -115,7 +107,7 @@ COMMENT_BODY=$(cat <<EOF
 
   <details><summary>Show utility outputs</summary>
 
-  \`\`\`bash
+  \`\`\`hcl
   $PLAIN_TEXT_LOG
   \`\`\`
 
@@ -157,7 +149,8 @@ else
   echo -e "\033[33mSkipping comment as the log is empty.\033[0m"
 fi
 
-if [ "$HTTP_CODE" -ne 201 ]; then
+# Treat any 2xx response as success
+if [ "$HTTP_CODE" -lt 200 ] || [ "$HTTP_CODE" -ge 300 ]; then
   echo -e "\033[31mError: Failed to post comment to $VCS_PROVIDER. HTTP status code: $HTTP_CODE\033[0m"
   exit 1
 else
