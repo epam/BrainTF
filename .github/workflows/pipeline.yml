@@ -114,8 +114,7 @@ jobs:
           echo -e "\033[34mInstalling AWS CLI version 2...\033[0m"
           curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           unzip -q -o awscliv2.zip
-          #./aws/install --bin-dir "$GITHUB_WORKSPACE/project-tools/aws/bin" --install-dir "$GITHUB_WORKSPACE/project-tools/aws" --update
-          ./aws/install --bin-dir "$PWD/project-tools/aws/bin" --install-dir "$PWD/project-tools/aws" --update
+          ./aws/install --bin-dir "$GITHUB_WORKSPACE/project-tools/aws/bin" --install-dir "$GITHUB_WORKSPACE/project-tools/aws" --update
           rm -rf aws awscliv2.zip
           export PATH="$GITHUB_WORKSPACE/project-tools/aws/bin:$PATH"
           echo -e "\033[32mAWS CLI installed successfully.\033[0m"
@@ -262,8 +261,7 @@ jobs:
           for dir in "${DIRS[@]}"; do
             echo -e "\033[34mRunning $TOOL_NAME analysis in directory: $dir\n\033[0m"
 
-            # Run TFLint and capture output
-            tflint --no-color --force --chdir="$dir" 2>&1 | tee temp.log || true
+            tflint --force --chdir="$dir" 2>&1 | tee temp.log || true
 
             # Process output and update exit code if issues are found
             if [[ -f temp.log && -s temp.log ]]; then
@@ -279,7 +277,7 @@ jobs:
           if [[ -f "$LOG_FILE_PATH" && -s "$LOG_FILE_PATH" ]]; then
             cat "$LOG_FILE_PATH" >> "$PLAIN_TEXT_LOG"
             if [[ "$AI_HANDLER_CREATE" == "true" ]]; then
-              echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the note with the log text.\033[0m"
+              echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the comment with the log text.\033[0m"
               ACTION="both"
             else
               echo -e "\033[33mLog file contains errors, but AI handler is disabled.\033[0m \033[34mProceeding with posting the log text only.\033[0m"
@@ -349,7 +347,6 @@ jobs:
           echo "Starting Terraform validation..."
           export PATH="$GITHUB_WORKSPACE/project-tools:$PATH"
           export PATH="$GITHUB_WORKSPACE/project-tools/aws/bin:$PATH"
-          export TF_LOG=ERROR
 
           # Define paths for logs
           LOG_NAME="terraform_validate.log"
@@ -368,6 +365,7 @@ jobs:
           IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
           for dir in "${DIRS[@]}"; do
             echo -e "\033[34mRunning $TOOL_NAME init in directory: $dir\n\033[0m"
+            # Colored output in pipeline log via stderr; temp.log captures errors for artifact
             terraform -chdir="$dir" init -backend=false 2> >(tee temp.log >&2) || true
             # Process output from Terraform init and update exit code if issues are found
             if [[ -f temp.log && -s temp.log ]]; then
@@ -376,11 +374,12 @@ jobs:
               EXIT_CODE=1 # Indicate that issues were found
             else
               echo -e "\033[32mNo issues were found during $TOOL_NAME init in the directory: $dir.\033[0m"
+              echo -e "\033[34mRunning $TOOL_NAME validate in directory: $dir\n\033[0m"
               terraform -chdir="$dir" validate 2> >(tee temp.log >&2) || true
               if [[ -f temp.log && -s temp.log ]]; then
                 echo -e "Running $TOOL_NAME validate in directory: $dir\n" >> "${LOG_FILE_PATH}"
                 sed -r 's/\x1B\[[0-9;]*[mK]//g' temp.log | sed '/^╷$/d; /^╵$/d' | sed ':a;N;$!ba;s/\n$//' | sed -r 's/^│ //g' >> "${LOG_FILE_PATH}"
-                 EXIT_CODE=1  # Indicate that issues were found
+                EXIT_CODE=1  # Indicate that issues were found
               else
                 echo -e "\033[32mNo issues were found during $TOOL_NAME validate in the directory: $dir.\033[0m"
               fi
@@ -391,7 +390,7 @@ jobs:
           if [[ -f "$LOG_FILE_PATH" && -s "$LOG_FILE_PATH" ]]; then
             cat "$LOG_FILE_PATH" >> "$PLAIN_TEXT_LOG"
             if [[ "$AI_HANDLER_CREATE" == "true" ]]; then
-              echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the note with the log text.\033[0m"
+              echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the comment with the log text.\033[0m"
               ACTION="both"
             else
               echo -e "\033[33mLog file contains errors, but AI handler is disabled.\033[0m \033[34mProceeding with posting the log text only.\033[0m"
@@ -495,15 +494,13 @@ jobs:
             # Define temporary result file for the current directory
             TEMP_RESULT_FILE="${TEMP_RESULTS_DIR}/results_cli_${dir//\//_}.txt"
 
-            # Run Checkov and capture the exit code
             CURRENT_EXIT_CODE=0
-            checkov -d "$dir" --config-file "$CHECKOV_CONFIG" --quiet --framework terraform --download-external-modules false > "$TEMP_RESULT_FILE" 2>&1 || CURRENT_EXIT_CODE=$?
+            checkov -d "$dir" --config-file "$CHECKOV_CONFIG" --quiet --framework terraform --download-external-modules false 2>&1 | tee "$TEMP_RESULT_FILE" || CURRENT_EXIT_CODE=${PIPESTATUS[0]}
 
             # Process results: any error level > 0 is recorded, and MAX_EXIT_CODE is updated
             if [[ $CURRENT_EXIT_CODE -gt 0 ]]; then
               echo -e "Running $TOOL_NAME analysis in directory: $dir\n" >> "${LOG_FILE_PATH}"
-              cat "$TEMP_RESULT_FILE"
-              cat "$TEMP_RESULT_FILE" >> "${LOG_FILE_PATH}"
+              sed -r 's/\x1B\[[0-9;]*[mK]//g' "$TEMP_RESULT_FILE" >> "${LOG_FILE_PATH}"
               if [[ $CURRENT_EXIT_CODE -gt $MAX_EXIT_CODE ]]; then
                 MAX_EXIT_CODE=$CURRENT_EXIT_CODE
               fi
@@ -515,9 +512,9 @@ jobs:
           EXIT_CODE=$MAX_EXIT_CODE
 
           if [[ -f "$LOG_FILE_PATH" && -s "$LOG_FILE_PATH" && $EXIT_CODE -gt 0 ]]; then
+            echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the comment with the log text.\033[0m"
             cat "$LOG_FILE_PATH" >> "$PLAIN_TEXT_LOG"
             if [[ "$AI_HANDLER_CREATE" == "true" ]]; then
-              echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the note with the log text.\033[0m"
               ACTION="both"
             else
               echo -e "\033[33mLog file contains errors, but AI handler is disabled.\033[0m \033[34mProceeding with posting the log text only.\033[0m"
@@ -608,10 +605,9 @@ jobs:
             echo -e "\033[34mRunning $TOOL_NAME analysis in directory: $dir\n\033[0m"
             TEMP_RESULT_FILE="${TEMP_RESULTS_DIR}/results_cli_${dir//\//_}.txt"
             CURRENT_EXIT_CODE=0
-            tfsec "$dir" --out "$TEMP_RESULT_FILE" --no-module-downloads --no-color || CURRENT_EXIT_CODE=$?
+            tfsec "$dir" --no-module-downloads 2>&1 | tee "$TEMP_RESULT_FILE" || CURRENT_EXIT_CODE=${PIPESTATUS[0]}
             if [[ $CURRENT_EXIT_CODE -gt 0 ]]; then
               echo -e "Running $TOOL_NAME analysis in directory: $dir\n" >> "${LOG_FILE_PATH}"
-              cat "$TEMP_RESULT_FILE" || true
               sed -r 's/\x1B\[[0-9;]*[mK]//g' "$TEMP_RESULT_FILE" >> "${LOG_FILE_PATH}" 2>/dev/null || true
               if [[ $CURRENT_EXIT_CODE -gt $MAX_EXIT_CODE ]]; then
                 MAX_EXIT_CODE=$CURRENT_EXIT_CODE
@@ -624,9 +620,9 @@ jobs:
           EXIT_CODE=$MAX_EXIT_CODE
 
           if [[ -f "$LOG_FILE_PATH" && -s "$LOG_FILE_PATH" && $EXIT_CODE -gt 0 ]]; then
+            echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the comment with the log text.\033[0m"
             cat "$LOG_FILE_PATH" >> "$PLAIN_TEXT_LOG"
             if [[ "$AI_HANDLER_CREATE" == "true" ]]; then
-              echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the note with the log text.\033[0m"
               ACTION="both"
             else
               echo -e "\033[33mLog file contains errors, but AI handler is disabled.\033[0m \033[34mProceeding with posting the log text only.\033[0m"
@@ -721,7 +717,6 @@ jobs:
             trivy config "$dir" --exit-code 1 --severity HIGH,CRITICAL --format table >> "$TEMP_RESULT_FILE" || CURRENT_EXIT_CODE=$?
             if [[ $CURRENT_EXIT_CODE -gt 0 ]]; then
               echo -e "Running $TOOL_NAME analysis in directory: $dir\n" >> "${LOG_FILE_PATH}"
-              cat "$TEMP_RESULT_FILE"
               sed -r 's/\x1B\[[0-9;]*[mK]//g' "$TEMP_RESULT_FILE" >> "${LOG_FILE_PATH}"
               if [[ $CURRENT_EXIT_CODE -gt $MAX_EXIT_CODE ]]; then
                 MAX_EXIT_CODE=$CURRENT_EXIT_CODE
@@ -734,9 +729,9 @@ jobs:
           EXIT_CODE=$MAX_EXIT_CODE
 
           if [[ -f "$LOG_FILE_PATH" && -s "$LOG_FILE_PATH" && $EXIT_CODE -gt 0 ]]; then
+            echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the comment with the log text.\033[0m"
             cat "$LOG_FILE_PATH" >> "$PLAIN_TEXT_LOG"
             if [[ "$AI_HANDLER_CREATE" == "true" ]]; then
-              echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the note with the log text.\033[0m"
               ACTION="both"
             else
               echo -e "\033[33mLog file contains errors, but AI handler is disabled.\033[0m \033[34mProceeding with posting the log text only.\033[0m"
@@ -836,15 +831,12 @@ jobs:
           fi
 
           echo -e "\033[34mRunning $TOOL_NAME init in directory: $TARGET_DIR\033[0m"
-          terraform -chdir="$TARGET_DIR" init -input=false -no-color ${{ vars.TERRAFORM_BACKEND_PARAMS }} 2>&1 | tee "$LOG_FILE_PATH"
+          terraform -chdir="$TARGET_DIR" init -input=false ${{ vars.TERRAFORM_BACKEND_PARAMS }} 2>&1 | tee >(sed -r 's/\x1B\[[0-9;]*[mK]//g' >> "$LOG_FILE_PATH")
           EXIT_CODE=${PIPESTATUS[0]}
           if [[ $EXIT_CODE -eq 0 ]]; then
-            terraform -chdir="$TARGET_DIR" plan -input=false -no-color 2>&1 | tee -a "$LOG_FILE_PATH"
+            terraform -chdir="$TARGET_DIR" plan -input=false 2>&1 | tee -a >(sed -r 's/\x1B\[[0-9;]*[mK]//g' >> "$LOG_FILE_PATH")
             EXIT_CODE=${PIPESTATUS[0]}
           fi
-
-          # Strip ANSI color codes and create plain text log
-          sed -r 's/\x1B\[[0-9;]*[mK]//g' "$LOG_FILE_PATH" > "$PLAIN_TEXT_LOG"
 
           if [[ $EXIT_CODE -eq 0 ]]; then
             echo -e "\033[32m$TOOL_NAME completed successfully.\033[0m"
@@ -852,6 +844,7 @@ jobs:
             echo -e "\033[31m$TOOL_NAME completed with errors.\033[0m"
           fi
 
+          cp "$LOG_FILE_PATH" "$PLAIN_TEXT_LOG"
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             PR_NUMBER="${{ github.event.pull_request.number }}"
             ACTION="post"
@@ -917,16 +910,10 @@ jobs:
           export PATH="$GITHUB_WORKSPACE/project-tools:$PATH"
           export PATH="$GITHUB_WORKSPACE/project-tools/aws/bin:$PATH"
 
-          LOG_NAME="terraform_apply.log"
-          LOG_FILE_PATH="$GITHUB_WORKSPACE/${LOG_NAME}"
-          PLAIN_TEXT_LOG="$GITHUB_WORKSPACE/plain_text_log.txt"
           TOOL_NAME="Terraform apply"
-          GITHUB_SHA="${{ needs.setup.outputs.source_sha }}"
           EXIT_CODE=0
-          COMMENT_EXIT_CODE=0
 
           echo -e "\033[34mStarting $TOOL_NAME...\033[0m"
-          echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> "$GITHUB_ENV"
 
           terraform --version || { echo -e "\033[31mTerraform not found in project-tools.\033[0m"; exit 1; }
 
@@ -942,51 +929,18 @@ jobs:
           fi
 
           echo -e "\033[34mRunning $TOOL_NAME init with backend in directory: $TARGET_DIR\033[0m"
-          terraform -chdir="$TARGET_DIR" init -input=false -no-color ${{ vars.TERRAFORM_BACKEND_PARAMS }} 2>&1 | tee "$LOG_FILE_PATH"
-          EXIT_CODE=${PIPESTATUS[0]}
-          if [[ $EXIT_CODE -eq 0 ]]; then
-            terraform -chdir="$TARGET_DIR" apply -input=false -auto-approve -no-color 2>&1 | tee -a "$LOG_FILE_PATH"
-            EXIT_CODE=${PIPESTATUS[0]}
-          fi
+          terraform -chdir="$TARGET_DIR" init -input=false ${{ vars.TERRAFORM_BACKEND_PARAMS }}
+          EXIT_CODE=$?
 
-          # Strip ANSI color codes and create plain text log
-          sed -r 's/\x1B\[[0-9;]*[mK]//g' "$LOG_FILE_PATH" > "$PLAIN_TEXT_LOG"
+          if [[ $EXIT_CODE -eq 0 ]]; then
+            echo -e "\033[34mRunning $TOOL_NAME in directory: $TARGET_DIR\033[0m"
+            terraform -chdir="$TARGET_DIR" apply -input=false -auto-approve
+            EXIT_CODE=$?
+          fi
 
           if [[ $EXIT_CODE -eq 0 ]]; then
             echo -e "\033[32m$TOOL_NAME completed successfully.\033[0m"
           else
-            echo -e "\033[31m$TOOL_NAME completed with errors.\033[0m"
-          fi
-
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            PR_NUMBER="${{ github.event.pull_request.number }}"
-            ACTION="post"
-            bash "$GITHUB_WORKSPACE/scripts/upload_and_comment.sh" \
-              "$VCS_PROVIDER" \
-              "$ACTION" \
-              "$LOG_FILE_PATH" \
-              "$LOG_NAME" \
-              "$AWS_S3_BUCKET" \
-              "$GITHUB_REPOSITORY" \
-              "$GITHUB_REPOSITORY_OWNER" \
-              "$GITHUB_HEAD_REF" \
-              "$GITHUB_SHA" \
-              "$JOB_TOKEN" \
-              "$GITHUB_REF" \
-              "$GITHUB_RUN_ID" \
-              "$PR_NUMBER" \
-              "$OIDC_ROLE_ARN" \
-              "$TOOL_NAME" \
-              "$PLAIN_TEXT_LOG" \
-              "$GITHUB_RUN_URL"
-            COMMENT_EXIT_CODE=$?
-          fi
-
-          if [[ $COMMENT_EXIT_CODE -ne 0 ]]; then
-            echo -e "\033[31mFailed to publish $TOOL_NAME comment to PR.\033[0m"
-            exit $COMMENT_EXIT_CODE
-          fi
-          if [[ $EXIT_CODE -ne 0 ]]; then
             echo -e "\033[31m$TOOL_NAME completed with errors. Failing the job.\033[0m"
             exit $EXIT_CODE
           fi
