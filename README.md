@@ -83,7 +83,7 @@ The project represents an automated process for code verification and correction
 #### **P6:** trivy
 - Vulnerability scanning using `trivy`. If errors are found, the process stops. Further stages will not proceed until the user fixes the errors manually or approves the AI-corrected files. This stage will be added in the next release!
 
-#### **P7:**plan
+#### **P7:** plan
 - Terraform plan generation. At this stage, Terraform verifies the infrastructure's deployability and creates a file with a list of objects to be deployed/modified/deleted for transfer to the next stage, where they will be deployed. This stage will not begin until the user manually fixes errors or approves files fixed by the AI in all previous stages. Currently, only the first directory specified in the 'WORK_DIRS' variable is processed! This limitation may be revised in future releases!
 
 #### **P8:** apply
