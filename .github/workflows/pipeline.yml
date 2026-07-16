@@ -217,6 +217,11 @@ jobs:
         uses: actions/cache@v5
         id: cache-tools
         with: *tools-cache
+      - name: Add Tools to PATH
+        run: |
+          echo "$GITHUB_WORKSPACE/project-tools" >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/project-tools/aws/bin" >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/project-tools/checkov/bin" >> $GITHUB_PATH
 
       - name: Terraform Format Check
         run: |
@@ -239,6 +244,11 @@ jobs:
         uses: actions/cache@v5
         id: cache-tools
         with: *tools-cache
+      - name: Add Tools to PATH
+        run: |
+          echo "$GITHUB_WORKSPACE/project-tools" >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/project-tools/aws/bin" >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/project-tools/checkov/bin" >> $GITHUB_PATH
 
       - name: Assume AWS role
         uses: aws-actions/configure-aws-credentials@v6
@@ -339,6 +349,11 @@ jobs:
         uses: actions/cache@v5
         id: cache-tools
         with: *tools-cache
+      - name: Add Tools to PATH
+        run: |
+          echo "$GITHUB_WORKSPACE/project-tools" >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/project-tools/aws/bin" >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/project-tools/checkov/bin" >> $GITHUB_PATH
 
       - name: Assume AWS role
         uses: aws-actions/configure-aws-credentials@v6
@@ -451,6 +466,11 @@ jobs:
         uses: actions/cache@v5
         id: cache-tools
         with: *tools-cache
+      - name: Add Tools to PATH
+        run: |
+          echo "$GITHUB_WORKSPACE/project-tools" >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/project-tools/aws/bin" >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/project-tools/checkov/bin" >> $GITHUB_PATH
 
       - name: Assume AWS role
         uses: aws-actions/configure-aws-credentials@v6
@@ -573,6 +593,11 @@ jobs:
         uses: actions/cache@v5
         id: cache-tools
         with: *tools-cache
+      - name: Add Tools to PATH
+        run: |
+          echo "$GITHUB_WORKSPACE/project-tools" >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/project-tools/aws/bin" >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/project-tools/checkov/bin" >> $GITHUB_PATH
 
       - name: Assume AWS role
         uses: aws-actions/configure-aws-credentials@v6
@@ -680,6 +705,11 @@ jobs:
         uses: actions/cache@v5
         id: cache-tools
         with: *tools-cache
+      - name: Add Tools to PATH
+        run: |
+          echo "$GITHUB_WORKSPACE/project-tools" >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/project-tools/aws/bin" >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/project-tools/checkov/bin" >> $GITHUB_PATH
 
       - name: Assume AWS role
         uses: aws-actions/configure-aws-credentials@v6
@@ -788,6 +818,11 @@ jobs:
         uses: actions/cache@v5
         id: cache-tools
         with: *tools-cache
+      - name: Add Tools to PATH
+        run: |
+          echo "$GITHUB_WORKSPACE/project-tools" >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/project-tools/aws/bin" >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/project-tools/checkov/bin" >> $GITHUB_PATH
 
       - name: Assume AWS role
         uses: aws-actions/configure-aws-credentials@v6
@@ -890,6 +925,11 @@ jobs:
         uses: actions/cache@v5
         id: cache-tools
         with: *tools-cache
+      - name: Add Tools to PATH
+        run: |
+          echo "$GITHUB_WORKSPACE/project-tools" >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/project-tools/aws/bin" >> $GITHUB_PATH
+          echo "$GITHUB_WORKSPACE/project-tools/checkov/bin" >> $GITHUB_PATH
 
       - name: Assume AWS role
         uses: aws-actions/configure-aws-credentials@v6
