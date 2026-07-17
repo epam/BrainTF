@@ -106,20 +106,21 @@ jobs:
         id: setup-status
         run: |
           echo -e "\033[34mChecking if tools are already cached...\033[0m"
-          LOCAL_BIN="$HOME/.local/bin"
+          LOCAL_BIN="$LOCAL_BIN"
+          export LOCAL_BIN
           if [ -x "$LOCAL_BIN/aws" ] && [ -x "$LOCAL_BIN/tflint" ] && [ -x "$LOCAL_BIN/terraform" ] && [ -x "$LOCAL_BIN/checkov" ] && [ -x "$LOCAL_BIN/tfsec" ] && [ -x "$LOCAL_BIN/trivy" ] && [ -x "$LOCAL_BIN/jq" ]; then
             echo -e "\033[32mTools are already cached. Skipping installation.\033[0m"
             exit 0
           fi
 
           echo -e "\033[34mInstalling tools...\033[0m"
-          mkdir -p "$HOME/.local/bin"
+          mkdir -p "$LOCAL_BIN"
 
           # Install AWS CLI version 2
           echo -e "\033[34mInstalling AWS CLI version 2...\033[0m"
           curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           unzip -q -o awscliv2.zip
-          ./aws/install --bin-dir "$HOME/.local/bin" --install-dir "$HOME/.local/aws"
+          ./aws/install --bin-dir "$LOCAL_BIN" --install-dir "$HOME/.local/aws"
           rm -rf aws awscliv2.zip
           echo -e "\033[32mAWS CLI installed successfully.\033[0m"
 
@@ -127,7 +128,7 @@ jobs:
           echo -e "\033[34mInstalling TFLint...\033[0m"
           curl -sL https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/tflint_linux_amd64.zip -o tflint.zip
           unzip -q -o tflint.zip
-          mv tflint "$HOME/.local/bin/tflint"
+          mv tflint "$LOCAL_BIN/tflint"
           rm tflint.zip
           echo -e "\033[32mTFLint installed successfully.\033[0m"
 
@@ -135,7 +136,7 @@ jobs:
           echo -e "\033[34mInstalling Terraform...\033[0m"
           curl -sS https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip -o /tmp/terraform.zip
           unzip -q -o /tmp/terraform.zip -d /tmp/terraform-install
-          mv /tmp/terraform-install/terraform "$HOME/.local/bin/terraform"
+          mv /tmp/terraform-install/terraform "$LOCAL_BIN/terraform"
           rm -rf /tmp/terraform.zip /tmp/terraform-install
           echo -e "\033[32mTerraform installed successfully.\033[0m"
 
@@ -152,23 +153,23 @@ jobs:
 
           # Install TFsec
           echo -e "\033[34mInstalling TFsec...\033[0m"
-          curl -L https://github.com/aquasecurity/tfsec/releases/download/${TFSEC_VERSION}/tfsec-linux-amd64 -o "$HOME/.local/bin/tfsec"
-          chmod +x "$HOME/.local/bin/tfsec"
+          curl -L https://github.com/aquasecurity/tfsec/releases/download/${TFSEC_VERSION}/tfsec-linux-amd64 -o "$LOCAL_BIN/tfsec"
+          chmod +x "$LOCAL_BIN/tfsec"
           echo -e "\033[32mTFsec installed successfully.\033[0m"
 
           # Install Trivy
           echo -e "\033[34mInstalling Trivy...\033[0m"
           curl -L https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz -o trivy.tar.gz
           tar -xzf trivy.tar.gz trivy
-          mv trivy "$HOME/.local/bin/trivy"
+          mv trivy "$LOCAL_BIN/trivy"
           rm trivy.tar.gz
-          chmod +x "$HOME/.local/bin/trivy"
+          chmod +x "$LOCAL_BIN/trivy"
           echo -e "\033[32mTrivy installed successfully.\033[0m"
 
           # Install jq
           echo -e "\033[34mInstalling jq...\033[0m"
-          curl -L https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64 -o "$HOME/.local/bin/jq"
-          chmod +x "$HOME/.local/bin/jq"
+          curl -L https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64 -o "$LOCAL_BIN/jq"
+          chmod +x "$LOCAL_BIN/jq"
           echo -e "\033[32mjq installed successfully.\033[0m"
 
           # Verify installed tools
