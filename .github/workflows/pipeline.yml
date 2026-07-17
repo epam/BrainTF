@@ -99,83 +99,77 @@ jobs:
         uses: actions/cache@v5
         id: cache-tools
         with: &tools-cache
-          path: project-tools
+          path: ~/.local
           key: tools-cache-v2-${{ env.TFLINT_VERSION }}-${{ env.TERRAFORM_VERSION }}-${{ env.CHECKOV_VERSION }}-${{ env.TFSEC_VERSION }}-${{ env.TRIVY_VERSION }}
 
       - name: Install Tools
         id: setup-status
         run: |
           echo -e "\033[34mChecking if tools are already cached...\033[0m"
-          if [ -d "project-tools" ] && [ -x "project-tools/aws/bin/aws" ] && [ -x "project-tools/tflint" ] && [ -x "project-tools/terraform" ] && [ -x "project-tools/openai" ] && [ -x "project-tools/checkov" ] && [ -x "project-tools/tfsec" ] && [ -x "project-tools/trivy" ] && [ -x "project-tools/jq" ]; then
+          LOCAL_BIN="$HOME/.local/bin"
+          if [ -x "$LOCAL_BIN/aws" ] && [ -x "$LOCAL_BIN/tflint" ] && [ -x "$LOCAL_BIN/terraform" ] && [ -x "$LOCAL_BIN/checkov" ] && [ -x "$LOCAL_BIN/tfsec" ] && [ -x "$LOCAL_BIN/trivy" ] && [ -x "$LOCAL_BIN/jq" ]; then
             echo -e "\033[32mTools are already cached. Skipping installation.\033[0m"
             exit 0
           fi
 
           echo -e "\033[34mInstalling tools...\033[0m"
-          mkdir -p project-tools/aws/bin project-tools
+          mkdir -p "$HOME/.local/bin"
 
           # Install AWS CLI version 2
           echo -e "\033[34mInstalling AWS CLI version 2...\033[0m"
           curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           unzip -q -o awscliv2.zip
-          ./aws/install --bin-dir "$GITHUB_WORKSPACE/project-tools/aws/bin" --install-dir "$GITHUB_WORKSPACE/project-tools/aws" --update
+          ./aws/install --bin-dir "$HOME/.local/bin" --install-dir "$HOME/.local/aws" --update
           rm -rf aws awscliv2.zip
-          export PATH="$GITHUB_WORKSPACE/project-tools/aws/bin:$PATH"
           echo -e "\033[32mAWS CLI installed successfully.\033[0m"
 
           # Install TFLint
           echo -e "\033[34mInstalling TFLint...\033[0m"
           curl -sL https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/tflint_linux_amd64.zip -o tflint.zip
-          unzip -q -o tflint.zip -d project-tools
+          unzip -q -o tflint.zip
+          mv tflint "$HOME/.local/bin/tflint"
           rm tflint.zip
           echo -e "\033[32mTFLint installed successfully.\033[0m"
 
           # Install Terraform
           echo -e "\033[34mInstalling Terraform...\033[0m"
-          if [ -e project-tools/terraform ]; then
-            rm -rf project-tools/terraform
-          fi
           curl -sS https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip -o terraform.zip
-          unzip -q -o terraform.zip -d project-tools
+          unzip -q -o terraform.zip
+          mv terraform "$HOME/.local/bin/terraform"
           rm terraform.zip
           echo -e "\033[32mTerraform installed successfully.\033[0m"
 
           # Install OpenAI Python library
           echo -e "\033[34mInstalling OpenAI Python library...\033[0m"
           pip install --upgrade pip
-          pip install -q openai --target="$GITHUB_WORKSPACE/project-tools/openai"
-          export PYTHONPATH="$GITHUB_WORKSPACE/project-tools/openai:$PYTHONPATH"
+          pip install -q --user openai
           echo -e "\033[32mOpenAI library installed successfully.\033[0m"
 
           # Install Checkov
           echo -e "\033[34mInstalling Checkov...\033[0m"
-          pip install -q checkov==${CHECKOV_VERSION} --target="$GITHUB_WORKSPACE/project-tools/checkov"
-          export PATH="$GITHUB_WORKSPACE/project-tools/checkov/bin:$PATH"
-          export PYTHONPATH="$GITHUB_WORKSPACE/project-tools/checkov:$PYTHONPATH"
+          pip install -q --user checkov==${CHECKOV_VERSION}
           echo -e "\033[32mCheckov installed successfully.\033[0m"
 
           # Install TFsec
           echo -e "\033[34mInstalling TFsec...\033[0m"
-          curl -L https://github.com/aquasecurity/tfsec/releases/download/${TFSEC_VERSION}/tfsec-linux-amd64 -o project-tools/tfsec
-          chmod +x project-tools/tfsec
+          curl -L https://github.com/aquasecurity/tfsec/releases/download/${TFSEC_VERSION}/tfsec-linux-amd64 -o "$HOME/.local/bin/tfsec"
+          chmod +x "$HOME/.local/bin/tfsec"
           echo -e "\033[32mTFsec installed successfully.\033[0m"
 
           # Install Trivy
           echo -e "\033[34mInstalling Trivy...\033[0m"
           curl -L https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz -o trivy.tar.gz
-          tar -xzf trivy.tar.gz -C project-tools
+          tar -xzf trivy.tar.gz trivy
+          mv trivy "$HOME/.local/bin/trivy"
           rm trivy.tar.gz
-          chmod +x project-tools/trivy
+          chmod +x "$HOME/.local/bin/trivy"
           echo -e "\033[32mTrivy installed successfully.\033[0m"
 
-          # Install jq (required by upload_and_comment.sh)
+          # Install jq
           echo -e "\033[34mInstalling jq...\033[0m"
-          curl -L https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64 -o project-tools/jq
-          chmod +x project-tools/jq
+          curl -L https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64 -o "$HOME/.local/bin/jq"
+          chmod +x "$HOME/.local/bin/jq"
           echo -e "\033[32mjq installed successfully.\033[0m"
-
-          # Add project-tools to PATH
-          export PATH="$GITHUB_WORKSPACE/project-tools:$PATH"
 
           # Verify installed tools
           echo -e "\033[34mVerifying installed tools:\033[0m"
@@ -198,16 +192,6 @@ jobs:
             echo "source_sha=$GITHUB_SHA" >> $GITHUB_OUTPUT
           fi
 
-      - name: Debug local bin
-        run: |
-          echo "=== /home/runner/.local/bin contents ==="
-          ls -la /home/runner/.local/bin || echo "empty or not exists"
-
-      - name: Add Tools to PATH
-        run: |
-          echo "$GITHUB_WORKSPACE/project-tools" >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/project-tools/aws/bin" >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/project-tools/checkov/bin" >> $GITHUB_PATH
 
   terraform-fmt:
     name: Terraform Format Check
@@ -222,11 +206,6 @@ jobs:
         uses: actions/cache@v5
         id: cache-tools
         with: *tools-cache
-      - name: Add Tools to PATH
-        run: |
-          echo "$GITHUB_WORKSPACE/project-tools" >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/project-tools/aws/bin" >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/project-tools/checkov/bin" >> $GITHUB_PATH
 
       - name: Terraform Format Check
         run: |
@@ -249,11 +228,6 @@ jobs:
         uses: actions/cache@v5
         id: cache-tools
         with: *tools-cache
-      - name: Add Tools to PATH
-        run: |
-          echo "$GITHUB_WORKSPACE/project-tools" >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/project-tools/aws/bin" >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/project-tools/checkov/bin" >> $GITHUB_PATH
 
       - name: Assume AWS role
         uses: aws-actions/configure-aws-credentials@v6
@@ -275,7 +249,7 @@ jobs:
           TOOL_NAME="TFLint"
           EXIT_CODE="0"
 
-          tflint --version || { echo -e "\033[31m$TOOL_NAME not found in project-tools.\033[0m"; exit 1; }
+          tflint --version || { echo -e "\033[31m$TOOL_NAME not found.\033[0m"; exit 1; }
           tflint --init --config "$GITHUB_WORKSPACE/.tflint.hcl" || { echo -e "\033[31mFailed to initialize $TOOL_NAME.\033[0m"; exit 1; }
 
           IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
@@ -354,11 +328,6 @@ jobs:
         uses: actions/cache@v5
         id: cache-tools
         with: *tools-cache
-      - name: Add Tools to PATH
-        run: |
-          echo "$GITHUB_WORKSPACE/project-tools" >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/project-tools/aws/bin" >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/project-tools/checkov/bin" >> $GITHUB_PATH
 
       - name: Assume AWS role
         uses: aws-actions/configure-aws-credentials@v6
@@ -383,7 +352,7 @@ jobs:
           echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
 
           echo Check if ${TOOL_NAME} is installed
-          terraform --version || { echo -e "\033[31m$TOOL_NAME not found in project-tools.\033[0m"; exit 1; }
+          terraform --version || { echo -e "\033[31m$TOOL_NAME not found.\033[0m"; exit 1; }
 
           # Run Terraform validate for each directory in WORK_DIRS
           IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
@@ -471,11 +440,6 @@ jobs:
         uses: actions/cache@v5
         id: cache-tools
         with: *tools-cache
-      - name: Add Tools to PATH
-        run: |
-          echo "$GITHUB_WORKSPACE/project-tools" >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/project-tools/aws/bin" >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/project-tools/checkov/bin" >> $GITHUB_PATH
 
       - name: Assume AWS role
         uses: aws-actions/configure-aws-credentials@v6
@@ -492,8 +456,6 @@ jobs:
           SOURCE_SHA: ${{ needs.setup.outputs.source_sha }}
         run: |
           echo "Starting Checkov analysis..."
-          export PYTHONPATH="${GITHUB_WORKSPACE}/project-tools/checkov:$PYTHONPATH"
-          export PYTHONPATH="${GITHUB_WORKSPACE}/project-tools/openai:$PYTHONPATH"
 
           # Initialize variables for log file and tool name
           LOG_NAME="checkov_analysis.log"
@@ -598,11 +560,6 @@ jobs:
         uses: actions/cache@v5
         id: cache-tools
         with: *tools-cache
-      - name: Add Tools to PATH
-        run: |
-          echo "$GITHUB_WORKSPACE/project-tools" >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/project-tools/aws/bin" >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/project-tools/checkov/bin" >> $GITHUB_PATH
 
       - name: Assume AWS role
         uses: aws-actions/configure-aws-credentials@v6
@@ -626,7 +583,7 @@ jobs:
           TEMP_RESULTS_DIR="$GITHUB_WORKSPACE/result_logs"
           echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
 
-          tfsec --version || { echo -e "\033[31m$TOOL_NAME not found in project-tools.\033[0m"; exit 1; }
+          tfsec --version || { echo -e "\033[31m$TOOL_NAME not found.\033[0m"; exit 1; }
           mkdir -p "$TEMP_RESULTS_DIR"
 
           IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
@@ -710,11 +667,6 @@ jobs:
         uses: actions/cache@v5
         id: cache-tools
         with: *tools-cache
-      - name: Add Tools to PATH
-        run: |
-          echo "$GITHUB_WORKSPACE/project-tools" >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/project-tools/aws/bin" >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/project-tools/checkov/bin" >> $GITHUB_PATH
 
       - name: Assume AWS role
         uses: aws-actions/configure-aws-credentials@v6
@@ -738,7 +690,7 @@ jobs:
           TEMP_RESULTS_DIR="$GITHUB_WORKSPACE/result_logs"
           echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
 
-          trivy --version || { echo -e "\033[31m$TOOL_NAME not found in project-tools.\033[0m"; exit 1; }
+          trivy --version || { echo -e "\033[31m$TOOL_NAME not found.\033[0m"; exit 1; }
           mkdir -p "$TEMP_RESULTS_DIR"
 
           IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
@@ -823,11 +775,6 @@ jobs:
         uses: actions/cache@v5
         id: cache-tools
         with: *tools-cache
-      - name: Add Tools to PATH
-        run: |
-          echo "$GITHUB_WORKSPACE/project-tools" >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/project-tools/aws/bin" >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/project-tools/checkov/bin" >> $GITHUB_PATH
 
       - name: Assume AWS role
         uses: aws-actions/configure-aws-credentials@v6
@@ -852,7 +799,7 @@ jobs:
           echo -e "\033[34mStarting $TOOL_NAME...\033[0m"
           echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> "$GITHUB_ENV"
 
-          terraform --version || { echo -e "\033[31mTerraform not found in project-tools.\033[0m"; exit 1; }
+          terraform --version || { echo -e "\033[31mTerraform not found.\033[0m"; exit 1; }
 
           IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
           TARGET_DIR="${DIRS[0]}"
@@ -930,11 +877,6 @@ jobs:
         uses: actions/cache@v5
         id: cache-tools
         with: *tools-cache
-      - name: Add Tools to PATH
-        run: |
-          echo "$GITHUB_WORKSPACE/project-tools" >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/project-tools/aws/bin" >> $GITHUB_PATH
-          echo "$GITHUB_WORKSPACE/project-tools/checkov/bin" >> $GITHUB_PATH
 
       - name: Assume AWS role
         uses: aws-actions/configure-aws-credentials@v6
@@ -953,7 +895,7 @@ jobs:
 
           echo -e "\033[34mStarting $TOOL_NAME...\033[0m"
 
-          terraform --version || { echo -e "\033[31mTerraform not found in project-tools.\033[0m"; exit 1; }
+          terraform --version || { echo -e "\033[31mTerraform not found.\033[0m"; exit 1; }
 
           IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
           TARGET_DIR="${DIRS[0]}"
