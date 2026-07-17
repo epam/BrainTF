@@ -119,7 +119,7 @@ jobs:
           echo -e "\033[34mInstalling AWS CLI version 2...\033[0m"
           curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           unzip -q -o awscliv2.zip
-          ./aws/install --bin-dir "$HOME/.local/bin" --install-dir "$HOME/.local/aws" --update
+          ./aws/install --bin-dir "$HOME/.local/bin" --install-dir "$HOME/.local/aws"
           rm -rf aws awscliv2.zip
           echo -e "\033[32mAWS CLI installed successfully.\033[0m"
 
