@@ -14,10 +14,14 @@ permissions:
   pull-requests: write
   issues: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 env:
   WORK_DIRS:         "demo/broken" # Working directories for all stages
   # Utility versions
-  TFLINT_VERSION:    "v0.62.0"     # TFLint version to install
+  TFLINT_VERSION:    "v0.60.0"     # TFLint version to install
   TERRAFORM_VERSION: "1.14.8"      # Terraform version to install
   CHECKOV_VERSION:   "3.2.524"     # Checkov version to install
   TFSEC_VERSION:     "v1.28.14"    # TFSec version to install
@@ -95,83 +99,78 @@ jobs:
         uses: actions/cache@v5
         id: cache-tools
         with: &tools-cache
-          path: project-tools
-          key: tools-cache-v2-${{ env.TFLINT_VERSION }}-${{ env.TERRAFORM_VERSION }}-${{ env.CHECKOV_VERSION }}-${{ env.TFSEC_VERSION }}-${{ env.TRIVY_VERSION }}
+          path: ~/.local
+          key: tools-cache-v4-${{ env.TFLINT_VERSION }}-${{ env.TERRAFORM_VERSION }}-${{ env.CHECKOV_VERSION }}-${{ env.TFSEC_VERSION }}-${{ env.TRIVY_VERSION }}
 
       - name: Install Tools
         id: setup-status
         run: |
           echo -e "\033[34mChecking if tools are already cached...\033[0m"
-          if [ -d "project-tools" ] && [ -x "project-tools/aws/bin/aws" ] && [ -x "project-tools/tflint" ] && [ -x "project-tools/terraform" ] && [ -x "project-tools/openai" ] && [ -x "project-tools/checkov" ] && [ -x "project-tools/tfsec" ] && [ -x "project-tools/trivy" ] && [ -x "project-tools/jq" ]; then
+          LOCAL_BIN="$HOME/.local/bin"
+          export LOCAL_BIN
+          if [ -x "$LOCAL_BIN/aws" ] && [ -x "$LOCAL_BIN/tflint" ] && [ -x "$LOCAL_BIN/terraform" ] && [ -x "$LOCAL_BIN/checkov" ] && [ -x "$LOCAL_BIN/tfsec" ] && [ -x "$LOCAL_BIN/trivy" ] && [ -x "$LOCAL_BIN/jq" ]; then
             echo -e "\033[32mTools are already cached. Skipping installation.\033[0m"
             exit 0
           fi
 
           echo -e "\033[34mInstalling tools...\033[0m"
-          mkdir -p project-tools/aws/bin project-tools
+          mkdir -p "$LOCAL_BIN"
 
           # Install AWS CLI version 2
           echo -e "\033[34mInstalling AWS CLI version 2...\033[0m"
           curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
           unzip -q -o awscliv2.zip
-          ./aws/install --bin-dir "$GITHUB_WORKSPACE/project-tools/aws/bin" --install-dir "$GITHUB_WORKSPACE/project-tools/aws" --update
+          ./aws/install --bin-dir "$LOCAL_BIN" --install-dir "$HOME/.local/aws"
           rm -rf aws awscliv2.zip
-          export PATH="$GITHUB_WORKSPACE/project-tools/aws/bin:$PATH"
           echo -e "\033[32mAWS CLI installed successfully.\033[0m"
 
           # Install TFLint
           echo -e "\033[34mInstalling TFLint...\033[0m"
           curl -sL https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/tflint_linux_amd64.zip -o tflint.zip
-          unzip -q -o tflint.zip -d project-tools
+          unzip -q -o tflint.zip
+          mv tflint "$LOCAL_BIN/tflint"
           rm tflint.zip
           echo -e "\033[32mTFLint installed successfully.\033[0m"
 
           # Install Terraform
           echo -e "\033[34mInstalling Terraform...\033[0m"
-          if [ -e project-tools/terraform ]; then
-            rm -rf project-tools/terraform
-          fi
-          curl -sS https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip -o terraform.zip
-          unzip -q -o terraform.zip -d project-tools
-          rm terraform.zip
+          curl -sS https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip -o /tmp/terraform.zip
+          unzip -q -o /tmp/terraform.zip -d /tmp/terraform-install
+          mv /tmp/terraform-install/terraform "$LOCAL_BIN/terraform"
+          rm -rf /tmp/terraform.zip /tmp/terraform-install
           echo -e "\033[32mTerraform installed successfully.\033[0m"
 
           # Install OpenAI Python library
           echo -e "\033[34mInstalling OpenAI Python library...\033[0m"
           pip install --upgrade pip
-          pip install -q openai --target="$GITHUB_WORKSPACE/project-tools/openai"
-          export PYTHONPATH="$GITHUB_WORKSPACE/project-tools/openai:$PYTHONPATH"
+          pip install -q --user openai
           echo -e "\033[32mOpenAI library installed successfully.\033[0m"
 
           # Install Checkov
           echo -e "\033[34mInstalling Checkov...\033[0m"
-          pip install -q checkov==${CHECKOV_VERSION} --target="$GITHUB_WORKSPACE/project-tools/checkov"
-          export PATH="$GITHUB_WORKSPACE/project-tools/checkov/bin:$PATH"
-          export PYTHONPATH="$GITHUB_WORKSPACE/project-tools/checkov:$PYTHONPATH"
+          pip install -q --user checkov==${CHECKOV_VERSION}
           echo -e "\033[32mCheckov installed successfully.\033[0m"
 
           # Install TFsec
           echo -e "\033[34mInstalling TFsec...\033[0m"
-          curl -L https://github.com/aquasecurity/tfsec/releases/download/${TFSEC_VERSION}/tfsec-linux-amd64 -o project-tools/tfsec
-          chmod +x project-tools/tfsec
+          curl -L https://github.com/aquasecurity/tfsec/releases/download/${TFSEC_VERSION}/tfsec-linux-amd64 -o "$LOCAL_BIN/tfsec"
+          chmod +x "$LOCAL_BIN/tfsec"
           echo -e "\033[32mTFsec installed successfully.\033[0m"
 
           # Install Trivy
           echo -e "\033[34mInstalling Trivy...\033[0m"
           curl -L https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz -o trivy.tar.gz
-          tar -xzf trivy.tar.gz -C project-tools
+          tar -xzf trivy.tar.gz trivy
+          mv trivy "$LOCAL_BIN/trivy"
           rm trivy.tar.gz
-          chmod +x project-tools/trivy
+          chmod +x "$LOCAL_BIN/trivy"
           echo -e "\033[32mTrivy installed successfully.\033[0m"
 
-          # Install jq (required by upload_and_comment.sh)
+          # Install jq
           echo -e "\033[34mInstalling jq...\033[0m"
-          curl -L https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64 -o project-tools/jq
-          chmod +x project-tools/jq
+          curl -L https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64 -o "$LOCAL_BIN/jq"
+          chmod +x "$LOCAL_BIN/jq"
           echo -e "\033[32mjq installed successfully.\033[0m"
-
-          # Add project-tools to PATH
-          export PATH="$GITHUB_WORKSPACE/project-tools:$PATH"
 
           # Verify installed tools
           echo -e "\033[34mVerifying installed tools:\033[0m"
@@ -211,8 +210,6 @@ jobs:
       - name: Terraform Format Check
         run: |
           echo "Starting Terraform format check..."
-          export PATH="$GITHUB_WORKSPACE/project-tools:$PATH"
-          export PATH="$GITHUB_WORKSPACE/project-tools/aws/bin:$PATH"
           terraform fmt -check -recursive || { echo -e "\033[31mTerraform files are not properly formatted. Please run 'terraform fmt -recursive' locally and update your pull request.\033[0m"; exit 1; }
           echo -e "\033[32mTerraform format check passed. All files are properly formatted.\033[0m"
 
@@ -243,8 +240,6 @@ jobs:
       - name: TFLint Analysis
         run: |
           echo "Starting TFLint analysis..."
-          export PATH="$GITHUB_WORKSPACE/project-tools:$PATH"
-          export PATH="$GITHUB_WORKSPACE/project-tools/aws/bin:$PATH"
 
           # Define paths for logs
           LOG_NAME="tflint_analysis.log"
@@ -254,7 +249,7 @@ jobs:
           TOOL_NAME="TFLint"
           EXIT_CODE="0"
 
-          tflint --version || { echo -e "\033[31m$TOOL_NAME not found in project-tools.\033[0m"; exit 1; }
+          tflint --version || { echo -e "\033[31m$TOOL_NAME not found.\033[0m"; exit 1; }
           tflint --init --config "$GITHUB_WORKSPACE/.tflint.hcl" || { echo -e "\033[31mFailed to initialize $TOOL_NAME.\033[0m"; exit 1; }
 
           IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
@@ -345,8 +340,6 @@ jobs:
       - name: Terraform Validate
         run: |
           echo "Starting Terraform validation..."
-          export PATH="$GITHUB_WORKSPACE/project-tools:$PATH"
-          export PATH="$GITHUB_WORKSPACE/project-tools/aws/bin:$PATH"
 
           # Define paths for logs
           LOG_NAME="terraform_validate.log"
@@ -359,7 +352,7 @@ jobs:
           echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
 
           echo Check if ${TOOL_NAME} is installed
-          terraform --version || { echo -e "\033[31m$TOOL_NAME not found in project-tools.\033[0m"; exit 1; }
+          terraform --version || { echo -e "\033[31m$TOOL_NAME not found.\033[0m"; exit 1; }
 
           # Run Terraform validate for each directory in WORK_DIRS
           IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
@@ -463,11 +456,6 @@ jobs:
           SOURCE_SHA: ${{ needs.setup.outputs.source_sha }}
         run: |
           echo "Starting Checkov analysis..."
-          export PATH="${GITHUB_WORKSPACE}/project-tools/checkov/bin:$PATH"
-          export PATH="${GITHUB_WORKSPACE}/project-tools/aws/bin:$PATH"
-          export PATH="${GITHUB_WORKSPACE}/project-tools:$PATH"
-          export PYTHONPATH="${GITHUB_WORKSPACE}/project-tools/checkov:$PYTHONPATH"
-          export PYTHONPATH="${GITHUB_WORKSPACE}/project-tools/openai:$PYTHONPATH"
 
           # Initialize variables for log file and tool name
           LOG_NAME="checkov_analysis.log"
@@ -584,8 +572,6 @@ jobs:
       - name: Run TFSec Analysis
         run: |
           echo "Starting TFSec analysis..."
-          export PATH="$GITHUB_WORKSPACE/project-tools:$PATH"
-          export PATH="$GITHUB_WORKSPACE/project-tools/aws/bin:$PATH"
 
           LOG_NAME="tfsec_analysis.log"
           LOG_FILE_PATH="$GITHUB_WORKSPACE/${LOG_NAME}"
@@ -597,7 +583,7 @@ jobs:
           TEMP_RESULTS_DIR="$GITHUB_WORKSPACE/result_logs"
           echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
 
-          tfsec --version || { echo -e "\033[31m$TOOL_NAME not found in project-tools.\033[0m"; exit 1; }
+          tfsec --version || { echo -e "\033[31m$TOOL_NAME not found.\033[0m"; exit 1; }
           mkdir -p "$TEMP_RESULTS_DIR"
 
           IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
@@ -693,8 +679,6 @@ jobs:
       - name: Run Trivy Analysis
         run: |
           echo "Starting Trivy analysis..."
-          export PATH="$GITHUB_WORKSPACE/project-tools:$PATH"
-          export PATH="$GITHUB_WORKSPACE/project-tools/aws/bin:$PATH"
 
           LOG_NAME="trivy_analysis.log"
           LOG_FILE_PATH="$GITHUB_WORKSPACE/${LOG_NAME}"
@@ -706,7 +690,7 @@ jobs:
           TEMP_RESULTS_DIR="$GITHUB_WORKSPACE/result_logs"
           echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
 
-          trivy --version || { echo -e "\033[31m$TOOL_NAME not found in project-tools.\033[0m"; exit 1; }
+          trivy --version || { echo -e "\033[31m$TOOL_NAME not found.\033[0m"; exit 1; }
           mkdir -p "$TEMP_RESULTS_DIR"
 
           IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
@@ -803,8 +787,6 @@ jobs:
       - name: Run Terraform Plan
         shell: bash
         run: |
-          export PATH="$GITHUB_WORKSPACE/project-tools:$PATH"
-          export PATH="$GITHUB_WORKSPACE/project-tools/aws/bin:$PATH"
 
           LOG_NAME="terraform_plan.log"
           LOG_FILE_PATH="$GITHUB_WORKSPACE/${LOG_NAME}"
@@ -817,7 +799,7 @@ jobs:
           echo -e "\033[34mStarting $TOOL_NAME...\033[0m"
           echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> "$GITHUB_ENV"
 
-          terraform --version || { echo -e "\033[31mTerraform not found in project-tools.\033[0m"; exit 1; }
+          terraform --version || { echo -e "\033[31mTerraform not found.\033[0m"; exit 1; }
 
           IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
           TARGET_DIR="${DIRS[0]}"
@@ -907,15 +889,13 @@ jobs:
       - name: Run Terraform Apply
         shell: bash
         run: |
-          export PATH="$GITHUB_WORKSPACE/project-tools:$PATH"
-          export PATH="$GITHUB_WORKSPACE/project-tools/aws/bin:$PATH"
 
           TOOL_NAME="Terraform apply"
           EXIT_CODE=0
 
           echo -e "\033[34mStarting $TOOL_NAME...\033[0m"
 
-          terraform --version || { echo -e "\033[31mTerraform not found in project-tools.\033[0m"; exit 1; }
+          terraform --version || { echo -e "\033[31mTerraform not found.\033[0m"; exit 1; }
 
           IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
           TARGET_DIR="${DIRS[0]}"
