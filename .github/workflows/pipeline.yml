@@ -21,7 +21,7 @@ concurrency:
 env:
   WORK_DIRS:         "demo/broken" # Working directories for all stages
   # Utility versions
-  TFLINT_VERSION:    "v0.62.0"     # TFLint version to install
+  TFLINT_VERSION:    "v0.63.1"     # TFLint version to install
   TERRAFORM_VERSION: "1.14.8"      # Terraform version to install
   CHECKOV_VERSION:   "3.2.524"     # Checkov version to install
   TFSEC_VERSION:     "v1.28.14"    # TFSec version to install
