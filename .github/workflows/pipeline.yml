@@ -106,7 +106,7 @@ jobs:
         id: setup-status
         run: |
           echo -e "\033[34mChecking if tools are already cached...\033[0m"
-          LOCAL_BIN="$LOCAL_BIN"
+          LOCAL_BIN="$HOME/.local/bin"
           export LOCAL_BIN
           if [ -x "$LOCAL_BIN/aws" ] && [ -x "$LOCAL_BIN/tflint" ] && [ -x "$LOCAL_BIN/terraform" ] && [ -x "$LOCAL_BIN/checkov" ] && [ -x "$LOCAL_BIN/tfsec" ] && [ -x "$LOCAL_BIN/trivy" ] && [ -x "$LOCAL_BIN/jq" ]; then
             echo -e "\033[32mTools are already cached. Skipping installation.\033[0m"
