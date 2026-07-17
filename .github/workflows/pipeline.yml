@@ -192,7 +192,6 @@ jobs:
             echo "source_sha=$GITHUB_SHA" >> $GITHUB_OUTPUT
           fi
 
-
   terraform-fmt:
     name: Terraform Format Check
     runs-on: ubuntu-latest
