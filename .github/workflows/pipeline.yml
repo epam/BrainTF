@@ -272,8 +272,8 @@ jobs:
           EXIT_CODE="0"
 
           tflint --version || { echo -e "\033[31m$TOOL_NAME not found.\033[0m"; exit 1; }
-          echo "=== DEBUG: TFLint plugins dir ===" && find ~/.tflint.d -type f 2>/dev/null || echo "~/.tflint.d is empty or does not exist"
-          tflint --init --config "$GITHUB_WORKSPACE/.tflint.hcl" || { echo -e "\033[31mFailed to initialize $TOOL_NAME.\033[0m"; exit 1; }
+          # Plugins are pre-installed in Setup Tools to avoid sigstore panic in tflint --init
+          # tflint will find them from plugin_dir (~/.tflint.d/plugins) without --init
 
           IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
           for dir in "${DIRS[@]}"; do
