@@ -99,15 +99,20 @@ jobs:
         uses: actions/cache@v5
         id: cache-tools
         with: &tools-cache
-          path: ~/.local
-          key: tools-cache-v2-${{ env.TFLINT_VERSION }}-${{ env.TERRAFORM_VERSION }}-${{ env.CHECKOV_VERSION }}-${{ env.TFSEC_VERSION }}-${{ env.TRIVY_VERSION }}
+          path: |
+            ~/.local
+            ~/.tflint.d
+          key: tools-cache-v3-${{ env.TFLINT_VERSION }}-${{ env.TERRAFORM_VERSION }}-${{ env.CHECKOV_VERSION }}-${{ env.TFSEC_VERSION }}-${{ env.TRIVY_VERSION }}
 
       - name: Install Tools
         id: setup-status
         run: |
           echo -e "\033[34mChecking if tools are already cached...\033[0m"
           LOCAL_BIN="$HOME/.local/bin"
-          if [ -x "$LOCAL_BIN/aws" ] && [ -x "$LOCAL_BIN/tflint" ] && [ -x "$LOCAL_BIN/terraform" ] && [ -x "$LOCAL_BIN/checkov" ] && [ -x "$LOCAL_BIN/tfsec" ] && [ -x "$LOCAL_BIN/trivy" ] && [ -x "$LOCAL_BIN/jq" ]; then
+          TFLINT_PLUGINS="$HOME/.tflint.d/plugins"
+          if [ -x "$LOCAL_BIN/aws" ] && [ -x "$LOCAL_BIN/tflint" ] && [ -x "$LOCAL_BIN/terraform" ] && [ -x "$LOCAL_BIN/checkov" ] && [ -x "$LOCAL_BIN/tfsec" ] && [ -x "$LOCAL_BIN/trivy" ] && [ -x "$LOCAL_BIN/jq" ] && \
+             [ -x "$TFLINT_PLUGINS/github.com/terraform-linters/tflint-ruleset-aws/0.47.0/tflint-ruleset-aws_linux_amd64" ] && \
+             [ -x "$TFLINT_PLUGINS/github.com/terraform-linters/tflint-ruleset-terraform/0.14.1/tflint-ruleset-terraform_linux_amd64" ]; then
             echo -e "\033[32mTools are already cached. Skipping installation.\033[0m"
             exit 0
           fi
@@ -130,6 +135,23 @@ jobs:
           mv tflint "$HOME/.local/bin/tflint"
           rm tflint.zip
           echo -e "\033[32mTFLint installed successfully.\033[0m"
+
+          # Pre-install TFLint plugins to avoid sigstore verification
+          echo -e "\033[34mPre-installing TFLint plugins...\033[0m"
+          TFLINT_PLUGINS="$HOME/.tflint.d/plugins"
+          mkdir -p "$TFLINT_PLUGINS/github.com/terraform-linters/tflint-ruleset-aws/0.47.0"
+          mkdir -p "$TFLINT_PLUGINS/github.com/terraform-linters/tflint-ruleset-terraform/0.14.1"
+          curl -sL "https://github.com/terraform-linters/tflint-ruleset-aws/releases/download/v0.47.0/tflint-ruleset-aws_linux_amd64.zip" -o /tmp/tflint-aws.zip
+          unzip -q -o /tmp/tflint-aws.zip -d /tmp/tflint-aws-tmp
+          mv /tmp/tflint-aws-tmp/tflint-ruleset-aws "$TFLINT_PLUGINS/github.com/terraform-linters/tflint-ruleset-aws/0.47.0/tflint-ruleset-aws_linux_amd64"
+          chmod +x "$TFLINT_PLUGINS/github.com/terraform-linters/tflint-ruleset-aws/0.47.0/tflint-ruleset-aws_linux_amd64"
+          rm -rf /tmp/tflint-aws.zip /tmp/tflint-aws-tmp
+          curl -sL "https://github.com/terraform-linters/tflint-ruleset-terraform/releases/download/v0.14.1/tflint-ruleset-terraform_linux_amd64.zip" -o /tmp/tflint-tf.zip
+          unzip -q -o /tmp/tflint-tf.zip -d /tmp/tflint-tf-tmp
+          mv /tmp/tflint-tf-tmp/tflint-ruleset-terraform "$TFLINT_PLUGINS/github.com/terraform-linters/tflint-ruleset-terraform/0.14.1/tflint-ruleset-terraform_linux_amd64"
+          chmod +x "$TFLINT_PLUGINS/github.com/terraform-linters/tflint-ruleset-terraform/0.14.1/tflint-ruleset-terraform_linux_amd64"
+          rm -rf /tmp/tflint-tf.zip /tmp/tflint-tf-tmp
+          echo -e "\033[32mTFLint plugins pre-installed successfully.\033[0m"
 
           # Install Terraform
           echo -e "\033[34mInstalling Terraform...\033[0m"
@@ -250,7 +272,7 @@ jobs:
           EXIT_CODE="0"
 
           tflint --version || { echo -e "\033[31m$TOOL_NAME not found.\033[0m"; exit 1; }
-          tflint --init --no-verify --config "$GITHUB_WORKSPACE/.tflint.hcl" || { echo -e "\033[31mFailed to initialize $TOOL_NAME.\033[0m"; exit 1; }
+          tflint --init --config "$GITHUB_WORKSPACE/.tflint.hcl" || { echo -e "\033[31mFailed to initialize $TOOL_NAME.\033[0m"; exit 1; }
 
           IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
           for dir in "${DIRS[@]}"; do
