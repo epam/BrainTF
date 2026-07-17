@@ -198,6 +198,11 @@ jobs:
             echo "source_sha=$GITHUB_SHA" >> $GITHUB_OUTPUT
           fi
 
+      - name: Debug local bin
+        run: |
+          echo "=== /home/runner/.local/bin contents ==="
+          ls -la /home/runner/.local/bin || echo "empty or not exists"
+
       - name: Add Tools to PATH
         run: |
           echo "$GITHUB_WORKSPACE/project-tools" >> $GITHUB_PATH
