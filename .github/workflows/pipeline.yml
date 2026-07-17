@@ -133,10 +133,10 @@ jobs:
 
           # Install Terraform
           echo -e "\033[34mInstalling Terraform...\033[0m"
-          curl -sS https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip -o terraform.zip
-          unzip -q -o terraform.zip
-          mv terraform "$HOME/.local/bin/terraform"
-          rm terraform.zip
+          curl -sS https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip -o /tmp/terraform.zip
+          unzip -q -o /tmp/terraform.zip -d /tmp/terraform-install
+          mv /tmp/terraform-install/terraform "$HOME/.local/bin/terraform"
+          rm -rf /tmp/terraform.zip /tmp/terraform-install
           echo -e "\033[32mTerraform installed successfully.\033[0m"
 
           # Install OpenAI Python library
