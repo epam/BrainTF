@@ -21,7 +21,7 @@ concurrency:
 env:
   WORK_DIRS:         "demo/broken" # Working directories for all stages
   # Utility versions
-  TFLINT_VERSION:    "v0.63.1"     # TFLint version to install
+  TFLINT_VERSION:    "v0.62.0"     # TFLint version to install
   TERRAFORM_VERSION: "1.14.8"      # Terraform version to install
   CHECKOV_VERSION:   "3.2.524"     # Checkov version to install
   TFSEC_VERSION:     "v1.28.14"    # TFSec version to install
@@ -250,7 +250,7 @@ jobs:
           EXIT_CODE="0"
 
           tflint --version || { echo -e "\033[31m$TOOL_NAME not found.\033[0m"; exit 1; }
-          tflint --init --config "$GITHUB_WORKSPACE/.tflint.hcl" || { echo -e "\033[31mFailed to initialize $TOOL_NAME.\033[0m"; exit 1; }
+          tflint --init --no-verify --config "$GITHUB_WORKSPACE/.tflint.hcl" || { echo -e "\033[31mFailed to initialize $TOOL_NAME.\033[0m"; exit 1; }
 
           IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
           for dir in "${DIRS[@]}"; do
