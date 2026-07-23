@@ -101,3 +101,5 @@ This Bot supports next structured comment commands to trigger automation:
 
 * [Installation and configuration processes](docs/installation.md)
 * [BrainTF Demo Scenario](docs/demo_guide.md)
+
+#
