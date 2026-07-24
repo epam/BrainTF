@@ -13,20 +13,28 @@ from utilities.vcs import post_comment
 
 def process_s3_event(event: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Processes an S3 event to extract relevant information, enrich it with metadata,
-    and return the updated event data.
+    Processes an incoming S3 event by extracting relevant details, fetching file content
+    and metadata from the specified S3 bucket, and appending derived metadata to the event.
 
-    The function extracts the S3 bucket name and object key from the event, retrieves
-    the file content and metadata from the S3 object, and then constructs additional
-    metadata information based on the content and system configuration. The enriched
-    event data is returned for further use.
+    This function assumes the event follows an AWS S3 trigger structure, processes the
+    first record, and interacts with external systems to fetch S3 content and repository
+    details. On successful completion, the function returns the modified event with added
+    metadata, or raises an exception if processing fails.
 
     Args:
-        event (Dict[str, Any]): The event object containing details about the S3 event,
-            typically following the AWS S3 event notification format.
+        event (Dict[str, Any]): The S3 event data containing information about the
+            triggered event. Expected to include a list of 'Records' with
+            details on the bucket and object.
 
     Returns:
-        Dict[str, Any]The enriched event dictionary with additional metadata.
+        Dict[str, Any]: The modified event with additional metadata derived from the
+        processed S3 object and its associated repository details.
+
+    Raises:
+        ValueError: When the event is missing required 'Records' entries or the structure
+            is invalid.
+        Exception: Propagates downstream errors from S3 access or metadata processing
+            after logging them.
     """
     try:
         # Extract S3 bucket and object key from the event
@@ -74,7 +82,29 @@ def process_s3_event(event: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def lambda_handler(event: dict[str, dict], context: Any) -> Dict[str, Any]:  # noqa:
-    """AWS Lambda function handler."""
+    """
+    Handles an incoming Lambda event, processes input data, generates an AI response, and updates the output
+    with results.
+
+    The function orchestrates multiple operations, including event processing, AI response generation, logging,
+    and data updating. It ensures all essential steps are covered for handling AI-driven tasks, while also
+    providing error logging and raising exceptions in case of failures.
+
+    Args:
+        event (dict[str, dict]): The event dictionary containing the necessary metadata and payload information
+            required for processing. It should include details such as the input message, metadata, and relevant
+            context for generating the AI response.
+        context (Any): Lambda context object that provides runtime information of the Lambda function being invoked,
+            such as function name, memory allocation, and remaining execution time.
+
+    Returns:
+        Dict[str, Any]: A response dictionary containing the updated event information, including the AI-generated
+            response message and any additional metadata or tokens related to the output.
+
+    Raises:
+        Exception: Any exception raised during processing or handling of the Lambda function will be logged and
+            re-raised for further investigation.
+    """
     try:
         process_s3_event(event)
 

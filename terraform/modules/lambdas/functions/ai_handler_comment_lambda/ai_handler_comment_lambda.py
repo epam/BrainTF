@@ -17,7 +17,27 @@ HTTP_FORBIDDEN: int = 403
 
 
 def process_vcs_webhook_payload(event: Dict[str, Any]) -> Dict[str, Any]:
-    """Process the VCS webhook payload and return the relevant information."""
+    """
+    Processes the webhook payload from a version control system (VCS) and extracts relevant metadata
+    based on the configured provider. The function is tailored to work with popular VCS providers
+    like GitLab and GitHub, and it assumes payloads follow their respective webhook notification
+    formats as described in their official documentation.
+
+    Args:
+        event (Dict[str, Any]): A dictionary representing the webhook event. The event must
+            contain a 'body' field with a JSON-formatted string representing the payload received
+            from the VCS webhook. Additional context can be included as needed.
+
+    Returns:
+        Dict[str, Any]: The original `event` dictionary updated with a 'metadata' field. The
+            'metadata' field contains extracted information such as repository name/ID, merge or
+            pull request ID, comment content, source branch, commit SHA, and comment ID, depending
+            on the VCS provider.
+
+    Raises:
+        ValueError: If the VCS provider specified in the global `config.vcs_provider` is not
+            supported or recognized.
+    """
     logger.info('Processing VCS webhook payload...')
     body: str = event.get('body', '{}')
 
@@ -75,14 +95,23 @@ def process_vcs_webhook_payload(event: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # noqa:
-    """Handle the AWS Lambda function invocation.
+    """
+    Handles an AWS Lambda function triggered by a Version Control System (VCS) webhook. The function
+    validates the webhook request, processes the payload, and extracts bot commands, if any. It returns
+    an appropriate HTTP status code and message based on the workflow and error conditions.
 
     Args:
-        event (Dict[str, Any]): The event data passed to the Lambda function.
-        context (Any): The runtime context for the Lambda function.
+        event: Dict[str, Any]
+            The event data provided to the Lambda function, typically representing the VCS webhook
+            payload, including headers and body.
+        context: Any
+            The runtime information of the Lambda function, including details of execution and
+            environment.
 
     Returns:
-        Dict[str, Any]: The HTTP response with status code and body.
+        Dict[str, Any]: A dictionary containing the HTTP status code and message indicating the result
+        of the function's execution. Known webhook and payload errors are handled internally and
+        converted into HTTP responses.
     """
     try:
         # Validate the request headers from the VCS webhook
