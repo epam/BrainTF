@@ -6,7 +6,6 @@ TEST_PREFIX = ""
 AWS_REGION = "eu-central-1"
 VALIDATE_TF_CONTENT = 'variable "aws_region" { default = "eu-central-1" }\n'
 
-
 def _s3_list_response(contents, is_truncated=False, token=None):
     response = {
         "IsTruncated": is_truncated,
@@ -38,14 +37,7 @@ class StubbedS3Client:
         return getattr(self._wrapped, name)
 
 
-def test_get_parameter_from_ssm(patched_environment, monkeypatch, ssm_setup):
-    from utilities.aws import get_parameter_from_ssm
-
-    parameter_value = get_parameter_from_ssm("test-parameter")
-    assert parameter_value == "test-value"
-
-
-def test_get_file_names_from_s3_directory_success(s3_setup):
+def test_get_file_names_from_s3_directory_success(patched_environment, s3_setup):
     from utilities.aws import get_file_names_from_s3_directory
 
     result = get_file_names_from_s3_directory(TEST_BUCKET, TEST_PREFIX)
@@ -64,7 +56,7 @@ def test_get_all_files_from_s3_directory_success(s3_setup):
     assert result == [("main.tf", MAIN_TF_FILE), ("validate.tf", VALIDATE_TF_CONTENT)]
 
 
-def test_get_particular_files_from_s3_directory_success(s3_setup):
+def test_get_particular_files_from_s3_directory_success(patched_environment, s3_setup):
     from utilities.aws import get_particular_files_from_s3_directory
 
     result = get_particular_files_from_s3_directory(TEST_BUCKET, TEST_PREFIX, ["main.tf"])

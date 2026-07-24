@@ -8,6 +8,33 @@ from utilities.messages import SYSTEM_ROLE_MESSAGE
 
 
 def generate_response_ai(messages: list, retries: int = 3) -> dict:
+    """
+    Generates a response from an AI model by sending a set of messages to the AI API,
+    handles retries on certain types of errors, and parses the response to return
+    useful message content and token usage information.
+
+    Args:
+        messages (list): A list of message dictionaries to send to the AI API. Each dictionary
+            should have a "role" (e.g., "user", "assistant") and "content" (the text of the
+            message).
+        retries (int): The maximum number of retries allowed in case of API request failures.
+            Defaults to 3.
+
+    Returns:
+        dict: A dictionary containing:
+            - "message" (str): The AI-generated response content.
+            - "tokens" (dict): A dictionary detailing token usage, with the following keys:
+                - "prompt_tokens" (int): The number of tokens used for the input messages.
+                - "completion_tokens" (int): The number of tokens generated for the output.
+                - "total_tokens" (int): The total number of tokens used (sum of prompt and
+                  completion tokens).
+
+    Raises:
+        requests.Timeout: If the API request times out and the retry limit is exceeded.
+        requests.ConnectionError: If the API connection fails and the retry limit is exceeded.
+        requests.HTTPError: If a server-side (5xx) or client-side (4xx) error occurs and the
+            retry limit is exceeded.
+    """
     messages = [{"role": "system", "content": SYSTEM_ROLE_MESSAGE}] + messages
     headers = {
         "Content-Type": "application/json",
