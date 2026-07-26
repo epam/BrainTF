@@ -49,9 +49,6 @@ def process_s3_event(event: Dict[str, Any]) -> Dict[str, Any]:
 
         log_file_content_with_metadata: Dict[str, Any] | None = get_file_content_with_metadata_from_s3(s3_bucket,
                                                                                                        s3_key)
-
-        logger.info(f"log_file_content_with_metadata --->\n{log_file_content_with_metadata}")
-
         log_file_content: str = log_file_content_with_metadata.get('content')
 
         file_metadata: Dict[str, str] = log_file_content_with_metadata.get('metadata')
@@ -77,7 +74,7 @@ def process_s3_event(event: Dict[str, Any]) -> Dict[str, Any]:
         return event
 
     except Exception as error:
-        logger.error(f"Error occurred while processing the S3 event: {str(error)}")
+        logger.error(f"Error occurred while processing the S3 event: {error}.")
         raise error
 
 
@@ -112,7 +109,6 @@ def lambda_handler(event: dict[str, dict], context: Any) -> Dict[str, Any]:  # n
         user_prompt: List = [user_message]
         generated_response: Dict[str, Any] = generate_response_ai(user_prompt)
         message: str = generated_response.get("message", "").strip()
-        logger.info(f"Message to UI --->\n{message}")
         event.get("metadata").update({"ai_response": message})
 
         tool_name = event.get("metadata").get("tool_name")
@@ -127,9 +123,9 @@ def lambda_handler(event: dict[str, dict], context: Any) -> Dict[str, Any]:  # n
         handle_ai_response_message(event)
         create_context_memory_window(event)
 
-        logger.info('Successfully invoked')
+        logger.info('Successfully invoked.')
 
 
     except Exception as error:
-        logger.error(f"Error occurred while invoking the Lambda function: {str(error)}")
+        logger.error(f"Error occurred while invoking the Lambda function: {error}.")
         raise error

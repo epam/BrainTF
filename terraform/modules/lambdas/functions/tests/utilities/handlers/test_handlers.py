@@ -53,7 +53,7 @@ def test_handle_comment_commands_webhook_bot_list_context(patched_environment, w
     handlers.handle_comment_commands(webhook_event_command_bot_list_github)
     assert 'Bot context found in the comment.' in caplog.text
     assert 'Processing list command...' in caplog.text
-    assert 'Listing rest_comment: `..`' in caplog.text
+    assert 'Prepared artifact file list: `..`.' in caplog.text
 
 
 def test_handle_comment_commands_webhook_bot_list_context_no_files(patched_environment, webhook_event_command_bot_list_github, caplog,
@@ -72,7 +72,7 @@ def test_handle_comment_commands_webhook_bot_list_context_no_files(patched_envir
     handlers.handle_comment_commands(webhook_event_command_bot_list_github)
     assert 'Bot context found in the comment.' in caplog.text
     assert 'Processing list command...' in caplog.text
-    assert 'Listing rest_comment: `demo/broken/main.tf`\n\n`demo/broken/validate.tf`' in caplog.text
+    assert 'Prepared artifact file list: `demo/broken/main.tf`\n\n`demo/broken/validate.tf`.' in caplog.text
 
 
 def test_handle_comment_commands_webhook_bot_approve_context_mising(patched_environment, 

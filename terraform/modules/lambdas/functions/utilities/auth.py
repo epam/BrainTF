@@ -29,7 +29,7 @@ def verify_token(token_from_header: str, expected_token: str) -> None:
         # Token missing, raise an exception
         raise MissingTokenException('X-Gitlab-Token header is missing!')
 
-    logger.info('Token successfully verified!')
+    logger.info('Webhook token verified successfully.')
 
 
 def webhook_authenticator(event: Dict[str, Any]):
@@ -51,12 +51,12 @@ def webhook_authenticator(event: Dict[str, Any]):
         case "gitlab" if 'x-gitlab-token' in event.get('headers', {}):
             # Verify the GitLab token
             token_from_header: str = event.get('headers', {}).get('x-gitlab-token')
-            logger.info(f"Webhook authentication for {config.vcs_provider}")
+            logger.info(f"Authenticating {config.vcs_provider} webhook.")
             verify_token(token_from_header, config.webhook_secret)
         case 'github' if 'x-hub-signature-256' in event.get('headers', {}):
 
             # Verify the GitHub signature
-            logger.info(f"Webhook authentication for {config.vcs_provider}")
+            logger.info(f"Authenticating {config.vcs_provider} webhook.")
             verify_signature(event, config.webhook_secret)
 
         case _:
@@ -92,7 +92,7 @@ def verify_signature(event, secret_token) -> None:
     if not hmac.compare_digest(expected_signature, signature_header):
         raise HTTPException(status_code=403, detail="Request signatures didn't match!")
 
-    logger.info('Signature successfully verified!')
+    logger.info('Webhook signature verified successfully.')
 
 
 def is_github_issue_comment(event: Dict[str, Any]) -> bool:
