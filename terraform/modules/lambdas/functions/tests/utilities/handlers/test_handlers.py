@@ -112,7 +112,7 @@ def test_handle_comment_commands_webhook_bot_approve_all_context(patched_environ
     assert 'Bot context found in the comment.' in caplog.text
     assert 'Approve context found in the comment.' in caplog.text
     assert 'Processing approve command...' in caplog.text
-    assert 'Approving all rest_comment...' in caplog.text
+    assert 'Approving all corrected files...' in caplog.text
 
 
 def test_build_approval_commit_message_uses_files_only(patched_environment):
@@ -247,7 +247,7 @@ def test_handle_approve_command_all_stops_when_repo_check_fails(patched_environm
     handlers.handle_approve_command(webhook_event_command_bot_approve_all_context_github, ['all'])
 
     assert commit_calls == []
-    assert comments == ['Some files do not exist in the repository']
+    assert comments == ['Some approved files do not exist in the repository']
 
 
 def test_handle_approve_command_specific_checks_repo_before_commit(patched_environment,
@@ -277,7 +277,7 @@ def test_handle_approve_command_specific_checks_repo_before_commit(patched_envir
     handlers.handle_approve_command(webhook_event_command_bot_approve_all_context_github, ['demo/broken/main.tf'])
 
     assert commit_calls == []
-    assert comments == ['Some requested files do not exist in the repository']
+    assert comments == ['Some selected files do not exist in the repository.']
 
 
 def test_handle_approve_command_specific_deletes_artifacts_after_commit(patched_environment,
