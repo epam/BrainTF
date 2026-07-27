@@ -93,8 +93,8 @@ def make_prompt_block_with_errors_and_files(event: Dict[str, Any],
     extracted_blocks: list[tuple[str, str]] = extract_blocks_working_directory(errors_data)
 
     for working_directory, errors in extracted_blocks:
-        logger.info(f"Working directory ---> \n{working_directory}")
-        logger.info(f"Extracted block ---> \n{errors}")
+        logger.debug(f"Parsed working directory: {working_directory}.")
+        logger.debug(f"Extracted error block >\n{errors}")
         files_block = """"""
         errors, paths_to_files = process_utilities_error_blocks(working_directory, errors, tool_name_lower)
 
@@ -105,7 +105,7 @@ def make_prompt_block_with_errors_and_files(event: Dict[str, Any],
 
         prompt_block += errors + "\n\n" + guide_block + "\n\n" + files_block + "\n"
 
-    logger.info(f"Prompt block ---> \n{prompt_block}")
+    logger.debug(f"Prepared prompt >\n{prompt_block}")
 
     return prompt_block
 
