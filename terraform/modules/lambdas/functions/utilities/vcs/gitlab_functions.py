@@ -28,7 +28,7 @@ def _get_gitlab_client() -> gitlab.Gitlab:
         client.version()  # verifies the token and session
     except Exception as e:
         # Do NOT cache a failed session, let the exception propagate
-        logger.error(f"GitLab client verification failed: {e}")
+        logger.error(f"GitLab client verification failed: {e}.")
         raise
 
     return client  # gets cached only if everything above succeeds
@@ -60,26 +60,26 @@ def get_mr_source_branch_name(
 
         logger.debug(
             f"MR {merge_request_id} source branch: '{source_branch}' "
-            f"(project: {project_id_or_path})"
+            f"(project: '{project_id_or_path}')"
         )
 
         return source_branch
 
     except GitlabAuthenticationError as e:
-        logger.error(f"GitLab authentication error while fetching MR: {e}")
+        logger.error(f"GitLab authentication error while fetching MR: {e}.")
         raise
 
     except GitlabGetError as e:
         logger.error(
             f"GitLab API error while fetching MR "
-            f"{merge_request_id} in project '{project_id_or_path}': {e}"
+            f"{merge_request_id} in project '{project_id_or_path}': {e}."
         )
         raise
 
     except Exception as e:
         logger.error(
             f"Unexpected error while getting source branch for MR "
-            f"{merge_request_id}: {e}"
+            f"{merge_request_id}: {e}."
         )
         raise
 
@@ -100,17 +100,17 @@ def add_award_to_note_gitlab(
         note = mr.notes.get(event.get('metadata').get('comment_id'))
         award = note.awardemojis.create({'name': reaction})
 
-        logger.debug(f"Award emoji added: {award.attributes}")
+        logger.debug(f"Added GitLab award emoji: {award.attributes}.")
         return award.attributes
 
     except gitlab.exceptions.GitlabAuthenticationError as e:
-        logger.error(f"GitLab authentication error: {e}")
+        logger.error(f"GitLab authentication error: {e}.")
         raise
     except gitlab.exceptions.GitlabGetError as e:
-        logger.error(f"GitLab get error: {e}")
+        logger.error(f"GitLab get error: {e}.")
         raise
     except Exception as e:
-        logger.error(f"Unexpected error adding award emoji to GitLab note: {e}")
+        logger.error(f"Unexpected error adding award emoji to GitLab note: {e}.")
         raise
 
 
@@ -129,17 +129,17 @@ def post_gitlab_comment(event: Dict[str, Any], comment_text: str) -> Dict[str, A
         mr = project.mergerequests.get(event.get('metadata').get('merge_or_pull_req_id'))
         note = mr.notes.create({'body': comment_text})
 
-        logger.debug(f"Posted comment: {note.attributes}")
+        logger.debug(f"Posted GitLab merge request comment: {note.attributes}.")
         return note.attributes
 
     except gitlab.exceptions.GitlabAuthenticationError as e:
-        logger.error(f"GitLab authentication error: {e}")
+        logger.error(f"GitLab authentication error: {e}.")
         raise
     except gitlab.exceptions.GitlabGetError as e:
-        logger.error(f"GitLab get error: {e}")
+        logger.error(f"GitLab get error: {e}.")
         raise
     except Exception as e:
-        logger.error(f"Unexpected error posting GitLab comment: {e}")
+        logger.error(f"Unexpected error posting GitLab comment: {e}.")
         raise
 
 
@@ -165,9 +165,9 @@ def check_files_exist_in_repo_gitlab(
         gl = _get_gitlab_client()
         project = gl.projects.get(project_id_or_path)
 
-        logger.info(
+        logger.debug(
             f"Batch-checking {len(file_paths)} file(s) in project "
-            f"'{project_id_or_path}' on branch '{branch}'"
+            f"'{project_id_or_path}' on branch '{branch}'."
         )
 
         # Group requested files by directory
@@ -181,7 +181,7 @@ def check_files_exist_in_repo_gitlab(
         missing_files: List[str] = []
 
         for dir_path, expected_files in files_by_dir.items():
-            logger.debug(f"Fetching tree for dir '{dir_path or '/'}'")
+            logger.debug(f"Fetching GitLab repository tree for directory {dir_path or '/'}")
 
             try:
                 tree = project.repository_tree(
@@ -212,22 +212,22 @@ def check_files_exist_in_repo_gitlab(
                     )
 
         if missing_files:
-            logger.info(f"Missing {len(missing_files)} file(s): {missing_files}")
+            logger.warning(f"Some requested file(s) are missing from the repository: {missing_files}")
             return False
 
         logger.info("All files exist in the repository on the specified branch.")
         return True
 
     except GitlabAuthenticationError as e:
-        logger.error(f"GitLab authentication error: {e}")
+        logger.error(f"GitLab authentication error: {e}.")
         raise
 
     except GitlabGetError as e:
-        logger.error(f"GitLab API error: {e}")
+        logger.error(f"GitLab API error: {e}.")
         raise
 
     except Exception as e:
-        logger.error(f"Unexpected error while checking file existence: {e}")
+        logger.error(f"Unexpected error while checking file existence: {e}.")
         raise
 
 
@@ -268,15 +268,15 @@ def commit_files_to_branch_gitlab(
 
         # Use the source branch of the merge request (equivalent to PR head branch)
         branch = mr.source_branch
-        logger.info(
+        logger.debug(
             f"Preparing to commit {len(file_paths_with_content)} file(s) "
-            f"to project '{project_id}' on branch '{branch}'"
+            f"to project '{project_id}' on branch '{branch}'."
         )
 
         # Prepare actions for the commit API
         actions = []
         for path, content in file_paths_with_content:
-            logger.debug(f"Scheduling update for '{path}'")
+            logger.debug(f"Scheduling update for {path}")
             actions.append(
                 {
                     "action": "update",  # assumes files already exist; use "create" if you need to add new ones
@@ -286,7 +286,7 @@ def commit_files_to_branch_gitlab(
             )
 
         if not actions:
-            logger.info("No files provided for commit; skipping commit creation.")
+            logger.warning("No files provided for commit; skipping commit creation.")
             return {}
 
         # Create a single commit with all actions on the MR source branch
@@ -300,21 +300,21 @@ def commit_files_to_branch_gitlab(
 
         logger.info(
             f"Successfully committed {len(file_paths_with_content)} file(s) "
-            f"to branch '{branch}'. Commit ID: {commit.id}"
+            f"to branch '{branch}'. Commit ID: {commit.id}."
         )
         return commit.attributes
 
     except gitlab.exceptions.GitlabAuthenticationError as e:
-        logger.error(f"GitLab authentication error while committing files: {e}")
+        logger.error(f"GitLab authentication error while committing files: {e}.")
         raise
     except gitlab.exceptions.GitlabGetError as e:
-        logger.error(f"GitLab get error while committing files: {e}")
+        logger.error(f"GitLab get error while committing files: {e}.")
         raise
     except gitlab.exceptions.GitlabCreateError as e:
-        logger.error(f"GitLab create error while committing files: {e}")
+        logger.error(f"GitLab create error while committing files: {e}.")
         raise
     except Exception as e:
-        logger.error(f"Unexpected error committing files to GitLab repo: {e}")
+        logger.error(f"Unexpected error committing files to GitLab repo: {e}.")
         raise
 
 
@@ -332,7 +332,7 @@ def get_all_tf_files_from_paths_list_gitlab(
         items = project.repository_tree(path=target_dir, ref=event.get('metadata').get('source_branch'))
         for item in items:
             if item['type'] == 'blob' and item['name'].endswith('.tf'):
-                logger.info(f"Fetching {item['path']} ...")
+                logger.info(f"Fetching Terraform file '{item['path']}' from GitLab...")
                 file = project.files.get(file_path=item['path'], ref=event.get('metadata').get('source_branch'))
                 # Decode base64 content to text string (assume UTF-8)
                 content_text = base64.b64decode(file.content).decode('utf-8')
