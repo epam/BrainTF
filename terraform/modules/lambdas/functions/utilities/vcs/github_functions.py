@@ -194,9 +194,9 @@ def check_files_exist_in_repo_github(event: Dict[str, Any],
         branch = get_pr_source_branch_name(repo_id_or_name, merge_or_pull_req_id)
         gh = _get_github_client()
         repo = gh.get_repo(repo_id_or_name)
-        logger.info(
-            f"Checking existence of {len(file_paths)} file(s) in repo '{repo_id_or_name}' "
-            f"on branch '{branch}'."
+        logger.debug(
+            f"Checking existence of {len(file_paths)} file(s) in repo {repo_id_or_name} "
+            f"on branch {branch}."
         )
 
         missing_files: list[str] = []
@@ -207,14 +207,14 @@ def check_files_exist_in_repo_github(event: Dict[str, Any],
                 repo.get_contents(path, ref=branch)
                 logger.debug(f"File exists in repo: {path}")
             except UnknownObjectException:
-                logger.warning(f"File does not exist in repo on branch '{branch}': {path}")
+                logger.warning(f"File does not exist in repo on branch {branch}: {path}")
                 missing_files.append(path)
 
         if missing_files:
-            logger.info(f"Missing {len(missing_files)} file(s) in repo: {missing_files}")
+            logger.warning(f"Missing {len(missing_files)} file(s) in repo: {missing_files}")
             return False
 
-        logger.info("All files exist in the repository on the specified branch.")
+        logger.info("All files exist in the GitHub repository on the specified branch.")
         return True
 
     except BadCredentialsException as e:
@@ -258,14 +258,14 @@ def commit_files_to_branch_github(event: Dict[str, Any], file_paths_with_content
         # Get reference and latest commit
         ref = repo.get_git_ref(f"heads/{branch}")
         latest_commit = repo.get_git_commit(ref.object.sha)
-        logger.info(f"Latest commit on branch '{branch}': {latest_commit.sha}")
+        logger.debug(f"Latest commit on branch {branch}: {latest_commit.sha}")
 
         # Prepare tree elements
         tree_elements = []
 
         for path, content in file_paths_with_content:
             blob = repo.create_git_blob(content, "utf-8")
-            logger.info(f"Created Git blob for '{path}' with SHA '{blob.sha}'")
+            logger.debug(f"Created Git blob for {path} with SHA {blob.sha}")
             element = InputGitTreeElement(
                 path=path,
                 mode="100644",
@@ -273,7 +273,7 @@ def commit_files_to_branch_github(event: Dict[str, Any], file_paths_with_content
                 sha=blob.sha,
             )
             tree_elements.append(element)
-        logger.info(f"Prepared Git tree element(s): {tree_elements} for commit")
+        logger.debug(f"Prepared Git tree element(s): {tree_elements} for commit")
 
         # Create a new tree
         new_tree = repo.create_git_tree(tree_elements, base_tree=latest_commit.tree)
@@ -284,7 +284,7 @@ def commit_files_to_branch_github(event: Dict[str, Any], file_paths_with_content
         # Point a branch to the new commit
         ref.edit(new_commit.sha)
 
-        logger.info(f"Successfully committed file(s) {file_paths_with_content} to branch '{branch}'.")
+        logger.debug(f"Successfully committed file(s) {file_paths_with_content} to branch {branch}.")
 
 
     except BadCredentialsException as e:
@@ -344,6 +344,6 @@ def get_all_tf_files_from_paths_list_github(
 
         for item in items:
             if item.type == "file" and item.path.endswith(".tf"):
-                logger.info(f"Fetching Terraform file '{item.path}' from GitHub...")
+                logger.info(f"Terraform file {item.path} fetched from GitHub...")
                 tf_files.append((item.path, item.decoded_content.decode("utf-8")))
     return tf_files
