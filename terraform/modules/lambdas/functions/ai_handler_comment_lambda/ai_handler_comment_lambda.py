@@ -38,7 +38,7 @@ def process_vcs_webhook_payload(event: Dict[str, Any]) -> Dict[str, Any]:
         ValueError: If the VCS provider specified in the global `config.vcs_provider` is not
             supported or recognized.
     """
-    logger.info('Processing VCS webhook payload.')
+    logger.info('Processing VCS webhook payload...')
     body: str = event.get('body', '{}')
 
     webhook_payload: Dict[str, Any] = json.loads(body)

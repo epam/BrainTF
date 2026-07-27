@@ -7,7 +7,7 @@ def test_process_vcs_webhook_payload_github(patched_config_github, webhook_event
                         lambda x, y: "1234")
     from ai_handler_comment_lambda.ai_handler_comment_lambda import process_vcs_webhook_payload
     result = process_vcs_webhook_payload(webhook_event_github)
-    assert 'Processing VCS webhook payload.' in caplog.text
+    assert 'Processing VCS webhook payload...' in caplog.text
     assert isinstance(result, dict)
     assert webhook_event_github.get('metadata')
     assert result.get('metadata') == expected_webhook_event_metadata_github
@@ -17,7 +17,7 @@ def test_process_vcs_webhook_payload_gitlab(patched_config_gitlab, webhook_event
                                             expected_webhook_event_metadata_gitlab, caplog):
     from ai_handler_comment_lambda.ai_handler_comment_lambda import process_vcs_webhook_payload
     result = process_vcs_webhook_payload(webhook_event_gitlab)
-    assert 'Processing VCS webhook payload.' in caplog.text
+    assert 'Processing VCS webhook payload...' in caplog.text
     assert isinstance(result, dict)
     assert result.get('metadata')
     assert webhook_event_gitlab.get('metadata')
