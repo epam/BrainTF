@@ -195,8 +195,8 @@ def check_files_exist_in_repo_github(event: Dict[str, Any],
         gh = _get_github_client()
         repo = gh.get_repo(repo_id_or_name)
         logger.debug(
-            f"Checking existence of {len(file_paths)} file(s) in repo {repo_id_or_name} "
-            f"on branch {branch}."
+            f"Checking existence of {len(file_paths)} file(s) in repo '{repo_id_or_name}' "
+            f"on branch '{branch}'."
         )
 
         missing_files: list[str] = []
@@ -207,7 +207,7 @@ def check_files_exist_in_repo_github(event: Dict[str, Any],
                 repo.get_contents(path, ref=branch)
                 logger.debug(f"File exists in repo: {path}")
             except UnknownObjectException:
-                logger.warning(f"File does not exist in repo on branch {branch}: {path}")
+                logger.warning(f"File does not exist in repo on branch '{branch}': {path}")
                 missing_files.append(path)
 
         if missing_files:
@@ -258,7 +258,7 @@ def commit_files_to_branch_github(event: Dict[str, Any], file_paths_with_content
         # Get reference and latest commit
         ref = repo.get_git_ref(f"heads/{branch}")
         latest_commit = repo.get_git_commit(ref.object.sha)
-        logger.debug(f"Latest commit on branch {branch}: {latest_commit.sha}")
+        logger.debug(f"Latest commit on branch '{branch}': {latest_commit.sha}")
 
         # Prepare tree elements
         tree_elements = []
@@ -284,7 +284,7 @@ def commit_files_to_branch_github(event: Dict[str, Any], file_paths_with_content
         # Point a branch to the new commit
         ref.edit(new_commit.sha)
 
-        logger.debug(f"Successfully committed file(s) {file_paths_with_content} to branch {branch}.")
+        logger.debug(f"Successfully committed file(s) {file_paths_with_content} to branch '{branch}'.")
 
 
     except BadCredentialsException as e:
