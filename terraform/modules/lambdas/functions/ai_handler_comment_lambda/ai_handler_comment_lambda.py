@@ -121,17 +121,17 @@ def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # no
         # Handle bot commands from the comment
         handle_comment_commands(event)
 
-        logger.info('Successfully invoked')
+        logger.info('Lambda invocation completed successfully.')
         return {'statusCode': HTTP_SUCCESS, 'body': 'Successfully invoked'}
 
-    except InvalidTokenException as e:
-        logger.warning(f'Invalid token: {str(e)}')
+    except InvalidTokenException as error:
+        logger.error(f'Invalid token: {error}.')
         return {'statusCode': HTTP_FORBIDDEN, 'body': 'Forbidden'}
 
-    except MissingCommentContextException as e:
-        logger.warning(f'No comment context: {str(e)}')
+    except MissingCommentContextException as exception:
+        logger.debug(f'Webhook comment is outside bot command context: {exception}.')
         return {'statusCode': HTTP_SUCCESS, 'body': 'Out of bot context, no action taken'}
 
-    except (json.JSONDecodeError, HTTPException, MissingWebhookDataException, MissingTokenException) as e:
-        logger.error(f'Error in webhook payload: {str(e)}')
+    except (json.JSONDecodeError, HTTPException, MissingWebhookDataException, MissingTokenException) as error:
+        logger.error(f'Failed to process VCS webhook payload: {error}.')
         return {'statusCode': HTTP_BAD_REQUEST, 'body': 'Invalid payload'}

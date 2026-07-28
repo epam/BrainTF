@@ -5,7 +5,7 @@ def test_verify_token_gitlab(patched_config_gitlab, x_gitlab_token, expected_tok
     from utilities.auth import verify_token
     verify_token(x_gitlab_token, expected_token_gitlab)
 
-    assert 'Token successfully verified!' in caplog.text
+    assert 'Webhook token verified successfully.' in caplog.text
 
 
 def test_verify_token_invalid_token_gitlab(patched_config_gitlab, x_gitlab_token, invalid_token_gitlab):
@@ -27,13 +27,13 @@ def test_verify_token_missing_token_gitlab(patched_config_gitlab, expected_token
 def test_webhook_authenticator_success_gitlab(patched_config_gitlab, webhook_event_gitlab, caplog):
     from utilities.auth import webhook_authenticator
     webhook_authenticator(webhook_event_gitlab)
-    assert 'Token successfully verified!' in caplog.text
+    assert 'Webhook token verified successfully.' in caplog.text
 
 
 def test_webhook_authenticator_success_github(patched_config_github, webhook_event_github, caplog):
     from utilities.auth import webhook_authenticator
     webhook_authenticator(webhook_event_github)
-    assert 'Signature successfully verified!' in caplog.text
+    assert 'Webhook signature verified successfully.' in caplog.text
 
 
 def test_webhook_authenticator_wrong_vcs_provider(patched_config_github, webhook_event_github, caplog):
@@ -49,7 +49,7 @@ def test_webhook_authenticator_wrong_vcs_provider(patched_config_github, webhook
 def test_verify_signature_success_github(webhook_event_github, expected_token_github, caplog):
     from utilities.auth import verify_signature
     verify_signature(webhook_event_github, expected_token_github)
-    assert 'Signature successfully verified!' in caplog.text
+    assert 'Webhook signature verified successfully.' in caplog.text
 
 
 def test_verify_signature_invalid_token_github(webhook_event_github, invalid_token_github):

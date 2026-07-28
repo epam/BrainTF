@@ -250,7 +250,7 @@ def get_particular_files_from_s3_directory(
     return files
 
 
-def get_file_content_with_metadata_from_s3(s3_bucket: str, s3_key: str) -> Dict | None:
+def get_file_content_with_metadata_from_s3(s3_bucket: str, s3_key: str) -> Dict:
     """
     Retrieves the content and metadata of a specified file stored in an S3 bucket.
 

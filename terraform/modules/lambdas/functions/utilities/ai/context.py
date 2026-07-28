@@ -114,8 +114,10 @@ def create_context_memory_window(
 
             put_messages_to_db(config.table_name, messages_to_db)
 
-            logger.info(
-                f"Context window stored pk={commit_short_sha}, sk={messages_to_db[0]['sk']}, {messages_to_db[1]['sk']}")
+            logger.debug(
+                f"Stored context window for pk={commit_short_sha} "
+                f"with sk={messages_to_db[0]['sk']} and {messages_to_db[1]['sk']}."
+            )
             return
 
         except ClientError as e:
@@ -127,13 +129,16 @@ def create_context_memory_window(
                     "ProvisionedThroughputExceededException",
             ):
                 if attempt >= max_retries:
-                    logger.error(f"Failed to store context after {max_retries} retries pk={commit_short_sha}")
+                    logger.error(
+                        f"Failed to store context after {max_retries} retries "
+                        f"for pk={commit_short_sha}."
+                    )
                     raise
                 # Backoff time
                 backoff_time: int = 2 ** attempt
                 logger.warning(
-                    f"Retrying store context attempt {attempt}/{max_retries}, "
-                    f"pk={commit_short_sha} after {backoff_time}s delay"
+                    f"Retrying context storage. Attempt {attempt}/{max_retries} "
+                    f"for pk={commit_short_sha}; waiting {backoff_time}s."
                 )
                 time.sleep(backoff_time)
                 continue  # Ensure the loop retries on ClientError
@@ -186,16 +191,17 @@ def get_context_memory_window(
 
         except ClientError:
             if attempt >= max_retries:
-                logger.exception(f"Failed to fetch context after {max_retries} retries pk={commit_short_sha}")
+                logger.exception(
+                    f"Failed to fetch context after {max_retries} retries "
+                    f"for pk={commit_short_sha}."
+                )
                 raise
-            logger.warning(
-                f"Retrying context fetch due to ClientError attempt {attempt}/{max_retries}, pk={commit_short_sha})"
-            )
             # Backoff time
             backoff_time: int = 2 ** attempt
             logger.warning(
-                f"Retrying fetch context attempt {attempt}/{max_retries}, "
-                f"pk={commit_short_sha} after {backoff_time}s delay"
+                f"Retrying context fetch after ClientError. "
+                f"Attempt {attempt}/{max_retries} for pk={commit_short_sha}; "
+                f"waiting {backoff_time}s."
             )
             time.sleep(backoff_time)
             continue  # Ensure the loop retries on ClientError

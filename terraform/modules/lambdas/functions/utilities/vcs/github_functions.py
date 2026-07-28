@@ -39,7 +39,7 @@ def _get_github_client() -> Github:
         client.get_user()  # verifies the token and session
     except Exception as e:
         # Do NOT cache a failed session, let the exception propagate
-        logger.error(f"GitHub client verification failed: {e}")
+        logger.error(f"GitHub client verification failed: {e}.")
         raise
 
     return client  # gets cached only if everything above succeeds
@@ -68,16 +68,16 @@ def get_pr_source_branch_name(repo_id_or_name: Union[int, str], pull_number: int
         return pr.head.ref
 
     except BadCredentialsException as e:
-        logger.error(f"GitHub authentication error: {e}")
+        logger.error(f"GitHub authentication error: {e}.")
         raise
     except UnknownObjectException as e:
-        logger.error(f"GitHub object not found: {e}")
+        logger.error(f"GitHub object not found: {e}.")
         raise
     except GithubException as e:
-        logger.error(f"GitHub API error: {e}")
+        logger.error(f"GitHub API error: {e}.")
         raise
     except Exception as e:
-        logger.error(f"Unexpected error getting PR source branch: {e}")
+        logger.error(f"Unexpected error getting PR source branch: {e}.")
         raise
 
 
@@ -111,16 +111,16 @@ def add_reaction_to_pr_comment_github(event: Dict[str, Any], reaction: str, ):
         return issue_comment
 
     except BadCredentialsException as e:
-        logger.error(f"GitHub authentication error: {e}")
+        logger.error(f"GitHub authentication error: {e}.")
         raise
     except UnknownObjectException as e:
-        logger.error(f"GitHub object not found: {e}")
+        logger.error(f"GitHub object not found: {e}.")
         raise
     except GithubException as e:
-        logger.error(f"GitHub API error: {e}")
+        logger.error(f"GitHub API error: {e}.")
         raise
     except Exception as e:
-        logger.error(f"Unexpected error adding reaction to GitHub PR comment: {e}")
+        logger.error(f"Unexpected error adding reaction to GitHub PR comment: {e}.")
         raise
 
 
@@ -152,16 +152,16 @@ def post_pr_comment_github(event: Dict[str, Any], comment_text: str):
         return issue_comment
 
     except BadCredentialsException as e:
-        logger.error(f"GitHub authentication error: {e}")
+        logger.error(f"GitHub authentication error: {e}.")
         raise
     except UnknownObjectException as e:
-        logger.error(f"GitHub object not found: {e}")
+        logger.error(f"GitHub object not found: {e}.")
         raise
     except GithubException as e:
-        logger.error(f"GitHub API error: {e}")
+        logger.error(f"GitHub API error: {e}.")
         raise
     except Exception as e:
-        logger.error(f"Unexpected error posting comment to GitHub PR: {e}")
+        logger.error(f"Unexpected error posting comment to GitHub PR: {e}.")
         raise
 
 
@@ -194,8 +194,9 @@ def check_files_exist_in_repo_github(event: Dict[str, Any],
         branch = get_pr_source_branch_name(repo_id_or_name, merge_or_pull_req_id)
         gh = _get_github_client()
         repo = gh.get_repo(repo_id_or_name)
-        logger.info(
-            f"Checking existence of {len(file_paths)} file(s) in repo '{repo_id_or_name}' on branch '{branch}'"
+        logger.debug(
+            f"Checking existence of {len(file_paths)} file(s) in repo '{repo_id_or_name}' "
+            f"on branch '{branch}'."
         )
 
         missing_files: list[str] = []
@@ -210,24 +211,24 @@ def check_files_exist_in_repo_github(event: Dict[str, Any],
                 missing_files.append(path)
 
         if missing_files:
-            logger.info(f"Missing {len(missing_files)} file(s) in repo: {missing_files}")
+            logger.warning(f"Missing {len(missing_files)} file(s) in repo: {missing_files}")
             return False
 
-        logger.info("All files exist in the repository on the specified branch.")
+        logger.info("All files exist in the GitHub repository on the specified branch.")
         return True
 
     except BadCredentialsException as e:
-        logger.error(f"GitHub authentication error while checking file existence: {e}")
+        logger.error(f"GitHub authentication error while checking file existence: {e}.")
         raise
     except UnknownObjectException as e:
         # This usually indicates repo or branch doesn't exist
-        logger.error(f"GitHub object not found while checking file existence: {e}")
+        logger.error(f"GitHub object not found while checking file existence: {e}.")
         raise
     except GithubException as e:
-        logger.error(f"GitHub API error while checking file existence: {e}")
+        logger.error(f"GitHub API error while checking file existence: {e}.")
         raise
     except Exception as e:
-        logger.error(f"Unexpected error while checking file existence in GitHub repo: {e}")
+        logger.error(f"Unexpected error while checking file existence in GitHub repo: {e}.")
         raise
 
 
@@ -257,14 +258,14 @@ def commit_files_to_branch_github(event: Dict[str, Any], file_paths_with_content
         # Get reference and latest commit
         ref = repo.get_git_ref(f"heads/{branch}")
         latest_commit = repo.get_git_commit(ref.object.sha)
-        logger.info(f"Latest commit on branch '{branch}': {latest_commit.sha}")
+        logger.debug(f"Latest commit on branch '{branch}': {latest_commit.sha}")
 
         # Prepare tree elements
         tree_elements = []
 
         for path, content in file_paths_with_content:
             blob = repo.create_git_blob(content, "utf-8")
-            logger.info(f"Created blob for file '{path}' : {content} : {blob.sha}")
+            logger.debug(f"Created Git blob for {path} with SHA {blob.sha}")
             element = InputGitTreeElement(
                 path=path,
                 mode="100644",
@@ -272,7 +273,7 @@ def commit_files_to_branch_github(event: Dict[str, Any], file_paths_with_content
                 sha=blob.sha,
             )
             tree_elements.append(element)
-        logger.info(f"Prepared tree elements: {tree_elements}")
+        logger.debug(f"Prepared Git tree element(s): {tree_elements} for commit")
 
         # Create a new tree
         new_tree = repo.create_git_tree(tree_elements, base_tree=latest_commit.tree)
@@ -283,20 +284,20 @@ def commit_files_to_branch_github(event: Dict[str, Any], file_paths_with_content
         # Point a branch to the new commit
         ref.edit(new_commit.sha)
 
-        logger.info(f"Successfully committed files {file_paths_with_content}")
+        logger.debug(f"Successfully committed file(s) {file_paths_with_content} to branch '{branch}'.")
 
 
     except BadCredentialsException as e:
-        logger.error(f"GitHub authentication error: {e}")
+        logger.error(f"GitHub authentication error: {e}.")
         raise
     except UnknownObjectException as e:
-        logger.error(f"GitHub object not found: {e}")
+        logger.error(f"GitHub object not found: {e}.")
         raise
     except GithubException as e:
-        logger.error(f"GitHub API error: {e}")
+        logger.error(f"GitHub API error: {e}.")
         raise
     except Exception as e:
-        logger.error(f"Unexpected error committing files to GitHub repo: {e}")
+        logger.error(f"Unexpected error committing files to GitHub repo: {e}.")
         raise
 
 
@@ -311,16 +312,16 @@ def get_last_commit_sha_github(repo_id_or_name: Union[int, str], pull_number: in
         return pr.head.sha
 
     except BadCredentialsException as e:
-        logger.error(f"GitHub authentication error: {e}")
+        logger.error(f"GitHub authentication error: {e}.")
         raise
     except UnknownObjectException as e:
-        logger.error(f"GitHub object not found: {e}")
+        logger.error(f"GitHub object not found: {e}.")
         raise
     except GithubException as e:
-        logger.error(f"GitHub API error: {e}")
+        logger.error(f"GitHub API error: {e}.")
         raise
     except Exception as e:
-        logger.error(f"Unexpected error getting PR head SHA: {e}")
+        logger.error(f"Unexpected error getting PR head SHA: {e}.")
         raise
 
 
@@ -343,6 +344,6 @@ def get_all_tf_files_from_paths_list_github(
 
         for item in items:
             if item.type == "file" and item.path.endswith(".tf"):
-                logger.info(f"Fetching {item.path} ...")
+                logger.info(f"Terraform file {item.path} fetched from GitHub...")
                 tf_files.append((item.path, item.decoded_content.decode("utf-8")))
     return tf_files

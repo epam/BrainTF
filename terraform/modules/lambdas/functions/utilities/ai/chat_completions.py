@@ -50,6 +50,7 @@ def generate_response_ai(messages: list, retries: int = 3) -> dict:
     attempt = 0
 
     while True:
+        logger.debug(f"Requesting AI API with baseurl: {config.ai_api_endpoint}")
         try:
             resp = requests.post(
                 config.ai_api_endpoint,
