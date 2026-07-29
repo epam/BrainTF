@@ -192,5 +192,5 @@ def test_generate_response_ai_raises_when_response_choices_missing(
 
     messages = [user_message("x")]
 
-    with pytest.raises(IndexError):
+    with pytest.raises(ValueError, match="AI API response is missing choices."):
         generate_response_ai(messages)

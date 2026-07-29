@@ -12,32 +12,28 @@ from utilities.messages import SYSTEM_ROLE_MESSAGE
 
 def generate_response_ai(messages: list[ChatCompletionMessageParam], retries: int = 3) -> dict:
     """
-    Generates a response from an AI model based on the provided messages and retry logic.
-
-    This function sends a request to the AI API to generate a completion for the given chat
-    messages. It includes customizable retry logic to handle transient errors during the
-    API communication.
+    Generates a response from an AI system by sending a list of message prompts and processing the
+    response. Handles retries in case of connection or server errors with an exponential backoff
+    strategy.
 
     Args:
-        messages (list[ChatCompletionMessageParam]): A list of message parameters to be sent
-            to the AI API for generating a response. These typically include user and system
-            prompts.
-        retries (int, optional): The maximum number of retry attempts to make in case of API
-            errors. Defaults to 3.
+        messages (list[ChatCompletionMessageParam]): A list of message objects to be sent as prompts
+            to the AI system.
+        retries (int, optional): The number of retry attempts to make in case of errors. Defaults to 3.
 
     Returns:
-        dict: A dictionary containing the AI-generated message and token usage details. The
-            keys are:
-            - "message": The generated message content (str).
-            - "tokens": A dictionary with token usage details, including:
-                - "prompt_tokens" (int): Number of tokens used for the prompt.
-                - "completion_tokens" (int): Number of tokens used for the completion.
-                - "total_tokens" (int): Total tokens consumed.
+        dict: A dictionary containing the AI's response message and token usage details:
+            - 'message': The content of the response as a string.
+            - 'tokens': A nested dictionary with token usage details:
+                - 'prompt_tokens': The number of tokens used in the input prompt.
+                - 'completion_tokens': The number of tokens used in the generated completion.
+                - 'total_tokens': The combined total of prompt and completion tokens.
 
     Raises:
-        APITimeoutError: If the API request times out and exceeds the allowed retry attempts.
+        ValueError: If the AI response contains no choices or is improperly formatted.
+        APITimeoutError: If the API request times out.
         APIConnectionError: If there is a connection issue with the API.
-        APIStatusError: If the API returns an invalid or error status code after retries.
+        APIStatusError: If the API returns an unexpected status code.
     """
     system_role_message: ChatCompletionSystemMessageParam = {
         "role": "system",
@@ -75,6 +71,9 @@ def generate_response_ai(messages: list[ChatCompletionMessageParam], retries: in
             wait = 2 ** (attempt - 1)
             logger.warning(f"AI API error: {e} — retry {attempt}/{retries} in {wait}s")
             time.sleep(wait)
+
+    if not response.choices:
+        raise ValueError("AI API response is missing choices.")
 
     content = response.choices[0].message.content or ''
 
