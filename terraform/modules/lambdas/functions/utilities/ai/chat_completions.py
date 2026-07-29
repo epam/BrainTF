@@ -1,109 +1,93 @@
 import time
 
-import requests
+from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
+from openai.types import CompletionUsage
+from openai.types.chat import (ChatCompletionMessageParam,
+                               ChatCompletionSystemMessageParam)
 
 from config import config
 from utilities.logger import logger
 from utilities.messages import SYSTEM_ROLE_MESSAGE
 
 
-def generate_response_ai(messages: list, retries: int = 3) -> dict:
+def generate_response_ai(messages: list[ChatCompletionMessageParam], retries: int = 3) -> dict:
     """
-    Generates a response from an AI model by sending a set of messages to the AI API,
-    handles retries on certain types of errors, and parses the response to return
-    useful message content and token usage information.
+    Generates a response from an AI system by sending a list of message prompts and processing the
+    response. Handles retries in case of connection or server errors with an exponential backoff
+    strategy.
 
     Args:
-        messages (list): A list of message dictionaries to send to the AI API. Each dictionary
-            should have a "role" (e.g., "user", "assistant") and "content" (the text of the
-            message).
-        retries (int): The maximum number of retries allowed in case of API request failures.
-            Defaults to 3.
+        messages (list[ChatCompletionMessageParam]): A list of message objects to be sent as prompts
+            to the AI system.
+        retries (int, optional): The number of retry attempts to make in case of errors. Defaults to 3.
 
     Returns:
-        dict: A dictionary containing:
-            - "message" (str): The AI-generated response content.
-            - "tokens" (dict): A dictionary detailing token usage, with the following keys:
-                - "prompt_tokens" (int): The number of tokens used for the input messages.
-                - "completion_tokens" (int): The number of tokens generated for the output.
-                - "total_tokens" (int): The total number of tokens used (sum of prompt and
-                  completion tokens).
+        dict: A dictionary containing the AI's response message and token usage details:
+            - 'message': The content of the response as a string.
+            - 'tokens': A nested dictionary with token usage details:
+                - 'prompt_tokens': The number of tokens used in the input prompt.
+                - 'completion_tokens': The number of tokens used in the generated completion.
+                - 'total_tokens': The combined total of prompt and completion tokens.
 
     Raises:
-        requests.Timeout: If the API request times out and the retry limit is exceeded.
-        requests.ConnectionError: If the API connection fails and the retry limit is exceeded.
-        requests.HTTPError: If a server-side (5xx) or client-side (4xx) error occurs and the
-            retry limit is exceeded.
+        ValueError: If the AI response contains no choices or is improperly formatted.
+        APITimeoutError: If the API request times out.
+        APIConnectionError: If there is a connection issue with the API.
+        APIStatusError: If the API returns an unexpected status code.
     """
-    messages = [{"role": "system", "content": SYSTEM_ROLE_MESSAGE}] + messages
-    headers = {
-        "Content-Type": "application/json",
-        "Api-Key": config.ai_api_token
+    system_role_message: ChatCompletionSystemMessageParam = {
+        "role": "system",
+        "content": SYSTEM_ROLE_MESSAGE
     }
+    request_messages: list[ChatCompletionMessageParam] = [system_role_message] + messages
 
-    payload = {
-        "model": config.llm_model,
-        "messages": messages,
-        "temperature": 0.4
-    }
+    client = OpenAI(
+        base_url=config.ai_api_endpoint,
+        api_key=config.ai_api_token,
+        max_retries=0,
+    )
 
     attempt = 0
 
     while True:
         logger.debug(f"Requesting AI API with baseurl: {config.ai_api_endpoint}")
         try:
-            resp = requests.post(
-                config.ai_api_endpoint,
-                headers=headers,
-                json=payload,
-                timeout=config.default_timeout
+            response = client.chat.completions.create(
+                model=config.llm_model,
+                messages=request_messages,
+                temperature=0.4,
             )
 
-            # Retry on 5xx responses
-            if 500 <= resp.status_code < 600:
-                raise requests.HTTPError(f"Server error: {resp.status_code}", response=resp)
+            break
 
-            resp.raise_for_status()
-            break  # success → exit retry loop
-
-        except (requests.Timeout,
-                requests.ConnectionError,
-                requests.HTTPError) as e:
+        except (APITimeoutError, APIConnectionError, APIStatusError) as e:
 
             attempt += 1
 
             if attempt > retries:
-                logger.error(f"AI API request failed after {retries} retries: {e}")
+                logger.error(f"AI API request failed after {retries} retries: {e}.")
                 raise
 
             wait = 2 ** (attempt - 1)
             logger.warning(f"AI API error: {e} — retry {attempt}/{retries} in {wait}s")
             time.sleep(wait)
 
-    # Parse JSON once
-    data_json = resp.json()
+    if not response.choices:
+        raise ValueError("AI API response is missing choices.")
 
-    # Safely extract content
-    message = (
-            data_json.get("choices", [{}])[0]
-            .get("message", {})
-            .get("content", "")
-            .strip() + "\n"
-    )
+    content = response.choices[0].message.content or ''
 
-    usage = data_json.get("usage", {})
-    prompt_tokens = usage.get("prompt_tokens", 0)
-    completion_tokens = usage.get("completion_tokens", 0)
-    total_tokens = usage.get("total_tokens", 0)
+    usage: CompletionUsage | None = response.usage
+    prompt_tokens = usage.prompt_tokens if usage else 0
+    completion_tokens = usage.completion_tokens if usage else 0
+    total_tokens = usage.total_tokens if usage else 0
 
     logger.info(
-        f"Prompt tokens: {prompt_tokens}, "
-        f"Completion tokens: {completion_tokens}, "
-        f"Total tokens: {total_tokens}"
+        f"AI API used prompt tokens: {prompt_tokens}, completion tokens: {completion_tokens}, total tokens: {total_tokens}"
     )
 
     return {
-        "message": message,
+        "message": content,
         "tokens": {
             "prompt_tokens": prompt_tokens,
             "completion_tokens": completion_tokens,
