@@ -61,6 +61,16 @@ def ssm_setup():
             Type="String",
         )
         client.put_parameter(
+            Name="x-github-token",
+            Value=EXPECTED_TOKEN_GITHUB,
+            Type="String",
+        )
+        client.put_parameter(
+            Name="webhook_secret",
+            Value=EXPECTED_TOKEN_GITLAB,
+            Type="String",
+        )
+        client.put_parameter(
             Name="token",
             Value="token",
             Type="String",
@@ -79,56 +89,43 @@ def expected_token_github():
 
 
 @pytest.fixture
-def patched_config_gitlab(patched_environment, expected_token_gitlab):
+def patched_config_gitlab(patched_environment, ssm_setup):
     from config import config
 
-    # Patch the cached_property `webhook_secret`
-    new_object = type(config)
-    patched_environment.setattr(
-        new_object,
-        "webhook_secret",
-        property(lambda self: expected_token_gitlab),
-    )
+    patched_environment.setattr(config, "vcs_provider", "gitlab")
+    patched_environment.setattr(config, "vcs_token_name", "x-gitlab-token")
     return patched_environment
 
 
 @pytest.fixture
-def patched_config_github(patched_environment, expected_token_github):
+def patched_config_github(patched_environment, ssm_setup, expected_token_github):
     from config import config
 
-    # Patch the cached_property `webhook_secret`
-    new_object = type(config)
-
-    patched_environment.setattr(
-        new_object,
-        "webhook_secret",
-        property(lambda self: expected_token_github),
+    boto3.client("ssm").put_parameter(
+        Name="webhook_secret",
+        Value=expected_token_github,
+        Type="String",
+        Overwrite=True,
     )
 
-    patched_environment.setattr(
-        "utilities.auth.config.vcs_provider",
-        "github"
-    )
+    patched_environment.setattr(config, "vcs_provider", "github")
+    patched_environment.setattr(config, "vcs_token_name", "x-github-token")
     return patched_environment
 
 
 @pytest.fixture
-def patched_config_wrong_vcs(patched_environment, expected_token_github):
+def patched_config_wrong_vcs(patched_environment, ssm_setup, expected_token_github):
     from config import config
 
-    # Patch the cached_property `webhook_secret`
-    new_object = type(config)
-
-    patched_environment.setattr(
-        new_object,
-        "webhook_secret",
-        property(lambda self: expected_token_github),
+    boto3.client("ssm").put_parameter(
+        Name="webhook_secret",
+        Value=expected_token_github,
+        Type="String",
+        Overwrite=True,
     )
 
-    patched_environment.setattr(
-        "utilities.auth.config.vcs_provider",
-        "bitbucket"
-    )
+    patched_environment.setattr(config, "vcs_provider", "bitbucket")
+    patched_environment.setattr(config, "vcs_token_name", "x-github-token")
     return patched_environment
 
 

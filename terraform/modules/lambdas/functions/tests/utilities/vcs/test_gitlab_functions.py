@@ -177,7 +177,7 @@ def test_get_gitlab_client_success(patched_config_gitlab, ssm_setup, mock_gitlab
     from utilities.vcs.gitlab_functions import _get_gitlab_client
     _get_gitlab_client.cache_clear()
 
-    client = _get_gitlab_client()
+    client = _get_gitlab_client(expected_token_gitlab)
 
     assert client == mock_gitlab.instance
     assert mock_gitlab.call_count == 1
@@ -188,17 +188,17 @@ def test_get_gitlab_client_success(patched_config_gitlab, ssm_setup, mock_gitlab
     assert mock_gitlab.instance.auth_called == 1
     assert mock_gitlab.instance.version_called == 1
 
-def test_get_gitlab_client_auth_failure(patched_config_gitlab, mock_gitlab):
+def test_get_gitlab_client_auth_failure(patched_config_gitlab, mock_gitlab, expected_token_gitlab):
     from utilities.vcs.gitlab_functions import _get_gitlab_client
     _get_gitlab_client.cache_clear()
     mock_gitlab.instance.side_effect_auth = gitlab.GitlabAuthenticationError("Auth failed")
 
     with pytest.raises(gitlab.GitlabAuthenticationError, match="Auth failed"):
-        _get_gitlab_client()
+        _get_gitlab_client(expected_token_gitlab)
 
     assert mock_gitlab.instance.auth_called == 1
 
-def test_get_gitlab_client_version_failure(patched_config_gitlab, mock_gitlab,monkeypatch):
+def test_get_gitlab_client_version_failure(patched_config_gitlab, mock_gitlab, monkeypatch, expected_token_gitlab):
     from utilities.vcs.gitlab_functions import _get_gitlab_client
     _get_gitlab_client.cache_clear()
     mock_gitlab.instance.side_effect_version = Exception("Version check failed")
@@ -207,21 +207,22 @@ def test_get_gitlab_client_version_failure(patched_config_gitlab, mock_gitlab,mo
     monkeypatch.setattr("utilities.vcs.gitlab_functions.logger", mock_logger)
 
     with pytest.raises(Exception, match="Version check failed"):
-        _get_gitlab_client()
+        _get_gitlab_client(expected_token_gitlab)
 
     assert mock_logger.error_called >= 1
     assert mock_gitlab.instance.auth_called == 1
     assert mock_gitlab.instance.version_called == 1
 
-def test_get_gitlab_client_caching(patched_config_gitlab, mock_gitlab):
+def test_get_gitlab_client_caching(patched_config_gitlab, mock_gitlab, expected_token_gitlab):
     from utilities.vcs.gitlab_functions import _get_gitlab_client
     _get_gitlab_client.cache_clear()
 
-    client1 = _get_gitlab_client()
-    client2 = _get_gitlab_client()
+    client1 = _get_gitlab_client(expected_token_gitlab)
+    client2 = _get_gitlab_client(expected_token_gitlab)
+    _get_gitlab_client("rotated-token")
 
     assert client1 is client2
-    assert mock_gitlab.call_count == 1
+    assert mock_gitlab.call_count == 2
 
 
 def test_post_gitlab_comment_success(patched_config_gitlab, ssm_setup, mock_gitlab):
