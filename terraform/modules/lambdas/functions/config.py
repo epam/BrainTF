@@ -49,30 +49,31 @@ class _ConfigLambda:
         TTL_DELTA_DAYS: Adjusts the TTL offset in days.
 
     Notes:
-        * URLs must include an explicit scheme (``http`` or ``https``) to pass validation.
+        * URLs must use the ``https`` scheme to pass validation.
         * Boolean flags accept ``true``, ``1``, or ``yes`` (case-insensitive) as truthy.
-        * Secrets retrieved from SSM are memoized via ``functools.cached_property`` to
-          minimize repeated network calls.
+        * VCS tokens, webhook secrets, and AI API tokens are loaded from SSM on
+          each access.
+          Other expensive AWS lookups may still be memoized where appropriate.
         * Validation raises ``ValueError`` with descriptive messages whenever required
           configuration is missing or malformed.
     """
 
     def __init__(self) -> None:
-        self.default_timeout: tuple[float, float] = (361, 361)
+        self.default_timeout: tuple[float | int, float | int] = (361, 361)
         self.boto3_config: Config = Config(connect_timeout=self.default_timeout[0],
                                            read_timeout=self.default_timeout[1])
 
         # Load environment variables
         self.vcs_provider: str = os.environ.get("VCS_PROVIDER", "github")
-        self.vcs_token_name: str = os.environ.get('VCS_TOKEN_NAME')
-        self.vcs_api_endpoint: str = os.environ.get('VCS_API_ENDPOINT')
-        self.webhook_secret_name: str = os.environ.get('WEBHOOK_SECRET_NAME')
-        self.artifacts_bucket: str = os.environ.get('ARTIFACTS_BUCKET')
+        self.vcs_token_name: str | None = os.environ.get('VCS_TOKEN_NAME')
+        self.vcs_api_endpoint: str | None = os.environ.get('VCS_API_ENDPOINT')
+        self.webhook_secret_name: str | None = os.environ.get('WEBHOOK_SECRET_NAME')
+        self.artifacts_bucket: str | None = os.environ.get('ARTIFACTS_BUCKET')
         self.path_to_artifacts: str = os.environ.get('ARTIFACTS_PATH', 'artifacts')
-        self.ai_api_token_name: str = os.environ.get('AI_API_TOKEN_NAME')
-        self.llm_model: str = os.environ.get("LLM_MODEL")
-        self.ai_api_endpoint: str = os.environ.get("AI_API_ENDPOINT")
-        self.table_name: str = os.environ.get("DYNAMODB_TABLE_NAME")
+        self.ai_api_token_name: str | None = os.environ.get('AI_API_TOKEN_NAME')
+        self.llm_model: str | None = os.environ.get("LLM_MODEL")
+        self.ai_api_endpoint: str | None = os.environ.get("AI_API_ENDPOINT")
+        self.table_name: str | None = os.environ.get("DYNAMODB_TABLE_NAME")
         self.log_level: str = os.environ.get("LOG_LEVEL", "INFO").upper()
         self.rag_enabled: bool = os.environ.get("RAG_ENABLED", "False").lower() in ("true", "1", "yes")
         self.ttl_delta_days: int = int(os.environ.get("TTL_DELTA_DAYS", 30))
@@ -110,9 +111,9 @@ class _ConfigLambda:
         if not self.vcs_api_endpoint:
             raise ValueError("VCS_API_ENDPOINT environment variable is required")
 
-        if not self.vcs_api_endpoint.startswith(('http://', 'https://')):
+        if not self.vcs_api_endpoint.startswith('https://'):  # :noqa
             raise ValueError(
-                f"VCS_API_ENDPOINT must be a valid URL: {self.vcs_api_endpoint}"
+                f"VCS_API_ENDPOINT must start with https://: {self.vcs_api_endpoint}"
             )
         if self.vcs_api_endpoint.endswith(self.git_api_endpoint_version):
             raise ValueError(
@@ -142,9 +143,9 @@ class _ConfigLambda:
         if not self.ai_api_endpoint:
             raise ValueError("AI_API_ENDPOINT environment variable is required")
 
-        if not self.ai_api_endpoint.startswith(('http://', 'https://')):
+        if not self.ai_api_endpoint.startswith('https://'):
             raise ValueError(
-                f"AI_API_ENDPOINT must be a valid URL: {self.ai_api_endpoint}"
+                f"AI_API_ENDPOINT must start with https://: {self.ai_api_endpoint}"
             )
 
     def _validate_dynamodb_config(self) -> None:
@@ -161,12 +162,11 @@ class _ConfigLambda:
                 f"Must be one of: {', '.join(valid_log_levels)}"
             )
 
-    @cached_property
+    @property
     def vcs_api_token(self) -> str:
         """
-        Provides a cached property to retrieve the VCS API token securely from
-        AWS SSM parameter store with decryption enabled. This avoids repeated
-        calls to fetch the token and improves performance by caching the result.
+        Retrieves the VCS API token securely from AWS SSM parameter store with
+        decryption enabled.
 
         Returns:
             str: The decrypted VCS API token.
@@ -183,7 +183,7 @@ class _ConfigLambda:
         )
         return response['Parameter']['Value']
 
-    @cached_property
+    @property
     def webhook_secret(self) -> str:
         ssm = boto3.client('ssm', config=self.boto3_config)
         response: Dict[str, Any] = ssm.get_parameter(
@@ -192,7 +192,7 @@ class _ConfigLambda:
         )
         return response['Parameter']['Value']
 
-    @cached_property
+    @property
     def ai_api_token(self) -> str:
         ssm = boto3.client('ssm', config=self.boto3_config)
         response: Dict[str, Any] = ssm.get_parameter(
