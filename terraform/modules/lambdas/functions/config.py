@@ -111,7 +111,7 @@ class _ConfigLambda:
         if not self.vcs_api_endpoint:
             raise ValueError("VCS_API_ENDPOINT environment variable is required")
 
-        if not self.vcs_api_endpoint.startswith('https://'):  # :noqa
+        if not self.vcs_api_endpoint.startswith('https://'):
             raise ValueError(
                 f"VCS_API_ENDPOINT must start with https://: {self.vcs_api_endpoint}"
             )
