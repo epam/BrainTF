@@ -1,4 +1,4 @@
-from functools import lru_cache
+from functools import cache
 from typing import Any, Dict, List, Union
 
 from github import Auth, Github, InputGitTreeElement
@@ -10,14 +10,14 @@ from utilities.logger import logger
 from utilities.messages import HELP_MESSAGE
 
 
-@lru_cache(maxsize=1)
-def _get_github_client() -> Github:
+@cache
+def _get_github_client(vcs_api_token: str) -> Github:
     """
     Fetches the GitHub client with a caching mechanism and verifies the session token.
 
-    This function creates and caches a GitHub client for accessing the GitHub API.
-    It utilizes an `lru_cache` decorator to cache the client instance and performs
-    a lightweight health check to ensure the token and session are valid.
+    This function creates and caches a GitHub client by token for accessing the
+    GitHub API. It performs a lightweight health check to ensure the token and
+    session are valid.
 
     Returns:
         Github: An authenticated client for accessing GitHub API.
@@ -26,7 +26,7 @@ def _get_github_client() -> Github:
         Exception: If the verification of the token or session fails, the exception
             propagates to prevent caching an invalid client.
     """
-    auth = Auth.Token(config.vcs_api_token)
+    auth = Auth.Token(vcs_api_token)
     base_url = config.vcs_api_endpoint
 
     client = Github(
@@ -62,7 +62,7 @@ def get_pr_source_branch_name(repo_id_or_name: Union[int, str], pull_number: int
     """
 
     try:
-        gh = _get_github_client()
+        gh = _get_github_client(config.vcs_api_token)
         repo = gh.get_repo(repo_id_or_name)
         pr = repo.get_pull(pull_number)
         return pr.head.ref
@@ -99,7 +99,7 @@ def add_reaction_to_pr_comment_github(event: Dict[str, Any], reaction: str, ):
     """
 
     try:
-        gh = _get_github_client()
+        gh = _get_github_client(config.vcs_api_token)
         repo = gh.get_repo(event.get('metadata').get('repo_id_or_name'))
         # Ensure PR exists (will raise if not)
         pr = repo.get_pull(event.get('metadata').get('merge_or_pull_req_id'))
@@ -142,7 +142,7 @@ def post_pr_comment_github(event: Dict[str, Any], comment_text: str):
     """
 
     try:
-        gh = _get_github_client()
+        gh = _get_github_client(config.vcs_api_token)
         repo = gh.get_repo(event.get('metadata').get('repo_id_or_name'))
         # Ensure PR exists (will raise if not)
         pr = repo.get_pull(event.get('metadata').get('merge_or_pull_req_id'))
@@ -192,7 +192,7 @@ def check_files_exist_in_repo_github(event: Dict[str, Any],
         merge_or_pull_req_id = event.get('metadata').get('merge_or_pull_req_id')
         # Use the source branch of the PR as the default
         branch = get_pr_source_branch_name(repo_id_or_name, merge_or_pull_req_id)
-        gh = _get_github_client()
+        gh = _get_github_client(config.vcs_api_token)
         repo = gh.get_repo(repo_id_or_name)
         logger.debug(
             f"Checking existence of {len(file_paths)} file(s) in repo '{repo_id_or_name}' "
@@ -250,7 +250,7 @@ def commit_files_to_branch_github(event: Dict[str, Any], file_paths_with_content
         GithubException: For other GitHub API errors.
     """
     try:
-        gh = _get_github_client()
+        gh = _get_github_client(config.vcs_api_token)
         repo = gh.get_repo(event.get('metadata').get('repo_id_or_name'))
         merge_or_pull_req_id = event.get('metadata').get('merge_or_pull_req_id')
         branch = get_pr_source_branch_name(event.get('metadata').get('repo_id_or_name'), merge_or_pull_req_id)
@@ -306,7 +306,7 @@ def get_last_commit_sha_github(repo_id_or_name: Union[int, str], pull_number: in
 
     """
     try:
-        gh = _get_github_client()
+        gh = _get_github_client(config.vcs_api_token)
         repo = gh.get_repo(repo_id_or_name)
         pr = repo.get_pull(pull_number)
         return pr.head.sha
@@ -331,7 +331,7 @@ def get_all_tf_files_from_paths_list_github(
 ) -> List[tuple[str, str]]:
     repo_identifier = event.get('metadata', {}).get('repo_id_or_name')
     branch = event.get('metadata', {}).get('source_branch')
-    gh = _get_github_client()
+    gh = _get_github_client(config.vcs_api_token)
     repo = gh.get_repo(repo_identifier)
 
     tf_files: List[tuple[str, str]] = []

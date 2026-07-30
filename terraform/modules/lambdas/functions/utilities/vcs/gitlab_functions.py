@@ -1,5 +1,5 @@
 import base64
-from functools import lru_cache
+from functools import cache
 from pathlib import PurePosixPath
 from typing import Any, Dict, List
 
@@ -11,13 +11,13 @@ from utilities.logger import logger
 from utilities.messages import HELP_MESSAGE
 
 
-@lru_cache(maxsize=1)
-def _get_gitlab_client() -> gitlab.Gitlab:
+@cache
+def _get_gitlab_client(vcs_api_token: str) -> gitlab.Gitlab:
     """Return an authenticated and verified GitLab client instance."""
 
     client = gitlab.Gitlab(
         url=config.vcs_api_endpoint,
-        private_token=config.vcs_api_token,
+        private_token=vcs_api_token,
     )
 
     # Authenticate token
@@ -52,7 +52,7 @@ def get_mr_source_branch_name(
         GitlabGetError: If a project or MR is not found.
     """
     try:
-        gl = _get_gitlab_client()
+        gl = _get_gitlab_client(config.vcs_api_token)
         project = gl.projects.get(project_id_or_path)
         mr = project.mergerequests.get(merge_request_id)
 
@@ -93,7 +93,7 @@ def add_award_to_note_gitlab(
     """
 
     try:
-        gl = _get_gitlab_client()
+        gl = _get_gitlab_client(config.vcs_api_token)
 
         project = gl.projects.get(event.get('metadata').get('repo_id_or_name'))
         mr = project.mergerequests.get(event.get('metadata').get('merge_or_pull_req_id'))
@@ -124,7 +124,7 @@ def post_gitlab_comment(event: Dict[str, Any], comment_text: str) -> Dict[str, A
     """
 
     try:
-        gl = _get_gitlab_client()
+        gl = _get_gitlab_client(config.vcs_api_token)
         project = gl.projects.get(event.get('metadata').get('repo_id_or_name'))
         mr = project.mergerequests.get(event.get('metadata').get('merge_or_pull_req_id'))
         note = mr.notes.create({'body': comment_text})
@@ -162,7 +162,7 @@ def check_files_exist_in_repo_gitlab(
 
         branch = get_mr_source_branch_name(project_id_or_path, merge_request_id)
 
-        gl = _get_gitlab_client()
+        gl = _get_gitlab_client(config.vcs_api_token)
         project = gl.projects.get(project_id_or_path)
 
         logger.debug(
@@ -257,7 +257,7 @@ def commit_files_to_branch_gitlab(
         Exception: For unexpected errors.
     """
     try:
-        gl = _get_gitlab_client()
+        gl = _get_gitlab_client(config.vcs_api_token)
 
         metadata = event.get("metadata", {})
         project_id = metadata.get("repo_id_or_name")
@@ -322,7 +322,7 @@ def get_all_tf_files_from_paths_list_gitlab(
         event: Dict[str, Any],
         paths_list: List[str]
 ) -> List[tuple[str, str]]:
-    gl = _get_gitlab_client()
+    gl = _get_gitlab_client(config.vcs_api_token)
     project = gl.projects.get(event.get('metadata').get('repo_id_or_name'))
 
     # List to hold tuples of (repo_path, file_content_text)
