@@ -1,4 +1,4 @@
-from functools import cache
+from functools import lru_cache
 from typing import Any, Dict, List, Union
 
 from github import Auth, Github, InputGitTreeElement
@@ -10,7 +10,7 @@ from utilities.logger import logger
 from utilities.messages import HELP_MESSAGE
 
 
-@cache
+@lru_cache(maxsize=1)
 def _get_github_client(vcs_api_token: str) -> Github:
     """
     Fetches the GitHub client with a caching mechanism and verifies the session token.

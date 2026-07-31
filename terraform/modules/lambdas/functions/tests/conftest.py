@@ -89,8 +89,15 @@ def expected_token_github():
 
 
 @pytest.fixture
-def patched_config_gitlab(patched_environment, ssm_setup):
+def patched_config_gitlab(patched_environment, ssm_setup, expected_token_gitlab):
     from config import config
+
+    boto3.client("ssm").put_parameter(
+        Name="webhook_secret",
+        Value=expected_token_gitlab,
+        Type="String",
+        Overwrite=True,
+    )
 
     patched_environment.setattr(config, "vcs_provider", "gitlab")
     patched_environment.setattr(config, "vcs_token_name", "x-gitlab-token")

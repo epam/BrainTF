@@ -59,7 +59,7 @@ class _ConfigLambda:
     """
 
     def __init__(self) -> None:
-        self.default_timeout: tuple[float | int, float | int] = (361, 361)
+        self.default_timeout: tuple[float, float] = (361, 361)
         self.boto3_config: Config = Config(connect_timeout=self.default_timeout[0],
                                            read_timeout=self.default_timeout[1])
 
