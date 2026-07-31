@@ -11,7 +11,7 @@ from utilities.logger import logger
 from utilities.messages import HELP_MESSAGE
 
 
-@lru_cache(maxsize=1)
+@lru_cache(maxsize=2)
 def _get_gitlab_client(vcs_api_token: str) -> gitlab.Gitlab:
     """Return an authenticated and verified GitLab client instance."""
 
