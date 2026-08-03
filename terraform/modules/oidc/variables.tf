@@ -23,6 +23,11 @@ variable "artifacts_bucket" {
   type        = string
 }
 
+variable "managed_state_bucket" {
+  description = "The name of the S3 bucket used for the managed workload Terraform state"
+  type        = string
+}
+
 variable "kms_key_arn" {
   description = "The ARN of the KMS key for encryption"
   type        = string

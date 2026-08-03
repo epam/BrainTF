@@ -4,12 +4,7 @@ variable "region" {
 }
 
 variable "vcs_repo_name" {
-  description = "The name of the project"
-  type        = string
-}
-
-variable "account_id" {
-  description = "The account ID for the project"
+  description = "The Project name"
   type        = string
 }
 
@@ -31,4 +26,15 @@ variable "deployed_by" {
 variable "owner_mail" {
   description = "The owner e-mail"
   type        = string
+}
+
+variable "account_id" {
+  description = "AWS account ID"
+  type        = string
+}
+
+variable "platform_state_bucket_prefix" {
+  description = "Custom prefix for the platform state S3 bucket name (stores state of bootstrap + main_module)"
+  type        = string
+  default     = "backend-state-bucket"
 }

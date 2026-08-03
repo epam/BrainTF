@@ -40,6 +40,7 @@ No modules.
 | <a name="input_aud_variable"></a> [aud\_variable](#input\_aud\_variable) | The audience variable for the OIDC provider | `string` | n/a | yes |
 | <a name="input_client_id_list"></a> [client\_id\_list](#input\_client\_id\_list) | List of client IDs for the OIDC provider | `list(string)` | n/a | yes |
 | <a name="input_kms_key_arn"></a> [kms\_key\_arn](#input\_kms\_key\_arn) | The ARN of the KMS key for encryption | `string` | n/a | yes |
+| <a name="input_managed_state_bucket"></a> [managed\_state\_bucket](#input\_managed\_state\_bucket) | The name of the S3 bucket used for the managed workload Terraform state | `string` | n/a | yes |
 | <a name="input_oidc_policy_name"></a> [oidc\_policy\_name](#input\_oidc\_policy\_name) | The name of the IAM policy to create | `string` | n/a | yes |
 | <a name="input_oidc_provider"></a> [oidc\_provider](#input\_oidc\_provider) | The oidc provider | `string` | n/a | yes |
 | <a name="input_oidc_role_name"></a> [oidc\_role\_name](#input\_oidc\_role\_name) | The name of the IAM role to create | `string` | n/a | yes |
