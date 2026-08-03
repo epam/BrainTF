@@ -1,7 +1,7 @@
 # ======================= Local Variables =======================
 locals {
-  # Define the S3 bucket name for storing the Terraform state
-  state_bucket = lower(replace(replace(replace("backend-state-bucket-${var.vcs_repo_name}-${var.region}", "_", "-"), " ", "-"), "[^a-z0-9.-]", ""))
+  # Define the S3 bucket name for storing the platform Terraform state
+  state_bucket = lower(replace(replace(replace("${var.platform_state_bucket_prefix}-${var.vcs_repo_name}-${var.region}", "_", "-"), " ", "-"), "[^a-z0-9.-]", ""))
 
   # list of .tf files in the main module to check for existing backend blocks
   main_module_tf_files = fileset("${path.module}/../main_module", "*.tf")
@@ -17,7 +17,7 @@ locals {
 terraform {
   backend "s3" {
     bucket       = "${local.state_bucket}"
-    key          = "terraform.tfstate"
+    key          = "main-module/terraform.tfstate"
     region       = "${var.region}"
     encrypt      = true
     use_lockfile = true
@@ -58,12 +58,11 @@ resource "local_file" "this" {
 }
 
 # ======================= Create a KMS Key for Encryption =======================
-data "aws_caller_identity" "current" {}
 
 module "s3_bucket_kms_key" {
   source = "git::https://github.com/terraform-aws-modules/terraform-aws-kms.git?ref=407e3db34a65b384c20ef718f55d9ceacb97a846"
 
-  description              = "KMS key for encrypting resources"
+  description              = "KMS key for encrypting Terraform state and related resources"
   enable_key_rotation      = true
   key_usage                = "ENCRYPT_DECRYPT"
   customer_master_key_spec = "SYMMETRIC_DEFAULT"
@@ -104,27 +103,6 @@ module "s3_bucket_kms_key" {
           identifiers = ["arn:aws:iam::${var.account_id}:root"]
         }
       ]
-    },
-    {
-      sid = "AllowTerraformRoleAccess"
-      actions = [
-        "kms:Encrypt",
-        "kms:Decrypt",
-        "kms:ReEncrypt*",
-        "kms:GenerateDataKey*",
-        "kms:DescribeKey",
-        "kms:ListAliases",
-        "kms:ListKeys",
-        "kms:ScheduleKeyDeletion",
-        "kms:CancelKeyDeletion"
-      ]
-      effect = "Allow"
-      principals = [
-        {
-          type        = "AWS"
-          identifiers = [data.aws_caller_identity.current.arn]
-        }
-      ]
     }
   ]
 
@@ -137,7 +115,7 @@ module "s3_state_bucket" {
   create_bucket           = true
   bucket                  = local.state_bucket
   force_destroy           = true
-  attach_policy           = false # Bucket policy will be added manually
+  attach_policy           = false
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true
@@ -153,7 +131,6 @@ module "s3_state_bucket" {
         kms_master_key_id = module.s3_bucket_kms_key.key_arn
         sse_algorithm     = "aws:kms"
       }
-
       bucket_key_enabled = true
     }
   }
@@ -169,42 +146,18 @@ resource "aws_s3_bucket_policy" "state_bucket_policy" {
     Version = "2012-10-17",
     Statement = [
       {
-        Sid    = "denyInsecureTransport",
-        Effect = "Deny",
-        Action = "s3:*",
+        Sid       = "DenyInsecureTransport",
+        Effect    = "Deny",
+        Action    = "s3:*",
+        Principal = "*",
         Resource = [
           module.s3_state_bucket.s3_bucket_arn,
           "${module.s3_state_bucket.s3_bucket_arn}/*"
         ],
-        Principal = "*",
         Condition = {
           Bool = {
             "aws:SecureTransport" = "false"
           }
-        }
-      },
-      {
-        Sid    = "AllowRootAccountAccess",
-        Effect = "Allow",
-        Action = [
-          "s3:ListBucket",
-          "s3:GetBucketLocation",
-          "s3:GetObject",
-          "s3:PutObject",
-          "s3:DeleteObject",
-          "s3:PutObjectAcl",
-          "s3:GetObjectAcl",
-          "s3:DeleteObjectVersion",
-          "s3:ListBucketVersions",
-          "s3:ListBucketMultipartUploads",
-          "s3:AbortMultipartUpload"
-        ],
-        Resource = [
-          module.s3_state_bucket.s3_bucket_arn,
-          "${module.s3_state_bucket.s3_bucket_arn}/*"
-        ],
-        Principal = {
-          AWS = "arn:aws:iam::${var.account_id}:root"
         }
       }
     ]
@@ -214,6 +167,7 @@ resource "aws_s3_bucket_policy" "state_bucket_policy" {
 # ======================= Create IAM Role =======================
 resource "aws_iam_role" "terraform_role" {
   name = "Terraform-role-${var.vcs_repo_name}-${var.region}"
+
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
@@ -227,7 +181,36 @@ resource "aws_iam_role" "terraform_role" {
     ]
   })
 
-  tags = {
-    Name = "TerraformRole"
-  }
+  tags = local.tags
+}
+
+# ======================= IAM Policy for Terraform Role - State Access =======================
+resource "aws_iam_role_policy" "terraform_state_access" {
+  name = "Terraform-State-Access-${var.vcs_repo_name}-${var.region}"
+  role = aws_iam_role.terraform_role.id
+
+  policy = jsonencode({
+    Version = "2012-10-17",
+    Statement = [
+      {
+        Sid    = "S3StateAccess",
+        Effect = "Allow",
+        Action = [
+          "s3:ListBucket",
+          "s3:GetBucketLocation",
+          "s3:GetBucketVersioning",
+          "s3:ListBucketVersions",
+          # Object-level actions
+          "s3:GetObject",
+          "s3:PutObject",
+          "s3:DeleteObject",
+          "s3:GetObjectVersion",
+        ],
+        Resource = [
+          module.s3_state_bucket.s3_bucket_arn,
+          "${module.s3_state_bucket.s3_bucket_arn}/*"
+        ]
+      }
+    ]
+  })
 }

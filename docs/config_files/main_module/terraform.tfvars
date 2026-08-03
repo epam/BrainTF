@@ -12,6 +12,10 @@ run_trivy_analysis     = "false" # Stage to run Trivy, a static analysis securit
 run_terraform_plan     = "false" # Stage to generate an execution plan for Terraform to show planned changes without applying them.
 run_terraform_apply    = "false" # Stage to apply the Terraform execution plan and provision infrastructure changes.
 
+# Managed workload state backend configuration (code under WORK_DIRS)
+managed_state_bucket = ""                           # (Optional) Name of an existing S3 bucket for the managed workload state. Leave empty to reuse the bootstrap platform state bucket.
+managed_state_key    = "pipeline/terraform.tfstate" # S3 key (path) for the managed workload state. Must include a directory prefix and end with .tfstate.
+
 # AI Handler block
 ai_handler_create       = "false"                                    # Flag to enable or disable AI handler creation
 rag_enable              = "false"                                    # Flag to enable or disable RAG for AI handler
@@ -19,8 +23,7 @@ artifacts_path          = "artifacts"                                # The path 
 log_level               = "INFO"                                     # The logging level for AWS Lambda functions. Possible values: DEBUG, INFO, WARN, ERROR.
 ai_api_endpoint         = "<my_ai_api_endpoint>"                     # Endpoint for AI API
 llm_model               = "<my_llm_model_name>"                      # Name of the AI model used
-oidc_provider           = "<my_oidc_provider>"                       # OIDC identity provider domain (issuer). Used for IAM condition keys and provider URL. Examples: token.actions.githubusercontent.com for GitHub, gitlab.com for GitLab
+oidc_provider           = "<my_oidc_provider>"                       # Audience for OIDC provider (gitlab.com for GitLab, token.actions.githubusercontent.com for GitHub or other for custom variant)
 artifacts_bucket_prefix = "ai-handler-artifacts-bucket"              # Prefix for the name of the artifacts S3 bucket
-tfstate_bucket_prefix   = "tfstate-bucket"                           # Prefix for the name of the tfstate S3 bucket
 private_subnet_ids      = ["<subnet_a>", "<subnet_b>", "<subnet_c>"] # List of private subnet IDs for Lambda functions
 security_groups         = ["<sg_a>"]                                 # List of security groups with inbound rules for 80 and 443 ports for Lambda functions

@@ -14,7 +14,7 @@ resource "aws_iam_openid_connect_provider" "vcs_oidc_provider" {
 # IAM AssumeRole policy for OIDC
 data "aws_iam_policy_document" "vcs_assume_role_policy" {
   statement {
-    actions = ["sts:AssumeRoleWithWebIdentity"] # Allow VCS to assume the role
+    actions = ["sts:AssumeRoleWithWebIdentity"]
     principals {
       type        = "Federated"
       identifiers = [aws_iam_openid_connect_provider.vcs_oidc_provider.arn]
@@ -45,23 +45,43 @@ resource "aws_iam_role" "vcs_oidc_role" {
 
 # Define IAM policy for OIDC integration
 data "aws_iam_policy_document" "oidc_policy" {
+
   statement {
+    sid    = "ArtifactsBucketAccess"
     effect = "Allow"
     actions = [
-      "s3:PutObject", # Allow uploading objects to S3
-      "s3:GetObject", # Allow downloading objects from S3
-      "s3:ListBucket" # Allow listing bucket contents
+      "s3:ListBucket",
+      "s3:GetObject",
+      "s3:PutObject"
     ]
     resources = [
-      "arn:aws:s3:::${var.artifacts_bucket}",  # Restrict access to the specified bucket
-      "arn:aws:s3:::${var.artifacts_bucket}/*" # Restrict access to objects in the bucket
+      "arn:aws:s3:::${var.artifacts_bucket}",
+      "arn:aws:s3:::${var.artifacts_bucket}/*"
+    ]
+  }
+
+  statement {
+    sid    = "ManagedStateBucketAccess"
+    effect = "Allow"
+    actions = [
+      "s3:ListBucket",
+      "s3:GetBucketVersioning",
+      "s3:GetBucketLocation",
+      "s3:GetObject",
+      "s3:PutObject",
+      "s3:DeleteObject",
+      "s3:GetObjectVersion"
+    ]
+    resources = [
+      "arn:aws:s3:::${var.managed_state_bucket}",
+      "arn:aws:s3:::${var.managed_state_bucket}/*"
     ]
   }
 
   statement {
     effect = "Allow"
     actions = [
-      "sts:AssumeRoleWithWebIdentity" # Allow assuming the role via OIDC
+      "sts:AssumeRoleWithWebIdentity"
     ]
     resources = [aws_iam_role.vcs_oidc_role.arn]
   }

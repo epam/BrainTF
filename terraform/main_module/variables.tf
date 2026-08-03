@@ -65,13 +65,13 @@ variable "vcs_project_path" {
 variable "artifacts_path" {
   description = "The path where the corrected Terraform files (artifacts) will be stored."
   type        = string
-  default     = "artifacts" # Default path for storing Terraform artifacts
+  default     = "artifacts"
 }
 
 variable "log_level" {
   description = "The logging level for AWS Lambda functions. Possible values: DEBUG, INFO, WARN, ERROR."
   type        = string
-  default     = "INFO" # Default log level for Lambda functions
+  default     = "INFO"
 
   validation {
     condition     = contains(["DEBUG", "INFO", "WARN", "ERROR"], var.log_level)
@@ -96,9 +96,27 @@ variable "artifacts_bucket_prefix" {
   type        = string
 }
 
-variable "tfstate_bucket_prefix" {
-  description = "The prefix to be used for naming a TFState bucket"
+variable "platform_state_bucket_prefix" {
+  description = "Prefix for the bootstrap (platform) state S3 bucket name. Must match the value used in the bootstrap module."
   type        = string
+  default     = "backend-state-bucket"
+}
+
+variable "managed_state_bucket" {
+  description = "Name of an existing S3 bucket to store Terraform state for the code under WORK_DIRS (the workload managed by this pipeline). If empty, the bootstrap platform state bucket will be used with a separate prefix directory."
+  type        = string
+  default     = ""
+}
+
+variable "managed_state_key" {
+  description = "S3 key (path) for the Terraform state file used by the managed workload (code under WORK_DIRS). Must include a directory prefix, e.g. 'pipeline/terraform.tfstate'."
+  type        = string
+  default     = "pipeline/terraform.tfstate"
+
+  validation {
+    condition     = can(regex("^[^/].*/.+\\.tfstate$", var.managed_state_key))
+    error_message = "managed_state_key must include a directory prefix and end with .tfstate (e.g. 'pipeline/terraform.tfstate'). Leading slash is not allowed."
+  }
 }
 
 variable "llm_model" {
@@ -110,7 +128,6 @@ variable "ai_api_endpoint" {
   description = "The API endpoint for the AI service"
   type        = string
 }
-
 
 variable "private_subnet_ids" {
   description = "VPC Private Subnet IDs"
