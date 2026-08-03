@@ -152,7 +152,7 @@ def test_get_github_client_success(patched_config_gitlab, ssm_setup, mock_github
     _get_github_client.cache_clear()
     mock_gh_class, _ = mock_github
 
-    client = _get_github_client()
+    client = _get_github_client(expected_token_gitlab)
 
     assert client == mock_gh_class.instance
     assert mock_gh_class.call_count == 1
@@ -161,7 +161,7 @@ def test_get_github_client_success(patched_config_gitlab, ssm_setup, mock_github
     assert mock_gh_class.instance.get_user_called == 1
 
 
-def test_get_github_client_failure(patched_config_gitlab, mock_github, monkeypatch):
+def test_get_github_client_failure(patched_config_gitlab, mock_github, monkeypatch, expected_token_gitlab):
     from utilities.vcs.github_functions import _get_github_client
     _get_github_client.cache_clear()
     mock_gh_class, _ = mock_github
@@ -171,22 +171,23 @@ def test_get_github_client_failure(patched_config_gitlab, mock_github, monkeypat
     monkeypatch.setattr("utilities.vcs.github_functions.logger", mock_logger)
 
     with pytest.raises(Exception, match="Verification failed"):
-        _get_github_client()
+        _get_github_client(expected_token_gitlab)
 
     assert mock_logger.error_called == 1
     assert mock_gh_class.instance.get_user_called == 1
 
 
-def test_get_github_client_caching(patched_config_gitlab, mock_github):
+def test_get_github_client_caching(patched_config_gitlab, mock_github, expected_token_gitlab):
     from utilities.vcs.github_functions import _get_github_client
     _get_github_client.cache_clear()
     mock_gh_class, _ = mock_github
 
-    client1 = _get_github_client()
-    client2 = _get_github_client()
+    client1 = _get_github_client(expected_token_gitlab)
+    client2 = _get_github_client(expected_token_gitlab)
+    _get_github_client("rotated-token")
 
     assert client1 is client2
-    assert mock_gh_class.call_count == 1
+    assert mock_gh_class.call_count == 2
 
 
 def test_post_pr_comment_github_success(patched_config_gitlab, ssm_setup, mock_github):
