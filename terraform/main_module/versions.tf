@@ -17,5 +17,9 @@ terraform {
       source  = "gitlabhq/gitlab"
       version = "~> 18.1.1"
     }
+    http = {
+      source  = "hashicorp/http"
+      version = "~> 3.4"
+    }
   }
 }
