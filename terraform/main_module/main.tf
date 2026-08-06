@@ -47,11 +47,14 @@ locals {
   github_org  = element(split("/", var.vcs_project_path), 0)
   github_repo = element(split("/", var.vcs_project_path), 1)
 
-  # Support both classic and immutable-ID sub-claim formats for GitHub OIDC
+  # Restrict OIDC trust to main branch pushes and pull requests only.
+  # Support both classic and immutable-ID sub-claim formats for GitHub OIDC.
   sub_values = (var.vcs_provider == "github" ?
     [
-      "repo:${var.vcs_project_path}:*",
-      "repo:${local.github_org}@*/${local.github_repo}@*:*"
+      "repo:${var.vcs_project_path}:ref:refs/heads/main",
+      "repo:${var.vcs_project_path}:pull_request",
+      "repo:${local.github_org}@*/${local.github_repo}@*:ref:refs/heads/main",
+      "repo:${local.github_org}@*/${local.github_repo}@*:pull_request"
     ] :
     ["project_path:${var.vcs_project_path}:ref_type:branch:ref:*"]
   )
