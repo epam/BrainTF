@@ -15,24 +15,9 @@ data "aws_kms_alias" "kms_key" {
   name = "alias/kms_key_${var.vcs_repo_name}_${var.region}"
 }
 
-data "http" "github_org" {
+data "github_actions_repository_oidc_subject_claim_customization_template" "this" {
   count = var.vcs_provider == "github" && var.ai_handler_create ? 1 : 0
-  url   = "https://api.${var.vcs_hostname}/orgs/${local.git_owner}"
-  request_headers = {
-    Accept               = "application/vnd.github+json"
-    Authorization        = "Bearer ${var.vcs_token}"
-    X-GitHub-Api-Version = "2022-11-28"
-  }
-}
-
-data "http" "github_repo" {
-  count = var.vcs_provider == "github" && var.ai_handler_create ? 1 : 0
-  url   = "https://api.${var.vcs_hostname}/repos/${var.vcs_project_path}"
-  request_headers = {
-    Accept               = "application/vnd.github+json"
-    Authorization        = "Bearer ${var.vcs_token}"
-    X-GitHub-Api-Version = "2022-11-28"
-  }
+  name  = element(split("/", var.vcs_project_path), 1)
 }
 
 locals {
@@ -63,15 +48,14 @@ locals {
   aud_variable           = "${var.oidc_provider}:aud"
   sub_variable           = "${var.oidc_provider}:sub"
 
-  # GitHub numeric IDs for the immutable-ID sub-claim format (empty when not applicable)
-  github_org_id  = length(data.http.github_org) > 0 ? tostring(jsondecode(data.http.github_org[0].response_body).id) : ""
-  github_repo_id = length(data.http.github_repo) > 0 ? tostring(jsondecode(data.http.github_repo[0].response_body).id) : ""
+  # List of custom sub-claim keys from GitHub OIDC customization template (may be empty)
+  github_sub_claim_keys = length(data.github_actions_repository_oidc_subject_claim_customization_template.this) > 0 ? data.github_actions_repository_oidc_subject_claim_customization_template.this[0].include_claim_keys : []
 
   sub_values = (var.vcs_provider == "github" ?
-    [
-      "repo:${var.vcs_project_path}:*",
-      "repo:${local.git_owner}@${local.github_org_id}/${element(split("/", var.vcs_project_path), 1)}@${local.github_repo_id}:*"
-    ] :
+    distinct(concat(
+      ["repo:${var.vcs_project_path}:*"],
+      [for key in local.github_sub_claim_keys : "${key}:*"]
+    )) :
     ["project_path:${var.vcs_project_path}:ref_type:branch:ref:*"]
   )
 

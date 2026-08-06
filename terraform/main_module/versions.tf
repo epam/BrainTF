@@ -11,15 +11,11 @@ terraform {
     }
     github = {
       source  = "integrations/github"
-      version = "~> 6.2"
+      version = "~> 6.13"
     }
     gitlab = {
       source  = "gitlabhq/gitlab"
       version = "~> 18.1.1"
-    }
-    http = {
-      source  = "hashicorp/http"
-      version = "~> 3.4"
     }
   }
 }
