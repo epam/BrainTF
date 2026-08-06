@@ -15,11 +15,6 @@ data "aws_kms_alias" "kms_key" {
   name = "alias/kms_key_${var.vcs_repo_name}_${var.region}"
 }
 
-data "github_actions_repository_oidc_subject_claim_customization_template" "this" {
-  count = var.vcs_provider == "github" && var.ai_handler_create ? 1 : 0
-  name  = element(split("/", var.vcs_project_path), 1)
-}
-
 locals {
 
   tags = {
@@ -48,14 +43,16 @@ locals {
   aud_variable           = "${var.oidc_provider}:aud"
   sub_variable           = "${var.oidc_provider}:sub"
 
-  # List of custom sub-claim keys from GitHub OIDC customization template (may be empty)
-  github_sub_claim_keys = length(data.github_actions_repository_oidc_subject_claim_customization_template.this) > 0 ? data.github_actions_repository_oidc_subject_claim_customization_template.this[0].include_claim_keys : []
+  # Split vcs_project_path (format: "org/repo") into components
+  github_org  = element(split("/", var.vcs_project_path), 0)
+  github_repo = element(split("/", var.vcs_project_path), 1)
 
+  # Support both classic and immutable-ID sub-claim formats for GitHub OIDC
   sub_values = (var.vcs_provider == "github" ?
-    distinct(concat(
-      ["repo:${var.vcs_project_path}:*"],
-      [for key in local.github_sub_claim_keys : "${key}:*"]
-    )) :
+    [
+      "repo:${var.vcs_project_path}:*",
+      "repo:${local.github_org}@*/${local.github_repo}@*:*"
+    ] :
     ["project_path:${var.vcs_project_path}:ref_type:branch:ref:*"]
   )
 
