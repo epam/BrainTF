@@ -7,7 +7,7 @@
 | ---- | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.11 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.0 |
-| <a name="requirement_github"></a> [github](#requirement\_github) | ~> 6.2 |
+| <a name="requirement_github"></a> [github](#requirement\_github) | ~> 6.13 |
 | <a name="requirement_gitlab"></a> [gitlab](#requirement\_gitlab) | ~> 18.1.1 |
 | <a name="requirement_random"></a> [random](#requirement\_random) | >= 3.0 |
 

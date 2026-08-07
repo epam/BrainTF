@@ -42,8 +42,24 @@ locals {
   vcs_api_endpoint       = (var.vcs_provider == "github" ? "https://api.${var.vcs_hostname}" : "https://${var.vcs_hostname}")
   aud_variable           = "${var.oidc_provider}:aud"
   sub_variable           = "${var.oidc_provider}:sub"
-  sub_values             = (var.vcs_provider == "github" ? ["repo:${var.vcs_project_path}:*"] : ["project_path:${var.vcs_project_path}:ref_type:branch:ref:*"])
-  client_id_list         = (var.vcs_provider == "github" ? ["sts.amazonaws.com"] : ["https://${var.oidc_provider}"])
+
+  # Split vcs_project_path (format: "org/repo") into components
+  github_org  = element(split("/", var.vcs_project_path), 0)
+  github_repo = element(split("/", var.vcs_project_path), 1)
+
+  # Restrict OIDC trust to main branch pushes and pull requests only.
+  # Support both classic and immutable-ID sub-claim formats for GitHub OIDC.
+  sub_values = (var.vcs_provider == "github" ?
+    [
+      "repo:${var.vcs_project_path}:ref:refs/heads/main",
+      "repo:${var.vcs_project_path}:pull_request",
+      "repo:${local.github_org}@*/${local.github_repo}@*:ref:refs/heads/main",
+      "repo:${local.github_org}@*/${local.github_repo}@*:pull_request"
+    ] :
+    ["project_path:${var.vcs_project_path}:ref_type:branch:ref:*"]
+  )
+
+  client_id_list = (var.vcs_provider == "github" ? ["sts.amazonaws.com"] : ["https://${var.oidc_provider}"])
   terraform_backend_params = join(" ", [
     "-backend-config=bucket=${local.managed_state_bucket}",
     "-backend-config=key=${var.managed_state_key}",
