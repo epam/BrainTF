@@ -1,0 +1,44 @@
+name: Test Parallel Steps (sandbox)
+
+on:
+  workflow_dispatch:
+
+jobs:
+  test-background-wait:
+    name: Test background/wait/cancel keywords
+    runs-on: ubuntu-latest
+    steps:
+      - name: Step A (background)
+        id: stepA
+        run: |
+          echo "Step A starting..."
+          sleep 5
+          echo "Step A done"
+        background: true
+
+      - name: Step B (background)
+        id: stepB
+        run: |
+          echo "Step B starting..."
+          sleep 5
+          echo "Step B done"
+        background: true
+
+      - name: Wait for A and B
+        wait-all: true
+
+      - name: Confirm background+wait works
+        run: echo "SUCCESS: background/wait-all syntax is supported on this runner"
+
+  test-parallel-keyword:
+    name: Test parallel: shorthand
+    runs-on: ubuntu-latest
+    steps:
+      - parallel:
+          - name: Task 1
+            run: echo "Task 1 running" && sleep 3
+          - name: Task 2
+            run: echo "Task 2 running" && sleep 3
+
+      - name: Confirm parallel keyword works
+        run: echo "SUCCESS: parallel keyword is supported on this runner"
