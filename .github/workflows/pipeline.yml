@@ -95,12 +95,18 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      # AWS CLI and jq ship preinstalled on the ubuntu-latest runner image, so we only verify them here.
+      - name: Verify preinstalled tools (AWS CLI, jq)
+        run: |
+          echo -n "AWS CLI Version: "; aws --version || { echo "AWS CLI not found on the runner image"; exit 1; }
+          jq --version || { echo "jq not found on the runner image"; exit 1; }
+
       - name: Restore Tools Cache
         uses: actions/cache@v5
         id: cache-tools
         with: &tools-cache
           path: ~/.local
-          key: tools-cache-v4-${{ env.TFLINT_VERSION }}-${{ env.TERRAFORM_VERSION }}-${{ env.CHECKOV_VERSION }}-${{ env.TFSEC_VERSION }}-${{ env.TRIVY_VERSION }}
+          key: tools-cache-v5-${{ env.CHECKOV_VERSION }}-${{ env.TFSEC_VERSION }}
 
       - name: Install Tools
         id: setup-status
@@ -108,37 +114,13 @@ jobs:
           echo -e "\033[34mChecking if tools are already cached...\033[0m"
           LOCAL_BIN="$HOME/.local/bin"
           export LOCAL_BIN
-          if [ -x "$LOCAL_BIN/aws" ] && [ -x "$LOCAL_BIN/tflint" ] && [ -x "$LOCAL_BIN/terraform" ] && [ -x "$LOCAL_BIN/checkov" ] && [ -x "$LOCAL_BIN/tfsec" ] && [ -x "$LOCAL_BIN/trivy" ] && [ -x "$LOCAL_BIN/jq" ]; then
+          if [ -x "$LOCAL_BIN/checkov" ] && [ -x "$LOCAL_BIN/tfsec" ] && python -c "import openai" >/dev/null 2>&1; then
             echo -e "\033[32mTools are already cached. Skipping installation.\033[0m"
             exit 0
           fi
 
           echo -e "\033[34mInstalling tools...\033[0m"
           mkdir -p "$LOCAL_BIN"
-
-          # Install AWS CLI version 2
-          echo -e "\033[34mInstalling AWS CLI version 2...\033[0m"
-          curl -sS "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
-          unzip -q -o awscliv2.zip
-          ./aws/install --bin-dir "$LOCAL_BIN" --install-dir "$HOME/.local/aws"
-          rm -rf aws awscliv2.zip
-          echo -e "\033[32mAWS CLI installed successfully.\033[0m"
-
-          # Install TFLint
-          echo -e "\033[34mInstalling TFLint...\033[0m"
-          curl -sL https://github.com/terraform-linters/tflint/releases/download/${TFLINT_VERSION}/tflint_linux_amd64.zip -o tflint.zip
-          unzip -q -o tflint.zip
-          mv tflint "$LOCAL_BIN/tflint"
-          rm tflint.zip
-          echo -e "\033[32mTFLint installed successfully.\033[0m"
-
-          # Install Terraform
-          echo -e "\033[34mInstalling Terraform...\033[0m"
-          curl -sS https://releases.hashicorp.com/terraform/${TERRAFORM_VERSION}/terraform_${TERRAFORM_VERSION}_linux_amd64.zip -o /tmp/terraform.zip
-          unzip -q -o /tmp/terraform.zip -d /tmp/terraform-install
-          mv /tmp/terraform-install/terraform "$LOCAL_BIN/terraform"
-          rm -rf /tmp/terraform.zip /tmp/terraform-install
-          echo -e "\033[32mTerraform installed successfully.\033[0m"
 
           # Install OpenAI Python library
           echo -e "\033[34mInstalling OpenAI Python library...\033[0m"
@@ -147,41 +129,26 @@ jobs:
           echo -e "\033[32mOpenAI library installed successfully.\033[0m"
 
           # Install Checkov
+          # No official "setup-only" GitHub Action exists for Checkov. bridgecrewio/checkov-action
+          # runs a full scan itself (not just an install step) and would require reworking our
+          # custom log-capture/exit-code handling for the AI bot, so we keep pip install here.
           echo -e "\033[34mInstalling Checkov...\033[0m"
           pip install -q --user checkov==${CHECKOV_VERSION}
           echo -e "\033[32mCheckov installed successfully.\033[0m"
 
           # Install TFsec
+          # TFSec is being phased out in favor of Trivy (see EPMCACMAWS-463/484) and is out of
+          # scope for this migration, so it keeps its manual install for now.
           echo -e "\033[34mInstalling TFsec...\033[0m"
           curl -L https://github.com/aquasecurity/tfsec/releases/download/${TFSEC_VERSION}/tfsec-linux-amd64 -o "$LOCAL_BIN/tfsec"
           chmod +x "$LOCAL_BIN/tfsec"
           echo -e "\033[32mTFsec installed successfully.\033[0m"
 
-          # Install Trivy
-          echo -e "\033[34mInstalling Trivy...\033[0m"
-          curl -L https://github.com/aquasecurity/trivy/releases/download/v${TRIVY_VERSION}/trivy_${TRIVY_VERSION}_Linux-64bit.tar.gz -o trivy.tar.gz
-          tar -xzf trivy.tar.gz trivy
-          mv trivy "$LOCAL_BIN/trivy"
-          rm trivy.tar.gz
-          chmod +x "$LOCAL_BIN/trivy"
-          echo -e "\033[32mTrivy installed successfully.\033[0m"
-
-          # Install jq
-          echo -e "\033[34mInstalling jq...\033[0m"
-          curl -L https://github.com/jqlang/jq/releases/latest/download/jq-linux-amd64 -o "$LOCAL_BIN/jq"
-          chmod +x "$LOCAL_BIN/jq"
-          echo -e "\033[32mjq installed successfully.\033[0m"
-
           # Verify installed tools
           echo -e "\033[34mVerifying installed tools:\033[0m"
-          echo -n "AWS CLI Version: "; aws --version || { echo "AWS CLI installation failed"; exit 1; }
-          tflint --version || { echo "TFLint installation failed"; exit 1; }
-          terraform version || { echo "Terraform installation failed"; exit 1; }
           python -c "import openai; print('OpenAI version:', openai.__version__)" || { echo "OpenAI library is not installed"; exit 1; }
           echo -n "Checkov Version: "; checkov --version || { echo "Checkov installation failed"; exit 1; }
           echo -n "TFsec Version: "; tfsec --version || { echo "TFsec installation failed"; exit 1; }
-          echo -n "Trivy "; trivy --version || { echo "Trivy installation failed"; exit 1; }
-          jq --version || { echo "jq installation failed"; exit 1; }
 
       - name: Get Source Commit SHA
         id: get-sha
@@ -201,6 +168,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
 
       - name: Restore Tools Cache
         uses: actions/cache@v5
@@ -223,6 +196,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+
+      - name: Setup TFLint
+        uses: terraform-linters/setup-tflint@v6
+        with:
+          tflint_version: ${{ env.TFLINT_VERSION }}
+          cache: true
 
       - name: Restore Tools Cache
         uses: actions/cache@v5
@@ -323,6 +302,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
 
       - name: Restore Tools Cache
         uses: actions/cache@v5
@@ -663,6 +648,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      - name: Setup Trivy
+        uses: aquasecurity/setup-trivy@v0.2.6
+        with:
+          version: v${{ env.TRIVY_VERSION }}
+          cache: true
+
       - name: Restore Tools Cache
         uses: actions/cache@v5
         id: cache-tools
@@ -771,6 +762,12 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
       - name: Restore Tools Cache
         uses: actions/cache@v5
         id: cache-tools
@@ -872,6 +869,12 @@ jobs:
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
 
       - name: Restore Tools Cache
         uses: actions/cache@v5
