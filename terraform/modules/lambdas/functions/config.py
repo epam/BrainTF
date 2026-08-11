@@ -26,7 +26,7 @@ class _ConfigLambda:
         path_to_artifacts (str): Folder within the artifacts bucket for uploads.
         ai_api_token_name (str): SSM parameter name for AI service credentials.
         llm_model (str): Identifier of the large language model to invoke.
-        ai_api_endpoint (str): Fully qualified URL for the AI service.
+        ai_api_base_url (str): Fully qualified base URL for the AI service.
         table_name (str): DynamoDB table name for persistent state.
         log_level (str): Logging verbosity level.
         rag_enabled (bool): Feature flag indicating whether RAG is enabled.
@@ -42,7 +42,7 @@ class _ConfigLambda:
         ARTIFACTS_PATH: Specifies the path under the artifact bucket.
         AI_API_TOKEN_NAME: Points to the AI credential parameter.
         LLM_MODEL: Identifies the LLM to use for inference.
-        AI_API_ENDPOINT: Supplies the AI service endpoint URL.
+        AI_API_BASE_URL: Supplies the AI service base URL.
         DYNAMODB_TABLE_NAME: Sets the application’s DynamoDB table name.
         LOG_LEVEL: Controls the log verbosity.
         RAG_ENABLED: Toggles Retrieval-Augmented Generation support.
@@ -72,7 +72,7 @@ class _ConfigLambda:
         self.path_to_artifacts: str = os.environ.get('ARTIFACTS_PATH', 'artifacts')
         self.ai_api_token_name: str | None = os.environ.get('AI_API_TOKEN_NAME')
         self.llm_model: str | None = os.environ.get("LLM_MODEL")
-        self.ai_api_endpoint: str | None = os.environ.get("AI_API_ENDPOINT")
+        self.ai_api_base_url: str | None = os.environ.get("AI_API_BASE_URL")
         self.table_name: str | None = os.environ.get("DYNAMODB_TABLE_NAME")
         self.log_level: str = os.environ.get("LOG_LEVEL", "INFO").upper()
         self.rag_enabled: bool = os.environ.get("RAG_ENABLED", "False").lower() in ("true", "1", "yes")
@@ -140,12 +140,12 @@ class _ConfigLambda:
         if not self.llm_model:
             raise ValueError("LLM_MODEL environment variable is required")
 
-        if not self.ai_api_endpoint:
-            raise ValueError("AI_API_ENDPOINT environment variable is required")
+        if not self.ai_api_base_url:
+            raise ValueError("AI_API_BASE_URL environment variable is required")
 
-        if not self.ai_api_endpoint.startswith('https://'):
+        if not self.ai_api_base_url.startswith('https://'):
             raise ValueError(
-                f"AI_API_ENDPOINT must start with https://: {self.ai_api_endpoint}"
+                f"AI_API_BASE_URL must start with https://: {self.ai_api_base_url}"
             )
 
     def _validate_dynamodb_config(self) -> None:

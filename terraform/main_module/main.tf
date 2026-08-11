@@ -335,7 +335,7 @@ module "ai_lambda" {
   lambda_exec_role_arn = try(module.iam[0].lambda_exec_role_arn, null)
   ai_handler_create    = var.ai_handler_create
   rag_enable           = var.rag_enable
-  ai_api_endpoint      = var.ai_api_endpoint
+  ai_api_base_url      = var.ai_api_base_url
   ai_api_token_name    = local.ai_api_token_name
   vcs_api_endpoint     = local.vcs_api_endpoint
   llm_model            = var.llm_model

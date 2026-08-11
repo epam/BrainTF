@@ -42,7 +42,7 @@ def generate_response_ai(messages: list[ChatCompletionMessageParam], retries: in
     request_messages: list[ChatCompletionMessageParam] = [system_role_message] + messages
 
     client = OpenAI(
-        base_url=config.ai_api_endpoint,
+        base_url=config.ai_api_base_url,
         api_key=config.ai_api_token,
         max_retries=0,
     )
@@ -50,7 +50,7 @@ def generate_response_ai(messages: list[ChatCompletionMessageParam], retries: in
     attempt = 0
 
     while True:
-        logger.debug(f"Requesting AI API with baseurl: {config.ai_api_endpoint}")
+        logger.debug(f"Requesting AI API with baseurl: {config.ai_api_base_url}")
         try:
             response = client.chat.completions.create(
                 model=config.llm_model,
