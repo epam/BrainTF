@@ -2,6 +2,9 @@ name: Test Parallel Steps (sandbox)
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - EPMCACMAWS-463-Kotova-setup-actions
 
 jobs:
   test-background-wait:
