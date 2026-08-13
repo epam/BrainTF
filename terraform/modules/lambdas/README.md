@@ -37,7 +37,7 @@
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
-| <a name="input_ai_api_endpoint"></a> [ai\_api\_endpoint](#input\_ai\_api\_endpoint) | The API endpoint for the AI service | `string` | n/a | yes |
+| <a name="input_ai_api_base_url"></a> [ai\_api\_base\_url](#input\_ai\_api\_base\_url) | The API base URL for the AI service | `string` | n/a | yes |
 | <a name="input_ai_api_token_name"></a> [ai\_api\_token\_name](#input\_ai\_api\_token\_name) | The name of the secret storing the AI API token | `string` | n/a | yes |
 | <a name="input_ai_handler_create"></a> [ai\_handler\_create](#input\_ai\_handler\_create) | AI handler creation trigger | `string` | n/a | yes |
 | <a name="input_artifacts_bucket"></a> [artifacts\_bucket](#input\_artifacts\_bucket) | The artifacts bucket name | `string` | n/a | yes |

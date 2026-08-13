@@ -138,7 +138,7 @@ module "ai_lambda_vcs" {
     VCS_PROVIDER        = var.vcs_provider
     WEBHOOK_SECRET_NAME = var.webhook_secret_name
     AI_API_TOKEN_NAME   = var.ai_api_token_name
-    AI_API_ENDPOINT     = var.ai_api_endpoint
+    AI_API_BASE_URL     = var.ai_api_base_url
     ARTIFACTS_BUCKET    = var.artifacts_bucket
     ARTIFACTS_PATH      = var.artifacts_path
     DYNAMODB_TABLE_NAME = var.dynamodb_table_name
@@ -195,7 +195,7 @@ module "process_comment_lambda_vcs" {
     VCS_PROVIDER        = var.vcs_provider
     WEBHOOK_SECRET_NAME = var.webhook_secret_name
     AI_API_TOKEN_NAME   = var.ai_api_token_name
-    AI_API_ENDPOINT     = var.ai_api_endpoint
+    AI_API_BASE_URL     = var.ai_api_base_url
     ARTIFACTS_BUCKET    = var.artifacts_bucket
     ARTIFACTS_PATH      = var.artifacts_path
     DYNAMODB_TABLE_NAME = var.dynamodb_table_name

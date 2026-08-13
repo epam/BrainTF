@@ -50,8 +50,8 @@ variable "llm_model" {
   type        = string
 }
 
-variable "ai_api_endpoint" {
-  description = "The API endpoint for the AI service"
+variable "ai_api_base_url" {
+  description = "The API base URL for the AI service"
   type        = string
 }
 
