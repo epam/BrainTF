@@ -259,6 +259,7 @@ def handle_approve_command(event: Dict[str, Any], rest_comment: List[str]) -> No
         if wrong_files:
             logger.warning(f'Requested files are not available for approval: {wrong_files}.')
             unavailable_files = ', '.join(wrong_files)
+            add_award_to_note(event, FAILURE)
             post_comment(
                 event,
                 UNAVAILABLE_APPROVAL_FILES_MESSAGE.format(unavailable_files=unavailable_files)
