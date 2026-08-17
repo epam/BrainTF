@@ -46,7 +46,7 @@ class _ConfigLambda:
         DYNAMODB_TABLE_NAME: Sets the application’s DynamoDB table name.
         LOG_LEVEL: Controls the log verbosity.
         RAG_ENABLED: Toggles Retrieval-Augmented Generation support.
-        TTL_DELTA_DAYS: Adjusts the TTL offset in days.
+        TTL_DELTA_DAYS: Adjusts the TTL offset, days.
 
     Notes:
         * URLs must use the ``https`` scheme to pass validation.
@@ -54,7 +54,7 @@ class _ConfigLambda:
         * VCS tokens, webhook secrets, and AI API tokens are loaded from SSM on
           each access.
           Other expensive AWS lookups may still be memoized where appropriate.
-        * Validation raises ``ValueError`` with descriptive messages whenever required
+        * Validation raises ``ValueError`` with descriptive messages whenever the required
           configuration is missing or malformed.
     """
 
@@ -68,7 +68,7 @@ class _ConfigLambda:
         self.vcs_token_name: str | None = os.environ.get('VCS_TOKEN_NAME')
         self.vcs_api_endpoint: str | None = os.environ.get('VCS_API_ENDPOINT')
         self.webhook_secret_name: str | None = os.environ.get('WEBHOOK_SECRET_NAME')
-        self.artifacts_bucket: str | None = os.environ.get('ARTIFACTS_BUCKET')
+        self.artifacts_bucket: str = os.environ.get('ARTIFACTS_BUCKET', '')
         self.path_to_artifacts: str = os.environ.get('ARTIFACTS_PATH', 'artifacts')
         self.ai_api_token_name: str | None = os.environ.get('AI_API_TOKEN_NAME')
         self.llm_model: str | None = os.environ.get("LLM_MODEL")
@@ -172,8 +172,8 @@ class _ConfigLambda:
             str: The decrypted VCS API token.
 
         Raises:
-            botocore.exceptions.ClientError: If there are issues retrieving the
-                parameter from AWS SSM, such as access restrictions or if the
+            botocore.exceptions.ClientError: If there are issues when retrieving the
+                parameter from AWS SSM, such as access restrictions, or if the
                 parameter does not exist.
         """
         ssm = boto3.client('ssm', config=self.boto3_config)

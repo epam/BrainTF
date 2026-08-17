@@ -45,6 +45,15 @@ List of files corrected by AI bot
 
 """
 
+UNAVAILABLE_APPROVAL_FILES_MESSAGE: str = """
+:information_source: AI Bot message
+
+---
+> :no_entry: Not available
+> The following files are not available for approval: **{unavailable_files}**.
+> Comment `bot list` to see corrected files currently available for approval.
+""".lstrip().removesuffix("\n")
+
 AI_RESPONSE_MESSAGE: str = """
 :information_source: AI Bot message
 

@@ -12,7 +12,8 @@ from utilities.aws import (delete_files_from_s3,
                            upload_files_to_s3)
 from utilities.exceptions import InvalidEventMetadata
 from utilities.logger import logger
-from utilities.messages import AI_RESPONSE_MESSAGE, LIST_FILES_MESSAGE
+from utilities.messages import (AI_RESPONSE_MESSAGE, LIST_FILES_MESSAGE,
+                                UNAVAILABLE_APPROVAL_FILES_MESSAGE)
 from utilities.parsers import parse_hcl_blocks
 from utilities.vcs import (FAILURE, SUCCESS, add_award_to_note,
                            check_files_exist_in_repo, commit_files_to_branch,
@@ -255,11 +256,13 @@ def handle_approve_command(event: Dict[str, Any], rest_comment: List[str]) -> No
         fixed_files: list[str] = get_file_names_from_s3_directory(config.artifacts_bucket, path_to_files_for_approval)
 
         wrong_files = [file_name for file_name in rest_comment if file_name not in fixed_files]
-        #
         if wrong_files:
             logger.warning(f'Requested files are not available for approval: {wrong_files}.')
-            # add_award_to_note(event, 'rotating_light')
-            post_comment(event, f'Invalid rest_comment: {wrong_files}')
+            unavailable_files = ', '.join(wrong_files)
+            post_comment(
+                event,
+                UNAVAILABLE_APPROVAL_FILES_MESSAGE.format(unavailable_files=unavailable_files)
+            )
         else:
             add_award_to_note(event, SUCCESS)
 
