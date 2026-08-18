@@ -310,8 +310,8 @@ def test_handle_approve_command_specific_reports_single_unavailable_file(
     assert comments == [
         ':information_source: AI Bot message\n\n'
         '---\n'
-        '> :no_entry: Not available  \n'
-        '> The following files are not available for approval: **demo/broken/missing.tf**.  \n'
+        '> :no_entry: Not available\\\n'
+        '> The following files are not available for approval: **demo/broken/missing.tf**.\\\n'
         '> Comment `bot list` to see corrected files currently available for approval.'
     ]
     assert commit_calls == []
@@ -348,9 +348,9 @@ def test_handle_approve_command_specific_reports_all_unavailable_files(
     assert comments == [
         ':information_source: AI Bot message\n\n'
         '---\n'
-        '> :no_entry: Not available  \n'
+        '> :no_entry: Not available\\\n'
         '> The following files are not available for approval: '
-        '**demo/broken/first.tf, demo/broken/second.tf**.  \n'
+        '**demo/broken/first.tf, demo/broken/second.tf**.\\\n'
         '> Comment `bot list` to see corrected files currently available for approval.'
     ]
     assert commit_calls == []
