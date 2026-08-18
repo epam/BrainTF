@@ -286,7 +286,12 @@ def test_handle_approve_command_specific_reports_single_unavailable_file(
 
     comments = []
     commit_calls = []
+    award_calls = []
 
+    monkeypatch.setattr(
+        "utilities.handlers.add_award_to_note",
+        lambda event, award: award_calls.append((event, award))
+    )
     monkeypatch.setattr(
         "utilities.handlers.get_file_names_from_s3_directory",
         lambda bucket_name, path_to_files: ['demo/broken/main.tf']
@@ -305,11 +310,12 @@ def test_handle_approve_command_specific_reports_single_unavailable_file(
     assert comments == [
         ':information_source: AI Bot message\n\n'
         '---\n'
-        '> :no_entry: Not available\n'
-        '> The following files are not available for approval: **demo/broken/missing.tf**.\n'
+        '> :no_entry: Not available  \n'
+        '> The following files are not available for approval: **demo/broken/missing.tf**.  \n'
         '> Comment `bot list` to see corrected files currently available for approval.'
     ]
     assert commit_calls == []
+    assert award_calls == [(webhook_event_command_bot_approve_all_context_github, handlers.FAILURE)]
 
 
 def test_handle_approve_command_specific_reports_all_unavailable_files(
@@ -318,7 +324,12 @@ def test_handle_approve_command_specific_reports_all_unavailable_files(
 
     comments = []
     commit_calls = []
+    award_calls = []
 
+    monkeypatch.setattr(
+        "utilities.handlers.add_award_to_note",
+        lambda event, award: award_calls.append((event, award))
+    )
     monkeypatch.setattr(
         "utilities.handlers.get_file_names_from_s3_directory",
         lambda bucket_name, path_to_files: ['demo/broken/main.tf']
@@ -337,12 +348,13 @@ def test_handle_approve_command_specific_reports_all_unavailable_files(
     assert comments == [
         ':information_source: AI Bot message\n\n'
         '---\n'
-        '> :no_entry: Not available\n'
+        '> :no_entry: Not available  \n'
         '> The following files are not available for approval: '
-        '**demo/broken/first.tf, demo/broken/second.tf**.\n'
+        '**demo/broken/first.tf, demo/broken/second.tf**.  \n'
         '> Comment `bot list` to see corrected files currently available for approval.'
     ]
     assert commit_calls == []
+    assert award_calls == [(webhook_event_command_bot_approve_all_context_github, handlers.FAILURE)]
 
 
 def test_handle_approve_command_specific_deletes_artifacts_after_commit(patched_environment,
