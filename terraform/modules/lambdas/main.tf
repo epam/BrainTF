@@ -59,7 +59,7 @@ resource "aws_lambda_layer_version" "layer" {
   filename = local.zip_file_path
   # Use a static hash from null_resource triggers to avoid dynamic recalculation
   source_code_hash    = null_resource.lambda_layer[0].triggers.requirements
-  layer_name          = "layer"
+  layer_name          = var.layer_name
   depends_on          = [null_resource.lambda_layer] # Ensure this waits for ZIP creation
   compatible_runtimes = ["python3.11"]
 }

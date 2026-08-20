@@ -190,3 +190,9 @@ variable "run_terraform_apply" {
   type        = bool
   default     = false
 }
+
+variable "layer_name" {
+  description = "AWS Lambda layer name"
+  type        = string
+  default     = "layer"
+}

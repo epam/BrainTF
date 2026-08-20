@@ -345,6 +345,7 @@ module "ai_lambda" {
   log_level            = var.log_level
   artifacts_path       = var.artifacts_path
   tags                 = local.tags
+  layer_name           = "${var.region}-${var.vcs_repo_name}-layer"
 }
 
 # ======================= VCS Integration =======================

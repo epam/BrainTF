@@ -86,6 +86,11 @@ variable "artifacts_path" {
   type        = string
 }
 
+variable "layer_name" {
+  description = "AWS Lambda layer name"
+  type        = string
+}
+
 variable "log_level" {
   description = "The logging level for AWS Lambda functions. Possible values: DEBUG, INFO, WARN, ERROR."
   type        = string
