@@ -45,6 +45,7 @@
 | <a name="input_dynamodb_table_name"></a> [dynamodb\_table\_name](#input\_dynamodb\_table\_name) | The name for a dynamodb table | `string` | n/a | yes |
 | <a name="input_kms_key_arn"></a> [kms\_key\_arn](#input\_kms\_key\_arn) | The ARN of the KMS key used for encryption | `string` | n/a | yes |
 | <a name="input_lambda_exec_role_arn"></a> [lambda\_exec\_role\_arn](#input\_lambda\_exec\_role\_arn) | ARN of the role to execute the lambda function | `string` | `""` | no |
+| <a name="input_layer_name"></a> [layer\_name](#input\_layer\_name) | AWS Lambda layer name | `string` | n/a | yes |
 | <a name="input_llm_model"></a> [llm\_model](#input\_llm\_model) | The name or identifier of the LLM (Large Language Model) to be used | `string` | n/a | yes |
 | <a name="input_log_level"></a> [log\_level](#input\_log\_level) | The logging level for AWS Lambda functions. Possible values: DEBUG, INFO, WARN, ERROR. | `string` | `"INFO"` | no |
 | <a name="input_private_subnet_ids"></a> [private\_subnet\_ids](#input\_private\_subnet\_ids) | VPC Private Subnet IDs | `list(string)` | n/a | yes |
