@@ -32,6 +32,7 @@ override.tf.json
 crash.log
 terraform.rc
 *.tfplan
+backend.generated.tf
 
 # Files containing secrets
 secrets.auto.tfvars
