@@ -1,4 +1,3 @@
-from tests.utilities.auth.conftest import *
 from copy import deepcopy
 
 import pytest
