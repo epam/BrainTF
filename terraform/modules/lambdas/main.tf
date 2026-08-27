@@ -1,9 +1,8 @@
 #======================= The Lambda function for AI Handler =======================#
 locals {
   # Path to the functions directory
-  layer_path      = "${path.root}/functions"
+  layer_path      = "${path.module}/functions"
   zip_file_path   = "${path.module}/functions/layer.zip" # Path to the output ZIP file
-  zip_file_exists = fileexists(local.zip_file_path)      # Check if the ZIP file exists
   # Patterns to exclude from Lambda deployment package
   lambda_exclude_patterns = [
     "!.*\\.pyc$",
@@ -14,41 +13,39 @@ locals {
   ]
 }
 
+# Install Python dependencies (replaces `docker run` in null_resource)
+resource "docker_container" "lambda_layer" {
+  count    = var.ai_handler_create == "true" ? 1 : 0
+  name     = "braintf-${var.vcs_repo_name}-lambda-layer"
+  image    = "public.ecr.aws/sam/build-python3.11:latest"
+  attach   = true
+  must_run = false
+  command = [
+    "/bin/sh",
+    "-c",
+    "pip install --no-cache-dir -q -r requirements.txt -t python/lib/python3.11/site-packages/ && zip -m -q -r layer.zip python"
+  ]
+
+  volumes {
+    host_path      = abspath(local.layer_path)
+    container_path = "/var/task"
+  }
+}
+
 # Create a zip file from requirements.txt. Triggers only when the file is updated or ZIP file is missing
 resource "null_resource" "lambda_layer" {
-  count = var.ai_handler_create == "true" ? 1 : 0
+  count      = var.ai_handler_create == "true" ? 1 : 0
+  depends_on = [docker_container.lambda_layer]
   triggers = {
     # Trigger when requirements.txt changes
     requirements = filesha1("${path.module}/functions/requirements.txt")
-    # Trigger when the ZIP file is missing or needs to be recreated
-    zip_missing = local.zip_file_exists ? filesha256(local.zip_file_path) : "true"
   }
-  # The command to install Python dependencies and prepare the build directory
   provisioner "local-exec" {
     command = <<EOT
-    echo "Starting Docker command..."
-
-    # Navigate to the module directory
-    cd ${path.module}
-
-    # Remove previous Python directory and ZIP file if they exist
-    echo "Cleaning up previous Python directory and ZIP file..."
-    rm -rf functions/python || true
-    rm -f functions/layer.zip || true
-
-    # Install required Python libraries into the build directory
-    echo "Installing dependencies..."
-    docker run --platform linux/amd64 --user $(id -u):$(id -g) --rm \
-      -v ${local.layer_path}:/var/task "public.ecr.aws/sam/build-python3.11" \
-      /bin/sh -c "pip install --no-cache-dir -q -r requirements.txt -t python/lib/python3.11/site-packages/"
-    echo "Docker command completed."
-
-    # Create ZIP file
     echo "Creating ZIP file..."
     cd ${local.layer_path}
     zip -m -q -r layer.zip python || echo "No files found to zip"
     echo "ZIP command completed."
-
     EOT
   }
 }

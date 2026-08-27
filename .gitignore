@@ -53,6 +53,7 @@ env/
 # Python-related files
 pip-log.txt
 layer.zip
+**/functions/python/
 pip-delete-this-directory.txt
 .coverage
 .tox/
