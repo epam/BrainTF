@@ -1,8 +1,8 @@
 #======================= The Lambda function for AI Handler =======================#
 locals {
   # Path to the functions directory
-  layer_path      = "${path.module}/functions"
-  zip_file_path   = "${path.module}/functions/layer.zip" # Path to the output ZIP file
+  layer_path    = "${path.module}/functions"
+  zip_file_path = "${path.module}/functions/layer.zip" # Path to the output ZIP file
   # Patterns to exclude from Lambda deployment package
   lambda_exclude_patterns = [
     "!.*\\.pyc$",
