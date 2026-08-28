@@ -23,7 +23,7 @@ resource "docker_container" "lambda_layer" {
   command = [
     "/bin/sh",
     "-c",
-    "pip install --no-cache-dir -q -r requirements.txt -t python/lib/python3.11/site-packages/ && zip -m -q -r layer.zip python"
+    "rm -rf python && rm -f layer.zip && pip install --no-cache-dir -q -r requirements.txt -t python/lib/python3.11/site-packages/ && python -m zipfile -c layer.zip python && rm -rf python"
   ]
 
   volumes {
@@ -45,6 +45,7 @@ resource "null_resource" "lambda_layer" {
     echo "Creating ZIP file..."
     cd ${local.layer_path}
     zip -m -q -r layer.zip python || echo "No files found to zip"
+    rm -rf python || true
     echo "ZIP command completed."
     EOT
   }
