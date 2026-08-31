@@ -1,8 +1,10 @@
 #======================= The Lambda function for AI Handler =======================#
 locals {
   # Path to the functions directory
-  layer_path    = "${path.module}/functions"
-  zip_file_path = "${path.module}/functions/layer.zip" # Path to the output ZIP file
+  layer_path       = "${path.module}/functions"
+  zip_file_path    = "${path.module}/functions/layer.zip" # Path to the output ZIP file
+  zip_file_exists  = fileexists(local.zip_file_path)
+  requirements_sha = filesha1("${path.module}/functions/requirements.txt")
   # Patterns to exclude from Lambda deployment package
   lambda_exclude_patterns = [
     "!.*\\.pyc$",
@@ -16,7 +18,9 @@ locals {
 # Install Python dependencies (replaces `docker run` in null_resource)
 resource "docker_container" "lambda_layer" {
   count    = var.ai_handler_create == "true" ? 1 : 0
-  name     = "braintf-${var.vcs_repo_name}-lambda-layer"
+  # Recreate the container when layer.zip is missing so pip runs again.
+  # Suffix is dropped on the following apply once the zip exists again.
+  name = "braintf-${var.vcs_repo_name}-lambda-layer-${local.requirements_sha}${local.zip_file_exists ? "" : "-missing-zip"}"
   image    = "public.ecr.aws/sam/build-python3.11:latest"
   attach   = true
   must_run = false
@@ -32,22 +36,16 @@ resource "docker_container" "lambda_layer" {
   }
 }
 
-# Create a zip file from requirements.txt. Triggers only when the file is updated or ZIP file is missing
+# Trigger store for layer rebuilds. Zip packaging is done by docker_container.
 resource "null_resource" "lambda_layer" {
   count      = var.ai_handler_create == "true" ? 1 : 0
   depends_on = [docker_container.lambda_layer]
   triggers = {
     # Trigger when requirements.txt changes
-    requirements = filesha1("${path.module}/functions/requirements.txt")
-  }
-  provisioner "local-exec" {
-    command = <<EOT
-    echo "Creating ZIP file..."
-    cd ${local.layer_path}
-    zip -m -q -r layer.zip python || echo "No files found to zip"
-    rm -rf python || true
-    echo "ZIP command completed."
-    EOT
+    requirements = local.requirements_sha
+    # Rebuild when layer.zip is deleted. Do not filesha256 the zip: the container
+    # rewrites it in the same apply, which makes Terraform report an inconsistent result.
+    zip_missing = local.zip_file_exists ? "present" : "missing"
   }
 }
 
@@ -58,7 +56,7 @@ resource "aws_lambda_layer_version" "layer" {
   # Use a static hash from null_resource triggers to avoid dynamic recalculation
   source_code_hash    = null_resource.lambda_layer[0].triggers.requirements
   layer_name          = var.layer_name
-  depends_on          = [null_resource.lambda_layer] # Ensure this waits for ZIP creation
+  depends_on          = [null_resource.lambda_layer] # Waits for docker_container via null_resource
   compatible_runtimes = ["python3.11"]
 }
 
