@@ -3,8 +3,7 @@ locals {
   # Path to the functions directory
   layer_path           = "${path.module}/functions"
   container_layer_path = "/var/task"
-  container_build_path = "/tmp/layer-build"
-  zip_file_path        = "${path.module}/functions/layer.zip" # Path to the output ZIP file
+  zip_file_path        = "${local.layer_path}/layer.zip" # Path to the output ZIP file
   zip_file_exists      = fileexists(local.zip_file_path)
   requirements_sha     = filesha1("${path.module}/functions/requirements.txt")
   # Patterns to exclude from Lambda deployment package
@@ -27,15 +26,14 @@ resource "docker_container" "lambda_layer" {
   attach      = true
   must_run    = false # leave the exited container alone; default true would restart (and re-run pip) every apply
   rm          = false # rm=true removes it on exit, so the next apply recreates it and re-runs pip
-  working_dir = local.container_build_path
+  working_dir = local.container_layer_path
   command = [
     "/bin/sh",
     "-c",
-    "pip install --no-cache-dir -q -r ${local.container_layer_path}/requirements.txt -t python/lib/python3.11/site-packages/ && python -m zipfile -c ${local.container_layer_path}/layer.zip python"
+    "pip install --no-cache-dir -q -r requirements.txt -t /tmp/python/lib/python3.11/site-packages/ && python -m zipfile -c layer.zip /tmp/python"
   ]
 
-  # Host functions dir is only for requirements.txt in and layer.zip out.
-  # python/ stays in the container workdir, not on the volume.
+  # Bind-mount host functions dir: requirements.txt in, layer.zip out. pip writes to /tmp, not the volume.
   volumes {
     host_path      = abspath(local.layer_path)
     container_path = local.container_layer_path
@@ -44,9 +42,8 @@ resource "docker_container" "lambda_layer" {
 
 # Create a new Lambda Layer Version
 resource "aws_lambda_layer_version" "layer" {
-  count    = var.ai_handler_create == "true" ? 1 : 0
-  filename = local.zip_file_path
-  # Hash requirements.txt, not layer.zip — the container rewrites the zip in this apply.
+  count               = var.ai_handler_create == "true" ? 1 : 0
+  filename            = local.zip_file_path
   source_code_hash    = local.requirements_sha
   layer_name          = var.layer_name
   depends_on          = [docker_container.lambda_layer]
