@@ -22,10 +22,10 @@ resource "docker_container" "lambda_layer" {
   count = var.ai_handler_create == "true" ? 1 : 0
   # Recreate the container when layer.zip is missing so pip runs again.
   # Suffix is dropped on the following apply once the zip exists again.
-  name     = "braintf-${var.vcs_repo_name}-lambda-layer-${local.requirements_sha}${local.zip_file_exists ? "" : "-missing-zip"}"
-  image    = "public.ecr.aws/sam/build-python3.11:latest"
-  attach   = true
-  must_run = false # leave the exited container alone; default true would restart (and re-run pip) every apply
+  name        = "braintf-${var.vcs_repo_name}-lambda-layer-${local.requirements_sha}${local.zip_file_exists ? "" : "-missing-zip"}"
+  image       = "public.ecr.aws/sam/build-python3.11:latest"
+  attach      = true
+  must_run    = false # leave the exited container alone; default true would restart (and re-run pip) every apply
   rm          = false # rm=true removes it on exit, so the next apply recreates it and re-runs pip
   working_dir = local.container_build_path
   command = [
