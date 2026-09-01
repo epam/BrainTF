@@ -1,9 +1,11 @@
 #======================= The Lambda function for AI Handler =======================#
 locals {
   # Path to the functions directory
-  layer_path      = "${path.root}/functions"
-  zip_file_path   = "${path.module}/functions/layer.zip" # Path to the output ZIP file
-  zip_file_exists = fileexists(local.zip_file_path)      # Check if the ZIP file exists
+  layer_path           = "${path.module}/functions"
+  container_layer_path = "/var/task"
+  zip_file_path        = "${local.layer_path}/layer.zip" # Path to the output ZIP file
+  zip_file_exists      = fileexists(local.zip_file_path)
+  requirements_sha     = filesha1("${path.module}/functions/requirements.txt")
   # Patterns to exclude from Lambda deployment package
   lambda_exclude_patterns = [
     "!.*\\.pyc$",
@@ -14,53 +16,37 @@ locals {
   ]
 }
 
-# Create a zip file from requirements.txt. Triggers only when the file is updated or ZIP file is missing
-resource "null_resource" "lambda_layer" {
+# Install Python dependencies and write layer.zip
+resource "docker_container" "lambda_layer" {
   count = var.ai_handler_create == "true" ? 1 : 0
-  triggers = {
-    # Trigger when requirements.txt changes
-    requirements = filesha1("${path.module}/functions/requirements.txt")
-    # Trigger when the ZIP file is missing or needs to be recreated
-    zip_missing = local.zip_file_exists ? filesha256(local.zip_file_path) : "true"
-  }
-  # The command to install Python dependencies and prepare the build directory
-  provisioner "local-exec" {
-    command = <<EOT
-    echo "Starting Docker command..."
+  # Recreate the container when layer.zip is missing so pip runs again.
+  # Suffix is dropped on the following apply once the zip exists again.
+  name        = "braintf-${var.vcs_repo_name}-lambda-layer-${local.requirements_sha}${local.zip_file_exists ? "" : "-missing-zip"}"
+  image       = "public.ecr.aws/sam/build-python3.11:latest"
+  attach      = true
+  must_run    = false # leave the exited container alone; default true would restart (and re-run pip) every apply
+  rm          = false # rm=true removes it on exit, so the next apply recreates it and re-runs pip
+  working_dir = local.container_layer_path
+  command = [
+    "/bin/sh",
+    "-c",
+    "pip install --no-cache-dir -q -r requirements.txt -t /tmp/python/lib/python3.11/site-packages/ && python -m zipfile -c layer.zip /tmp/python"
+  ]
 
-    # Navigate to the module directory
-    cd ${path.module}
-
-    # Remove previous Python directory and ZIP file if they exist
-    echo "Cleaning up previous Python directory and ZIP file..."
-    rm -rf functions/python || true
-    rm -f functions/layer.zip || true
-
-    # Install required Python libraries into the build directory
-    echo "Installing dependencies..."
-    docker run --platform linux/amd64 --user $(id -u):$(id -g) --rm \
-      -v ${local.layer_path}:/var/task "public.ecr.aws/sam/build-python3.11" \
-      /bin/sh -c "pip install --no-cache-dir -q -r requirements.txt -t python/lib/python3.11/site-packages/"
-    echo "Docker command completed."
-
-    # Create ZIP file
-    echo "Creating ZIP file..."
-    cd ${local.layer_path}
-    zip -m -q -r layer.zip python || echo "No files found to zip"
-    echo "ZIP command completed."
-
-    EOT
+  # Bind-mount host functions dir: requirements.txt in, layer.zip out. pip writes to /tmp, not the volume.
+  volumes {
+    host_path      = abspath(local.layer_path)
+    container_path = local.container_layer_path
   }
 }
 
 # Create a new Lambda Layer Version
 resource "aws_lambda_layer_version" "layer" {
-  count    = var.ai_handler_create == "true" ? 1 : 0
-  filename = local.zip_file_path
-  # Use a static hash from null_resource triggers to avoid dynamic recalculation
-  source_code_hash    = null_resource.lambda_layer[0].triggers.requirements
+  count               = var.ai_handler_create == "true" ? 1 : 0
+  filename            = local.zip_file_path
+  source_code_hash    = local.requirements_sha
   layer_name          = var.layer_name
-  depends_on          = [null_resource.lambda_layer] # Ensure this waits for ZIP creation
+  depends_on          = [docker_container.lambda_layer]
   compatible_runtimes = ["python3.11"]
 }
 
