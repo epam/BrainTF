@@ -11,3 +11,15 @@ terraform {
     }
   }
 }
+
+provider "aws" {
+  default_tags {
+    tags = {
+      Project     = var.vcs_repo_name
+      Environment = var.environment
+      Team        = var.team
+      DeployedBy  = var.deployed_by
+      OwnerEmail  = var.owner_mail
+    }
+  }
+}

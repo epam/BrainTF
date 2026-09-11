@@ -1,8 +1,3 @@
-variable "region" {
-  description = "The region where AWS resources will be created"
-  type        = string
-}
-
 variable "vcs_hostname" {
   description = "The VCS hostname for the project"
   type        = string
@@ -33,11 +28,6 @@ variable "owner_mail" {
   type        = string
 }
 
-variable "account_id" {
-  description = "AWS account ID"
-  type        = string
-}
-
 variable "vcs_token" {
   description = "The VCS token"
   type        = string
@@ -55,6 +45,11 @@ variable "ai_token" {
 variable "vcs_provider" {
   description = "The VCS provider used for deployment (e.g., github, gitlab)"
   type        = string
+
+  validation {
+    condition     = contains(["github", "gitlab"], var.vcs_provider)
+    error_message = "vcs_provider must be github or gitlab"
+  }
 }
 
 variable "vcs_project_path" {

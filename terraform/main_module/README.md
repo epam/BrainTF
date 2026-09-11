@@ -36,13 +36,14 @@
 | Name | Type |
 | ---- | ---- |
 | [random_password.lambda_webhook_secret](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
+| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_kms_alias.kms_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/kms_alias) | data source |
+| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 
 ## Inputs
 
 | Name | Description | Type | Default | Required |
 | ---- | ----------- | ---- | ------- | :------: |
-| <a name="input_account_id"></a> [account\_id](#input\_account\_id) | AWS account ID | `string` | n/a | yes |
 | <a name="input_ai_api_base_url"></a> [ai\_api\_base\_url](#input\_ai\_api\_base\_url) | The API base URL for the AI service | `string` | n/a | yes |
 | <a name="input_ai_handler_create"></a> [ai\_handler\_create](#input\_ai\_handler\_create) | Whether to create AI handler webhooks. | `bool` | `false` | no |
 | <a name="input_ai_token"></a> [ai\_token](#input\_ai\_token) | The AI token | `string` | `""` | no |
@@ -60,7 +61,6 @@
 | <a name="input_platform_state_bucket_prefix"></a> [platform\_state\_bucket\_prefix](#input\_platform\_state\_bucket\_prefix) | Prefix for the bootstrap (platform) state S3 bucket name. Must match the value used in the bootstrap module. | `string` | `"backend-state-bucket"` | no |
 | <a name="input_private_subnet_ids"></a> [private\_subnet\_ids](#input\_private\_subnet\_ids) | VPC Private Subnet IDs | `list(string)` | n/a | yes |
 | <a name="input_rag_enable"></a> [rag\_enable](#input\_rag\_enable) | Whether to turn on RAG for AI handler. | `bool` | `false` | no |
-| <a name="input_region"></a> [region](#input\_region) | The region where AWS resources will be created | `string` | n/a | yes |
 | <a name="input_run_checkov_analysis"></a> [run\_checkov\_analysis](#input\_run\_checkov\_analysis) | Enable or disable the Checkov analysis stage. Default is false. | `bool` | `false` | no |
 | <a name="input_run_terraform_apply"></a> [run\_terraform\_apply](#input\_run\_terraform\_apply) | Enable or disable the Terraform apply stage. Default is false. | `bool` | `false` | no |
 | <a name="input_run_terraform_plan"></a> [run\_terraform\_plan](#input\_run\_terraform\_plan) | Enable or disable the Terraform plan stage. Default is false. | `bool` | `false` | no |

@@ -56,9 +56,3 @@ variable "ttl_enabled" {
   type        = bool
   default     = false
 }
-
-variable "tags" {
-  description = "Tags to apply to the DynamoDB table"
-  type        = map(string)
-  default     = {}
-}

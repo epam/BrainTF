@@ -1,7 +1,12 @@
+# ======================= Getting account details =======================
+
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
 # ======================= Local Variables =======================
 locals {
   # Define the S3 bucket name for storing the platform Terraform state
-  state_bucket = lower(replace(replace(replace("${var.platform_state_bucket_prefix}-${var.vcs_repo_name}-${var.region}", "_", "-"), " ", "-"), "[^a-z0-9.-]", ""))
+  state_bucket = lower(replace(replace(replace("${var.platform_state_bucket_prefix}-${var.vcs_repo_name}-${local.region}", "_", "-"), " ", "-"), "[^a-z0-9.-]", ""))
 
   # list of .tf files in the main module to check for existing backend blocks
   main_module_tf_files = fileset("${path.module}/../main_module", "*.tf")
@@ -12,27 +17,19 @@ locals {
   ]
 
   # Generate the backend configuration content for the main_module
+  region         = data.aws_region.current.region
+  account_id     = data.aws_caller_identity.current.account_id
   backend_config = <<EOT
 #======================= The Main module for application infrastructure =======================#
 terraform {
   backend "s3" {
     bucket       = "${local.state_bucket}"
     key          = "main-module/terraform.tfstate"
-    region       = "${var.region}"
     encrypt      = true
     use_lockfile = true
   }
 }
 EOT
-
-  # Define tags to apply to resources
-  tags = {
-    Project     = var.vcs_repo_name
-    Environment = var.environment
-    Team        = var.team
-    DeployedBy  = var.deployed_by
-    OwnerEmail  = var.owner_mail
-  }
 }
 
 # ======================= Generate Backend Configuration for Main Module =======================
@@ -69,12 +66,12 @@ module "s3_bucket_kms_key" {
   deletion_window_in_days  = 7
 
   key_owners = [
-    "arn:aws:iam::${var.account_id}:root"
+    "arn:aws:iam::${local.account_id}:root"
   ]
 
   computed_aliases = {
     project_alias = {
-      name = "kms_key_${var.vcs_repo_name}_${var.region}"
+      name = "kms_key_${var.vcs_repo_name}_${local.region}"
     }
   }
 
@@ -100,13 +97,12 @@ module "s3_bucket_kms_key" {
       principals = [
         {
           type        = "AWS"
-          identifiers = ["arn:aws:iam::${var.account_id}:root"]
+          identifiers = ["arn:aws:iam::${local.account_id}:root"]
         }
       ]
     }
   ]
 
-  tags = local.tags
 }
 
 # ======================= Create an S3 Bucket for Terraform State =======================
@@ -135,7 +131,6 @@ module "s3_state_bucket" {
     }
   }
 
-  tags = local.tags
 }
 
 # ======================= Attach a Bucket Policy =======================
@@ -166,7 +161,7 @@ resource "aws_s3_bucket_policy" "state_bucket_policy" {
 
 # ======================= Create IAM Role =======================
 resource "aws_iam_role" "terraform_role" {
-  name = "Terraform-role-${var.vcs_repo_name}-${var.region}"
+  name = "Terraform-role-${var.vcs_repo_name}-${local.region}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17",
@@ -180,13 +175,11 @@ resource "aws_iam_role" "terraform_role" {
       }
     ]
   })
-
-  tags = local.tags
 }
 
 # ======================= IAM Policy for Terraform Role - State Access =======================
 resource "aws_iam_role_policy" "terraform_state_access" {
-  name = "Terraform-State-Access-${var.vcs_repo_name}-${var.region}"
+  name = "Terraform-State-Access-${var.vcs_repo_name}-${local.region}"
   role = aws_iam_role.terraform_role.id
 
   policy = jsonencode({

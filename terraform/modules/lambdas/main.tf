@@ -135,7 +135,6 @@ module "ai_lambda_vcs" {
   tracing_mode           = "Active"
   vpc_subnet_ids         = var.private_subnet_ids
   vpc_security_group_ids = var.security_groups
-  tags                   = var.tags
 }
 
 # Lambda function for processing comments in VCS PR/MR
@@ -191,5 +190,4 @@ module "process_comment_lambda_vcs" {
   tracing_mode           = "Active"
   vpc_subnet_ids         = var.private_subnet_ids
   vpc_security_group_ids = var.security_groups
-  tags                   = var.tags
 }

@@ -23,8 +23,6 @@ module "s3_bucket" {
       bucket_key_enabled = true
     }
   }
-
-  tags = var.tags
 }
 
 # ======================= Create Lifecycle Rules =======================
@@ -127,5 +125,4 @@ resource "aws_s3_object" "directory" {
   bucket  = module.s3_bucket.s3_bucket_id
   key     = var.directories[count.index]
   content = ""
-  tags    = var.tags
 }

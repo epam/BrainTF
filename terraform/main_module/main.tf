@@ -1,3 +1,8 @@
+# ======================= Getting account details =======================
+
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
 provider "github" {
   # Only meaningful when vcs_provider == "github"
   token = var.vcs_provider == "github" ? var.vcs_token : null
@@ -12,30 +17,25 @@ provider "gitlab" {
 }
 
 data "aws_kms_alias" "kms_key" {
-  name = "alias/kms_key_${var.vcs_repo_name}_${var.region}"
+  name = "alias/kms_key_${var.vcs_repo_name}_${local.region}"
 }
 
 locals {
-
-  tags = {
-    Project     = var.vcs_repo_name
-    Environment = var.environment
-    Team        = var.team
-    DeployedBy  = var.deployed_by
-    OwnerEmail  = var.owner_mail
-  }
+  # Account details
+  region     = data.aws_region.current.region
+  account_id = data.aws_caller_identity.current.account_id
 
   # Compute bootstrap state bucket name (same formula as in bootstrap/main.tf)
-  bootstrap_state_bucket = lower(replace(replace(replace("${var.platform_state_bucket_prefix}-${var.vcs_repo_name}-${var.region}", "_", "-"), " ", "-"), "[^a-z0-9.-]", ""))
+  bootstrap_state_bucket = lower(replace(replace(replace("${var.platform_state_bucket_prefix}-${var.vcs_repo_name}-${local.region}", "_", "-"), " ", "-"), "[^a-z0-9.-]", ""))
 
   # Use user-provided bucket if set, otherwise fall back to the bootstrap state bucket
   managed_state_bucket = var.managed_state_bucket != "" ? var.managed_state_bucket : local.bootstrap_state_bucket
 
   # Conditional variables
-  oidc_role_name         = "${var.vcs_repo_name}-oidc-${var.vcs_provider}-${var.region}-role"
-  oidc_policy_name       = "${var.vcs_repo_name}-oidc-${var.vcs_provider}-${var.region}-policy"
-  artifacts_bucket       = lower(replace(replace(replace("${var.artifacts_bucket_prefix}-${var.vcs_repo_name}-${var.region}", "_", "-"), " ", "-"), "[^a-z0-9.-]", ""))
-  ai_dynamodb_table_name = "ai-chat-history-${var.vcs_repo_name}-${var.region}"
+  oidc_role_name         = "${var.vcs_repo_name}-oidc-${var.vcs_provider}-${local.region}-role"
+  oidc_policy_name       = "${var.vcs_repo_name}-oidc-${var.vcs_provider}-${local.region}-policy"
+  artifacts_bucket       = lower(replace(replace(replace("${var.artifacts_bucket_prefix}-${var.vcs_repo_name}-${local.region}", "_", "-"), " ", "-"), "[^a-z0-9.-]", ""))
+  ai_dynamodb_table_name = "ai-chat-history-${var.vcs_repo_name}-${local.region}"
   webhook_secret_name    = "/${var.vcs_repo_name}/webhook_secret"
   ai_api_token_name      = "/${var.vcs_repo_name}/ai_token"
   vcs_token_name         = "/${var.vcs_repo_name}/vcs_token"
@@ -63,7 +63,7 @@ locals {
   terraform_backend_params = join(" ", [
     "-backend-config=bucket=${local.managed_state_bucket}",
     "-backend-config=key=${var.managed_state_key}",
-    "-backend-config=region=${var.region}",
+    "-backend-config=region=${local.region}",
     "-backend-config=kms_key_id=${data.aws_kms_alias.kms_key.arn}",
     "-backend-config=encrypt=true",
     "-backend-config=use_lockfile=true"
@@ -103,7 +103,7 @@ locals {
       },
       {
         key         = "AWS_REGION"
-        value       = var.region
+        value       = local.region
         description = "AWS region (Managed by Terraform)"
         masked      = false
         protected   = false
@@ -198,7 +198,6 @@ locals {
       value_wo_version = parseint(substr(sha256(var.vcs_token), 0, 8), 16)
       tier             = "Standard"
       description      = "VCS Access Token (Managed by Terraform)"
-      tags             = local.tags
     }
     "ai_token_parameter" = {
       name             = local.ai_api_token_name
@@ -207,7 +206,6 @@ locals {
       value_wo_version = parseint(substr(sha256(var.ai_token), 0, 8), 16)
       tier             = "Standard"
       description      = "AI Access Token (Managed by Terraform)"
-      tags             = local.tags
     }
     "webhook_secret_parameter" = {
       name             = local.webhook_secret_name
@@ -216,7 +214,6 @@ locals {
       value_wo_version = null
       tier             = "Standard"
       description      = "Webhook secret for AI Handler (Managed by Terraform)"
-      tags             = local.tags
     }
   } : {}
 }
@@ -247,8 +244,7 @@ module "artifacts_bucket" {
       abort_incomplete_multipart_upload_days = 7    # Days to abort incomplete multipart uploads
     }
   ]
-  account_id         = var.account_id
-  tags               = local.tags
+  account_id         = local.account_id
   create_directories = true # Create directories
   directories        = ["logs/", "artifacts/"]
 }
@@ -280,19 +276,17 @@ module "oidc" {
   aud_variable         = local.aud_variable
   sub_values           = local.sub_values
   sub_variable         = local.sub_variable
-  tags                 = local.tags
 }
 
 # ======================= IAM Roles and Policies for Lambda =======================
 module "iam" {
   source            = "../modules/iam"
   count             = var.ai_handler_create ? 1 : 0
-  region            = var.region
-  account_id        = var.account_id
+  region            = local.region
+  account_id        = local.account_id
   artifacts_bucket  = local.artifacts_bucket
   ai_handler_create = var.ai_handler_create
   kms_key_arn       = data.aws_kms_alias.kms_key.target_key_arn
-  tags              = local.tags
   vcs_repo_name     = var.vcs_repo_name
 }
 
@@ -319,7 +313,6 @@ module "ai_dynamodb_table" {
   point_in_time_recovery_enabled     = false
   ttl_attribute_name                 = "ttl"
   ttl_enabled                        = true
-  tags                               = local.tags
 }
 
 # ======================= AI Handler Lambda Functions =======================
@@ -344,8 +337,7 @@ module "ai_lambda" {
   dynamodb_table_name  = local.ai_dynamodb_table_name
   log_level            = var.log_level
   artifacts_path       = var.artifacts_path
-  tags                 = local.tags
-  layer_name           = lower("layer-${var.vcs_repo_name}-${var.region}")
+  layer_name           = lower("layer-${var.vcs_repo_name}-${local.region}")
 }
 
 # ======================= VCS Integration =======================

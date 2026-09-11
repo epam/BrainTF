@@ -13,7 +13,6 @@ resource "aws_iam_role" "lambda_exec_role" {
   count              = var.ai_handler_create ? 1 : 0
   name               = "Terraform-AI-Handler-Role-${var.vcs_repo_name}-${var.region}"
   assume_role_policy = data.aws_iam_policy_document.lambda_assume_role_policy.json
-  tags               = var.tags
 }
 
 data "aws_iam_policy_document" "lambda_exec_policy" {
@@ -126,7 +125,6 @@ resource "aws_iam_policy" "lambda_exec_policy" {
   name        = "Terraform-AI-Handler-Policy-${var.vcs_repo_name}-${var.region}"
   description = "Allow Lambda function execution"
   policy      = data.aws_iam_policy_document.lambda_exec_policy.json
-  tags        = var.tags
 }
 
 resource "aws_iam_role_policy_attachment" "lambda_exec_policy_attach" {
