@@ -89,8 +89,14 @@ jobs:
     needs:
       - validate-work-dirs
     outputs:
-      source_sha: ${{ steps.get-sha.outputs.source_sha }} # Output variable for the next job
-      setup_run: ${{ steps.setup-status.outcome }}
+      source-sha: ${{ steps.get-sha.outputs.source_sha }} # Output variable for the next job
+      # Re-exported so jobs calling run-scanner.yml can read them: a job's `with:`
+      # block only sees needs/vars/github/secrets context, not this workflow's
+      # own top-level `env:` -- `env.*` isn't resolvable there.
+      work-dirs: ${{ steps.export-config.outputs.work_dirs }}
+      cache-key: ${{ steps.export-config.outputs.cache_key }}
+      tflint-version: ${{ steps.export-config.outputs.tflint_version }}
+      trivy-version: ${{ steps.export-config.outputs.trivy_version }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -154,6 +160,18 @@ jobs:
             echo "source_sha=$GITHUB_SHA" >> $GITHUB_OUTPUT
           fi
 
+      - name: Export shared config for run-scanner.yml callers
+        id: export-config
+        shell: bash
+        run: |
+          echo "work_dirs=$WORK_DIRS" >> "$GITHUB_OUTPUT"
+          # Cache key built here, once -- run-scanner.yml just takes the
+          # finished string, so the format only needs to match the "setup"
+          # job's own Restore Tools Cache step in one place, not two.
+          echo "cache_key=tools-cache-v5-${CHECKOV_VERSION}-${TFSEC_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "tflint_version=$TFLINT_VERSION" >> "$GITHUB_OUTPUT"
+          echo "trivy_version=$TRIVY_VERSION" >> "$GITHUB_OUTPUT"
+
   terraform-fmt:
     name: Terraform Format Check
     runs-on: ubuntu-latest
@@ -182,108 +200,21 @@ jobs:
 
   tflint-analysis:
     name: TFLint Analysis
-    runs-on: ubuntu-latest
     needs:
       - setup
       - terraform-fmt
     if: ${{ contains(vars.RUN_TFLINT_ANALYSIS, 'true') }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Setup TFLint
-        uses: terraform-linters/setup-tflint@v6
-        with:
-          tflint_version: ${{ env.TFLINT_VERSION }}
-          cache: true
-
-      - name: Restore Tools Cache
-        uses: actions/cache@v5
-        id: cache-tools
-        with: *tools-cache
-
-      - name: Assume AWS role
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
-          audience: ${{ vars.OIDC_AUDIENCE }}
-          role-session-name: VCSRunner-role-${{ github.event.repository.name }}-${{ vars.AWS_REGION }}
-          aws-region: ${{ vars.AWS_REGION }}
-
-      - name: TFLint Analysis
-        run: |
-          echo "Starting TFLint analysis..."
-
-          # Define paths for logs
-          LOG_NAME="tflint_analysis.log"
-          PLAIN_TEXT_LOG="$GITHUB_WORKSPACE/plain_text_log.txt"
-          LOG_FILE_PATH="$GITHUB_WORKSPACE/${LOG_NAME}"
-          GITHUB_SHA="${{ needs.setup.outputs.source_sha }}"
-          TOOL_NAME="TFLint"
-          EXIT_CODE="0"
-
-          tflint --version || { echo -e "\033[31m$TOOL_NAME not found.\033[0m"; exit 1; }
-          tflint --init --config "$GITHUB_WORKSPACE/.tflint.hcl" || { echo -e "\033[31mFailed to initialize $TOOL_NAME.\033[0m"; exit 1; }
-
-          IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
-          for dir in "${DIRS[@]}"; do
-            echo -e "\033[34mRunning $TOOL_NAME analysis in directory: $dir\n\033[0m"
-
-            tflint --force --chdir="$dir" 2>&1 | tee temp.log || true
-
-            # Process output and update exit code if issues are found
-            if [[ -f temp.log && -s temp.log ]]; then
-              echo -e "Running $TOOL_NAME analysis in directory: $dir\n" >> "${LOG_FILE_PATH}"
-              sed -r 's/\x1B\[[0-9;]*[mK]//g' temp.log >> "${LOG_FILE_PATH}"
-              EXIT_CODE=1  # Indicate that issues were found
-            else
-              echo -e "\033[32mNo issues were found during $TOOL_NAME analysis in the directory: $dir.\033[0m"
-            fi
-          done
-
-          # Determine action based on log content
-          if [[ -f "$LOG_FILE_PATH" && -s "$LOG_FILE_PATH" ]]; then
-            cat "$LOG_FILE_PATH" >> "$PLAIN_TEXT_LOG"
-            if [[ "$AI_HANDLER_CREATE" == "true" ]]; then
-              echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the comment with the log text.\033[0m"
-              ACTION="both"
-            else
-              echo -e "\033[33mLog file contains errors, but AI handler is disabled.\033[0m \033[34mProceeding with posting the log text only.\033[0m"
-              ACTION="post"
-            fi
-          else
-            echo -e "\033[32mLog file is empty. No issues were found during $TOOL_NAME analysis.\033[0m"
-            echo "$TOOL_NAME analysis was successful. No issues were found." > "$PLAIN_TEXT_LOG"
-            ACTION="post"
-          fi
-
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-
-          # Post a comment with the results
-          bash "$GITHUB_WORKSPACE/scripts/upload_and_comment.sh" \
-            "$VCS_PROVIDER" \
-            "$ACTION" \
-            "$LOG_FILE_PATH" \
-            "$LOG_NAME" \
-            "$AWS_S3_BUCKET" \
-            "$GITHUB_REPOSITORY" \
-            "$GITHUB_REPOSITORY_OWNER" \
-            "$GITHUB_HEAD_REF" \
-            "$GITHUB_SHA" \
-            "$JOB_TOKEN" \
-            "$GITHUB_REF" \
-            "$GITHUB_RUN_ID" \
-            "$PR_NUMBER" \
-            "$OIDC_ROLE_ARN" \
-            "$TOOL_NAME" \
-            "$PLAIN_TEXT_LOG" \
-            "$GITHUB_RUN_URL"
-
-          # Fail the job if errors were found
-          if [[ $EXIT_CODE -ne 0 ]]; then
-            echo -e "\033[31m$TOOL_NAME analysis completed with errors. Failing the job.\033[0m"
-            exit $EXIT_CODE
-          fi
+    uses: ./.github/workflows/run-scanner.yml
+    with:
+      tool-name: TFLint
+      work-dirs: ${{ needs.setup.outputs.work-dirs }}
+      scanner-command: 'tflint --force --chdir="$dir"'
+      pre-command: 'tflint --init --config "$GITHUB_WORKSPACE/.tflint.hcl"'
+      source-sha: ${{ needs.setup.outputs.source-sha }}
+      cache-key: ${{ needs.setup.outputs.cache-key }}
+      tflint-version: ${{ needs.setup.outputs.tflint-version }}
+    secrets:
+      job-token: ${{ secrets.JOB_TOKEN }}
 
   terraform-validate:
     name: Terraform Validate
@@ -324,7 +255,7 @@ jobs:
           LOG_NAME="terraform_validate.log"
           PLAIN_TEXT_LOG="$GITHUB_WORKSPACE/plain_text_log.txt"
           LOG_FILE_PATH="$GITHUB_WORKSPACE/${LOG_NAME}"
-          GITHUB_SHA="${{ needs.setup.outputs.source_sha }}"
+          GITHUB_SHA="${{ needs.setup.outputs.source-sha }}"
           TOOL_NAME="Terraform"
           EXIT_CODE="0"
 
@@ -342,6 +273,9 @@ jobs:
             # Process output from Terraform init and update exit code if issues are found
             if [[ -f temp.log && -s temp.log ]]; then
               echo -e "Running $TOOL_NAME validate in directory: $dir\n" >> "${LOG_FILE_PATH}"
+              # Four sed passes over Terraform's boxed error output: strip ANSI
+              # color codes, drop the top/bottom border lines (╷ ╵), collapse a
+              # trailing blank line, then strip the left border (│ ) from what's left.
               sed -r 's/\x1B\[[0-9;]*[mK]//g' temp.log | sed '/^╷$/d; /^╵$/d' | sed ':a;N;$!ba;s/\n$//' | sed -r 's/^│ //g' >> "${LOG_FILE_PATH}"
               EXIT_CODE=1 # Indicate that issues were found
             else
@@ -404,126 +338,23 @@ jobs:
 
   checkov-analysis:
     name: Checkov Analysis
-    runs-on: ubuntu-latest
     needs:
       - setup
       - terraform-fmt
       - tflint-analysis
       - terraform-validate
     if: ${{ !cancelled() && contains(vars.RUN_CHECKOV_ANALYSIS, 'true') && needs.tflint-analysis.result != 'failure' && needs.terraform-validate.result != 'failure' }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Restore Tools Cache
-        uses: actions/cache@v5
-        id: cache-tools
-        with: *tools-cache
-
-      - name: Assume AWS role
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
-          audience: ${{ vars.OIDC_AUDIENCE }}
-          role-session-name: VCSRunner-role-${{ github.event.repository.name }}-${{ vars.AWS_REGION }}
-          aws-region: ${{ vars.AWS_REGION }}
-
-      - name: Run Checkov Analysis
-        shell: bash
-        env:
-          TOOL_NAME: Checkov
-          SOURCE_SHA: ${{ needs.setup.outputs.source_sha }}
-        run: |
-          echo "Starting Checkov analysis..."
-
-          # Initialize variables for log file and tool name
-          LOG_NAME="checkov_analysis.log"
-          LOG_FILE_PATH="${GITHUB_WORKSPACE}/${LOG_NAME}"
-          PLAIN_TEXT_LOG="${GITHUB_WORKSPACE}/plain_text_log.txt"
-          CHECKOV_CONFIG="${GITHUB_WORKSPACE}/.checkov.yaml"
-          GITHUB_SHA="${SOURCE_SHA}"
-
-          echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> "$GITHUB_ENV"
-
-          echo "Checkov version:" && checkov --version || { echo -e "\033[31m$TOOL_NAME not installed.\033[0m"; exit 1; }
-
-          IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
-          EXIT_CODE=0
-          MAX_EXIT_CODE=0
-          TEMP_RESULTS_DIR="${GITHUB_WORKSPACE}/result_logs"
-
-          # Ensure the temporary results directory exists
-          mkdir -p "$TEMP_RESULTS_DIR"
-
-          for dir in "${DIRS[@]}"; do
-            echo -e "\033[34mRunning $TOOL_NAME analysis in directory: $dir\n\033[0m"
-
-            # Define temporary result file for the current directory
-            TEMP_RESULT_FILE="${TEMP_RESULTS_DIR}/results_cli_${dir//\//_}.txt"
-
-            CURRENT_EXIT_CODE=0
-            checkov -d "$dir" --config-file "$CHECKOV_CONFIG" --quiet --framework terraform --download-external-modules false 2>&1 | tee "$TEMP_RESULT_FILE" || CURRENT_EXIT_CODE=${PIPESTATUS[0]}
-
-            # Process results: any error level > 0 is recorded, and MAX_EXIT_CODE is updated
-            if [[ $CURRENT_EXIT_CODE -gt 0 ]]; then
-              echo -e "Running $TOOL_NAME analysis in directory: $dir\n" >> "${LOG_FILE_PATH}"
-              sed -r 's/\x1B\[[0-9;]*[mK]//g' "$TEMP_RESULT_FILE" >> "${LOG_FILE_PATH}"
-              if [[ $CURRENT_EXIT_CODE -gt $MAX_EXIT_CODE ]]; then
-                MAX_EXIT_CODE=$CURRENT_EXIT_CODE
-              fi
-            else
-              echo -e "\033[32mNo issues were found during $TOOL_NAME analysis in the directory: $dir.\033[0m"
-            fi
-          done
-
-          EXIT_CODE=$MAX_EXIT_CODE
-
-          if [[ -f "$LOG_FILE_PATH" && -s "$LOG_FILE_PATH" && $EXIT_CODE -gt 0 ]]; then
-            echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the comment with the log text.\033[0m"
-            cat "$LOG_FILE_PATH" >> "$PLAIN_TEXT_LOG"
-            if [[ "$AI_HANDLER_CREATE" == "true" ]]; then
-              ACTION="both"
-            else
-              echo -e "\033[33mLog file contains errors, but AI handler is disabled.\033[0m \033[34mProceeding with posting the log text only.\033[0m"
-              ACTION="post"
-            fi
-          else
-            echo -e "\033[32mLog file is empty. No issues were found during $TOOL_NAME analysis.\033[0m"
-            echo "$TOOL_NAME analysis was successful. No issues were found." > "$PLAIN_TEXT_LOG"
-            ACTION="post"
-          fi
-
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-
-          # Post a comment with the results
-          bash "${GITHUB_WORKSPACE}/scripts/upload_and_comment.sh" \
-            "$VCS_PROVIDER" \
-            "$ACTION" \
-            "$LOG_FILE_PATH" \
-            "$LOG_NAME" \
-            "$AWS_S3_BUCKET" \
-            "$GITHUB_REPOSITORY" \
-            "$GITHUB_REPOSITORY_OWNER" \
-            "$GITHUB_HEAD_REF" \
-            "$GITHUB_SHA" \
-            "$JOB_TOKEN" \
-            "$GITHUB_REF" \
-            "$GITHUB_RUN_ID" \
-            "$PR_NUMBER" \
-            "$OIDC_ROLE_ARN" \
-            "$TOOL_NAME" \
-            "$PLAIN_TEXT_LOG" \
-            "$GITHUB_RUN_URL"
-
-          # Fail the job if errors were found
-          if [[ $EXIT_CODE -ne 0 ]]; then
-            echo -e "\033[31m$TOOL_NAME analysis completed with errors. Failing the job.\033[0m"
-            exit $EXIT_CODE
-          fi
-
+    uses: ./.github/workflows/run-scanner.yml
+    with:
+      tool-name: Checkov
+      work-dirs: ${{ needs.setup.outputs.work-dirs }}
+      scanner-command: 'checkov -d "$dir" --config-file "$GITHUB_WORKSPACE/.checkov.yaml" --quiet --framework terraform --download-external-modules false'
+      source-sha: ${{ needs.setup.outputs.source-sha }}
+      cache-key: ${{ needs.setup.outputs.cache-key }}
+    secrets:
+      job-token: ${{ secrets.JOB_TOKEN }}
   tfsec-analysis:
     name: TFsec Analysis
-    runs-on: ubuntu-latest
     needs:
       - setup
       - terraform-fmt
@@ -531,105 +362,17 @@ jobs:
       - terraform-validate
       - checkov-analysis
     if: ${{ !cancelled() && contains(vars.RUN_TFSEC_ANALYSIS, 'true') && needs.tflint-analysis.result != 'failure' && needs.terraform-validate.result != 'failure' && needs.checkov-analysis.result != 'failure' }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Restore Tools Cache
-        uses: actions/cache@v5
-        id: cache-tools
-        with: *tools-cache
-
-      - name: Assume AWS role
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
-          audience: ${{ vars.OIDC_AUDIENCE }}
-          role-session-name: VCSRunner-role-${{ github.event.repository.name }}-${{ vars.AWS_REGION }}
-          aws-region: ${{ vars.AWS_REGION }}
-
-      - name: Run TFSec Analysis
-        run: |
-          echo "Starting TFSec analysis..."
-
-          LOG_NAME="tfsec_analysis.log"
-          LOG_FILE_PATH="$GITHUB_WORKSPACE/${LOG_NAME}"
-          PLAIN_TEXT_LOG="$GITHUB_WORKSPACE/plain_text_log.txt"
-          GITHUB_SHA="${{ needs.setup.outputs.source_sha }}"
-          TOOL_NAME="TFSec"
-          EXIT_CODE=0
-          MAX_EXIT_CODE=0
-          TEMP_RESULTS_DIR="$GITHUB_WORKSPACE/result_logs"
-          echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
-
-          tfsec --version || { echo -e "\033[31m$TOOL_NAME not found.\033[0m"; exit 1; }
-          mkdir -p "$TEMP_RESULTS_DIR"
-
-          IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
-          for dir in "${DIRS[@]}"; do
-            echo -e "\033[34mRunning $TOOL_NAME analysis in directory: $dir\n\033[0m"
-            TEMP_RESULT_FILE="${TEMP_RESULTS_DIR}/results_cli_${dir//\//_}.txt"
-            CURRENT_EXIT_CODE=0
-            tfsec "$dir" --no-module-downloads 2>&1 | tee "$TEMP_RESULT_FILE" || CURRENT_EXIT_CODE=${PIPESTATUS[0]}
-            if [[ $CURRENT_EXIT_CODE -gt 0 ]]; then
-              echo -e "Running $TOOL_NAME analysis in directory: $dir\n" >> "${LOG_FILE_PATH}"
-              sed -r 's/\x1B\[[0-9;]*[mK]//g' "$TEMP_RESULT_FILE" >> "${LOG_FILE_PATH}" 2>/dev/null || true
-              if [[ $CURRENT_EXIT_CODE -gt $MAX_EXIT_CODE ]]; then
-                MAX_EXIT_CODE=$CURRENT_EXIT_CODE
-              fi
-            else
-              echo -e "\033[32mNo issues were found during $TOOL_NAME analysis in the directory: $dir.\033[0m"
-            fi
-          done
-
-          EXIT_CODE=$MAX_EXIT_CODE
-
-          if [[ -f "$LOG_FILE_PATH" && -s "$LOG_FILE_PATH" && $EXIT_CODE -gt 0 ]]; then
-            echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the comment with the log text.\033[0m"
-            cat "$LOG_FILE_PATH" >> "$PLAIN_TEXT_LOG"
-            if [[ "$AI_HANDLER_CREATE" == "true" ]]; then
-              ACTION="both"
-            else
-              echo -e "\033[33mLog file contains errors, but AI handler is disabled.\033[0m \033[34mProceeding with posting the log text only.\033[0m"
-              ACTION="post"
-            fi
-          else
-            echo -e "\033[32mLog file is empty. No issues were found during $TOOL_NAME analysis.\033[0m"
-            echo "$TOOL_NAME analysis was successful. No issues were found." > "$PLAIN_TEXT_LOG"
-            ACTION="post"
-          fi
-
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-
-          # Post a comment with the results
-          bash "${GITHUB_WORKSPACE}/scripts/upload_and_comment.sh" \
-            "$VCS_PROVIDER" \
-            "$ACTION" \
-            "$LOG_FILE_PATH" \
-            "$LOG_NAME" \
-            "$AWS_S3_BUCKET" \
-            "$GITHUB_REPOSITORY" \
-            "$GITHUB_REPOSITORY_OWNER" \
-            "$GITHUB_HEAD_REF" \
-            "$GITHUB_SHA" \
-            "$JOB_TOKEN" \
-            "$GITHUB_REF" \
-            "$GITHUB_RUN_ID" \
-            "$PR_NUMBER" \
-            "$OIDC_ROLE_ARN" \
-            "$TOOL_NAME" \
-            "$PLAIN_TEXT_LOG" \
-            "$GITHUB_RUN_URL"
-
-          # Fail the job if errors were found
-          if [[ $EXIT_CODE -ne 0 ]]; then
-            echo -e "\033[31m$TOOL_NAME analysis completed with errors. Failing the job.\033[0m"
-            exit $EXIT_CODE
-          fi
-
+    uses: ./.github/workflows/run-scanner.yml
+    with:
+      tool-name: TFSec
+      work-dirs: ${{ needs.setup.outputs.work-dirs }}
+      scanner-command: 'tfsec "$dir" --no-module-downloads'
+      source-sha: ${{ needs.setup.outputs.source-sha }}
+      cache-key: ${{ needs.setup.outputs.cache-key }}
+    secrets:
+      job-token: ${{ secrets.JOB_TOKEN }}
   trivy-analysis:
     name: Trivy Analysis
-    runs-on: ubuntu-latest
     needs:
       - setup
       - terraform-fmt
@@ -638,108 +381,16 @@ jobs:
       - checkov-analysis
       - tfsec-analysis
     if: ${{ !cancelled() && contains(vars.RUN_TRIVY_ANALYSIS, 'true') && needs.tflint-analysis.result != 'failure' && needs.terraform-validate.result != 'failure' && needs.checkov-analysis.result != 'failure' && needs.tfsec-analysis.result != 'failure' }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v6
-
-      - name: Setup Trivy
-        uses: aquasecurity/setup-trivy@v0.2.6
-        with:
-          version: v${{ env.TRIVY_VERSION }}
-          cache: true
-
-      - name: Restore Tools Cache
-        uses: actions/cache@v5
-        id: cache-tools
-        with: *tools-cache
-
-      - name: Assume AWS role
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
-          audience: ${{ vars.OIDC_AUDIENCE }}
-          role-session-name: VCSRunner-role-${{ github.event.repository.name }}-${{ vars.AWS_REGION }}
-          aws-region: ${{ vars.AWS_REGION }}
-
-      - name: Run Trivy Analysis
-        run: |
-          echo "Starting Trivy analysis..."
-
-          LOG_NAME="trivy_analysis.log"
-          LOG_FILE_PATH="$GITHUB_WORKSPACE/${LOG_NAME}"
-          PLAIN_TEXT_LOG="$GITHUB_WORKSPACE/plain_text_log.txt"
-          GITHUB_SHA="${{ needs.setup.outputs.source_sha }}"
-          TOOL_NAME="Trivy"
-          EXIT_CODE=0
-          MAX_EXIT_CODE=0
-          TEMP_RESULTS_DIR="$GITHUB_WORKSPACE/result_logs"
-          echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> $GITHUB_ENV
-
-          trivy --version || { echo -e "\033[31m$TOOL_NAME not found.\033[0m"; exit 1; }
-          mkdir -p "$TEMP_RESULTS_DIR"
-
-          IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
-          for dir in "${DIRS[@]}"; do
-            echo -e "\033[34mRunning $TOOL_NAME analysis in directory: $dir\n\033[0m"
-            TEMP_RESULT_FILE="${TEMP_RESULTS_DIR}/results_cli_${dir//\//_}.txt"
-            CURRENT_EXIT_CODE=0
-            trivy config "$dir" --exit-code 1 --severity HIGH,CRITICAL --format table >> "$TEMP_RESULT_FILE" || CURRENT_EXIT_CODE=$?
-            if [[ $CURRENT_EXIT_CODE -gt 0 ]]; then
-              echo -e "Running $TOOL_NAME analysis in directory: $dir\n" >> "${LOG_FILE_PATH}"
-              sed -r 's/\x1B\[[0-9;]*[mK]//g' "$TEMP_RESULT_FILE" >> "${LOG_FILE_PATH}"
-              if [[ $CURRENT_EXIT_CODE -gt $MAX_EXIT_CODE ]]; then
-                MAX_EXIT_CODE=$CURRENT_EXIT_CODE
-              fi
-            else
-              echo -e "\033[32mNo issues were found during $TOOL_NAME analysis in the directory: $dir.\033[0m"
-            fi
-          done
-
-          EXIT_CODE=$MAX_EXIT_CODE
-
-          if [[ -f "$LOG_FILE_PATH" && -s "$LOG_FILE_PATH" && $EXIT_CODE -gt 0 ]]; then
-            echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the comment with the log text.\033[0m"
-            cat "$LOG_FILE_PATH" >> "$PLAIN_TEXT_LOG"
-            if [[ "$AI_HANDLER_CREATE" == "true" ]]; then
-              ACTION="both"
-            else
-              echo -e "\033[33mLog file contains errors, but AI handler is disabled.\033[0m \033[34mProceeding with posting the log text only.\033[0m"
-              ACTION="post"
-            fi
-          else
-            echo -e "\033[32mLog file is empty. No issues were found during $TOOL_NAME analysis.\033[0m"
-            echo "$TOOL_NAME analysis was successful. No issues were found." > "$PLAIN_TEXT_LOG"
-            ACTION="post"
-          fi
-
-          PR_NUMBER="${{ github.event.pull_request.number }}"
-
-          # Post a comment with the results
-          bash "${GITHUB_WORKSPACE}/scripts/upload_and_comment.sh" \
-            "$VCS_PROVIDER" \
-            "$ACTION" \
-            "$LOG_FILE_PATH" \
-            "$LOG_NAME" \
-            "$AWS_S3_BUCKET" \
-            "$GITHUB_REPOSITORY" \
-            "$GITHUB_REPOSITORY_OWNER" \
-            "$GITHUB_HEAD_REF" \
-            "$GITHUB_SHA" \
-            "$JOB_TOKEN" \
-            "$GITHUB_REF" \
-            "$GITHUB_RUN_ID" \
-            "$PR_NUMBER" \
-            "$OIDC_ROLE_ARN" \
-            "$TOOL_NAME" \
-            "$PLAIN_TEXT_LOG" \
-            "$GITHUB_RUN_URL"
-
-          # Fail the job if errors were found
-          if [[ $EXIT_CODE -ne 0 ]]; then
-            echo -e "\033[31m$TOOL_NAME analysis completed with errors. Failing the job.\033[0m"
-            exit $EXIT_CODE
-          fi
-
+    uses: ./.github/workflows/run-scanner.yml
+    with:
+      tool-name: Trivy
+      work-dirs: ${{ needs.setup.outputs.work-dirs }}
+      scanner-command: 'trivy config "$dir" --exit-code 1 --severity HIGH,CRITICAL --format table'
+      source-sha: ${{ needs.setup.outputs.source-sha }}
+      cache-key: ${{ needs.setup.outputs.cache-key }}
+      trivy-version: ${{ needs.setup.outputs.trivy-version }}
+    secrets:
+      job-token: ${{ secrets.JOB_TOKEN }}
   terraform-plan:
     name: Terraform Plan
     runs-on: ubuntu-latest
@@ -783,7 +434,7 @@ jobs:
           LOG_FILE_PATH="$GITHUB_WORKSPACE/${LOG_NAME}"
           PLAIN_TEXT_LOG="$GITHUB_WORKSPACE/plain_text_log.txt"
           TOOL_NAME="Terraform plan"
-          GITHUB_SHA="${{ needs.setup.outputs.source_sha }}"
+          GITHUB_SHA="${{ needs.setup.outputs.source-sha }}"
           EXIT_CODE=0
           COMMENT_EXIT_CODE=0
 
@@ -804,6 +455,10 @@ jobs:
           fi
 
           echo -e "\033[34mRunning $TOOL_NAME init in directory: $TARGET_DIR\033[0m"
+          # `tee >(sed ... >> file)`: process substitution lets the ANSI-stripped copy
+          # go to the log file while the original (colored) output still reaches the
+          # console via tee's normal stdout. PIPESTATUS[0] is `terraform`'s exit code,
+          # not tee's -- same reasoning as PIPESTATUS[0] in run-scanner.yml.
           terraform -chdir="$TARGET_DIR" init -input=false ${{ vars.TERRAFORM_BACKEND_PARAMS }} 2>&1 | tee >(sed -r 's/\x1B\[[0-9;]*[mK]//g' >> "$LOG_FILE_PATH")
           EXIT_CODE=${PIPESTATUS[0]}
           if [[ $EXIT_CODE -eq 0 ]]; then
