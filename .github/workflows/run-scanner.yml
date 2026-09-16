@@ -1,0 +1,186 @@
+name: Run Scanner
+
+# Shared job template for the "scan directories with one tool and report the
+# result" pattern used by tflint-analysis, checkov-analysis, tfsec-analysis
+# and trivy-analysis in pipeline.yml. Only the actual scanner command differs
+# between callers -- checkout, cache, AWS role, log handling, S3 upload and
+# the PR comment all live here once (EPMCACMAWS-464).
+
+on:
+  workflow_call:
+    inputs:
+      cache-key:
+        description: "Full tools cache key, built by the setup job -- must match what it saves the cache under"
+        required: true
+        type: string
+      pre-command:
+        description: "Optional command run once before the directory loop (e.g. tflint --init)"
+        required: false
+        type: string
+      scanner-command:
+        description: >
+          Bare scanner command for one directory, referencing $dir
+          (e.g. 'tflint --force --chdir="$dir"'). Do not pipe or redirect
+          inside this command -- output/exit-code capture is added below.
+        required: true
+        type: string
+      source-sha:
+        description: "Commit SHA to report against (needs.setup.outputs.source_sha in the caller)"
+        required: true
+        type: string
+      tflint-version:
+        description: "Set to install TFLint via setup-tflint before running (leave empty to skip)"
+        required: false
+        type: string
+      tool-name:
+        description: "Display name used in logs and the PR comment (e.g. TFLint)"
+        required: true
+        type: string
+      trivy-version:
+        description: "Set to install Trivy via setup-trivy before running (leave empty to skip)"
+        required: false
+        type: string
+      work-dirs:
+        description: "Comma-separated list of directories to scan (same format as WORK_DIRS)"
+        required: true
+        type: string
+    secrets:
+      job-token:
+        required: true
+
+jobs:
+  scan:
+    name: ${{ inputs.tool-name }} Analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      # A step's `uses:` can't be templated with an expression, so we can't pick
+      # a setup action dynamically by tool name -- instead each tool-specific
+      # setup action is listed once and conditionally skipped via `if:`. Only
+      # the caller that needs it sets the matching *_version input.
+      - name: Setup TFLint
+        if: inputs.tflint-version != ''
+        uses: terraform-linters/setup-tflint@v6
+        with:
+          tflint_version: ${{ inputs.tflint-version }}
+          cache: true
+
+      - name: Setup Trivy
+        if: inputs.trivy-version != ''
+        uses: aquasecurity/setup-trivy@v0.2.6
+        with:
+          version: v${{ inputs.trivy-version }}
+          cache: true
+
+      - name: Restore Tools Cache
+        uses: actions/cache@v5
+        with:
+          path: ~/.local
+          key: ${{ inputs.cache-key }}
+
+      - name: Assume AWS role
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
+          audience: ${{ vars.OIDC_AUDIENCE }}
+          role-session-name: VCSRunner-role-${{ github.event.repository.name }}-${{ vars.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Run ${{ inputs.tool-name }} Analysis
+        shell: bash
+        env:
+          TOOL_NAME: ${{ inputs.tool-name }}
+          WORK_DIRS: ${{ inputs.work-dirs }}
+          SCANNER_COMMAND: ${{ inputs.scanner-command }}
+          PRE_COMMAND: ${{ inputs.pre-command }}
+          GITHUB_SHA: ${{ inputs.source-sha }}
+          AWS_S3_BUCKET: ${{ vars.ARTIFACTS_BUCKET }}
+          VCS_API_ENDPOINT: ${{ github.api_url }}
+          OIDC_ROLE_ARN: ${{ vars.OIDC_ROLE_ARN }}
+          JOB_TOKEN: ${{ secrets.job-token }}
+          VCS_PROVIDER: ${{ vars.VCS_PROVIDER }}
+          AI_HANDLER_CREATE: ${{ vars.AI_HANDLER_CREATE }}
+          GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          echo "Starting $TOOL_NAME analysis..."
+
+          # Derived from TOOL_NAME (e.g. TFLint -> tflint_analysis.log) so this
+          # doesn't need its own input -- every caller already follows this pattern.
+          LOG_NAME="$(echo "$TOOL_NAME" | tr '[:upper:]' '[:lower:]')_analysis.log"
+          LOG_FILE_PATH="$GITHUB_WORKSPACE/${LOG_NAME}"
+          PLAIN_TEXT_LOG="$GITHUB_WORKSPACE/plain_text_log.txt"
+          TEMP_RESULTS_DIR="$GITHUB_WORKSPACE/result_logs"
+          mkdir -p "$TEMP_RESULTS_DIR"
+          echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> "$GITHUB_ENV"
+
+          # One-off tool setup that must run before the loop (e.g. `tflint --init`),
+          # not per directory.
+          if [[ -n "$PRE_COMMAND" ]]; then
+            eval "$PRE_COMMAND" || { echo -e "\033[31mFailed to initialize $TOOL_NAME.\033[0m"; exit 1; }
+          fi
+
+          MAX_EXIT_CODE=0
+          IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
+          for dir in "${DIRS[@]}"; do
+            echo -e "\033[34mRunning $TOOL_NAME analysis in directory: $dir\n\033[0m"
+            TEMP_RESULT_FILE="${TEMP_RESULTS_DIR}/results_cli_${dir//\//_}.txt"
+
+            CURRENT_EXIT_CODE=0
+            eval "$SCANNER_COMMAND" 2>&1 | tee "$TEMP_RESULT_FILE" || CURRENT_EXIT_CODE=${PIPESTATUS[0]}
+
+            if [[ $CURRENT_EXIT_CODE -gt 0 ]]; then
+              echo -e "Running $TOOL_NAME analysis in directory: $dir\n" >> "${LOG_FILE_PATH}"
+              # Strip ANSI color codes before writing to the log that gets posted/uploaded.
+              sed -r 's/\x1B\[[0-9;]*[mK]//g' "$TEMP_RESULT_FILE" >> "${LOG_FILE_PATH}"
+              [[ $CURRENT_EXIT_CODE -gt $MAX_EXIT_CODE ]] && MAX_EXIT_CODE=$CURRENT_EXIT_CODE
+            else
+              echo -e "\033[32mNo issues were found during $TOOL_NAME analysis in the directory: $dir.\033[0m"
+            fi
+          done
+
+          EXIT_CODE=$MAX_EXIT_CODE
+
+          if [[ -f "$LOG_FILE_PATH" && -s "$LOG_FILE_PATH" && $EXIT_CODE -gt 0 ]]; then
+            cat "$LOG_FILE_PATH" >> "$PLAIN_TEXT_LOG"
+            if [[ "$AI_HANDLER_CREATE" == "true" ]]; then
+              echo -e "\033[31mLog file contains errors.\033[0m \033[34mProceeding with posting the comment with the log text.\033[0m"
+              ACTION="both"
+            else
+              echo -e "\033[33mLog file contains errors, but AI handler is disabled.\033[0m \033[34mProceeding with posting the log text only.\033[0m"
+              ACTION="post"
+            fi
+          else
+            echo -e "\033[32mLog file is empty. No issues were found during $TOOL_NAME analysis.\033[0m"
+            echo "$TOOL_NAME analysis was successful. No issues were found." > "$PLAIN_TEXT_LOG"
+            ACTION="post"
+          fi
+
+          PR_NUMBER="${{ github.event.pull_request.number }}"
+
+          # Pre-existing script, unchanged by this refactor -- upload the log to S3
+          # and post the PR comment. Arguments are positional, so order matters.
+          bash "$GITHUB_WORKSPACE/scripts/upload_and_comment.sh" \
+            "$VCS_PROVIDER" \
+            "$ACTION" \
+            "$LOG_FILE_PATH" \
+            "$LOG_NAME" \
+            "$AWS_S3_BUCKET" \
+            "$GITHUB_REPOSITORY" \
+            "$GITHUB_REPOSITORY_OWNER" \
+            "$GITHUB_HEAD_REF" \
+            "$GITHUB_SHA" \
+            "$JOB_TOKEN" \
+            "$GITHUB_REF" \
+            "$GITHUB_RUN_ID" \
+            "$PR_NUMBER" \
+            "$OIDC_ROLE_ARN" \
+            "$TOOL_NAME" \
+            "$PLAIN_TEXT_LOG" \
+            "$GITHUB_RUN_URL"
+
+          if [[ $EXIT_CODE -ne 0 ]]; then
+            echo -e "\033[31m$TOOL_NAME analysis completed with errors. Failing the job.\033[0m"
+            exit $EXIT_CODE
+          fi
