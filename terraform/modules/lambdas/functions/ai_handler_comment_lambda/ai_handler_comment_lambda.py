@@ -53,10 +53,10 @@ def process_vcs_webhook_payload(event: dict[str, Any]) -> dict[str, Any]:
                 commit_id: str = merge_request['last_commit']['id']
                 repo_id_or_name: int = webhook_payload['project_id']
                 source_branch: str = merge_request['source_branch']
-                comment_text: str = object_attributes['note']
+                comment_text: str = object_attributes['note'].strip()
                 merge_or_pull_req_id: int = merge_request['iid']
                 comment_id: str = object_attributes['id']
-            except (KeyError, TypeError):
+            except (KeyError, TypeError, AttributeError):
                 raise MissingWebhookDataException
 
             if any(value is None or value == '' for value in (
@@ -69,7 +69,6 @@ def process_vcs_webhook_payload(event: dict[str, Any]) -> dict[str, Any]:
             )):
                 raise MissingWebhookDataException
 
-            comment_text = comment_text.strip()
             commit_short_sha: str = commit_id[:8]
 
             metadata = {
@@ -87,11 +86,11 @@ def process_vcs_webhook_payload(event: dict[str, Any]) -> dict[str, Any]:
                 repository: dict[str, Any] = webhook_payload['repository']
                 repo_id_or_name: str = repository['full_name']
                 comment: dict[str, Any] = webhook_payload['comment']
-                comment_text: str = comment['body']
+                comment_text: str = comment['body'].strip()
                 comment_id: int = comment['id']
                 issue: dict[str, Any] = webhook_payload['issue']
                 merge_or_pull_req_id: int = issue['number']
-            except (KeyError, TypeError):
+            except (KeyError, TypeError, AttributeError):
                 raise MissingWebhookDataException
 
             if any(value is None or value == '' for value in (
@@ -102,7 +101,6 @@ def process_vcs_webhook_payload(event: dict[str, Any]) -> dict[str, Any]:
             )):
                 raise MissingWebhookDataException
 
-            comment_text = comment_text.strip()
             commit_sha: str = get_last_commit_sha_github(repo_id_or_name, merge_or_pull_req_id)
             commit_short_sha: str = commit_sha[:8]
 
