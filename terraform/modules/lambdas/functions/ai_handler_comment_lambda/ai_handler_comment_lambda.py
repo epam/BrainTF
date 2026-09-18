@@ -1,5 +1,5 @@
 import json
-from typing import Any, Dict
+from typing import Any
 
 from config import config
 from utilities.auth import is_github_issue_comment, webhook_authenticator
@@ -16,7 +16,7 @@ HTTP_BAD_REQUEST: int = 400
 HTTP_FORBIDDEN: int = 403
 
 
-def process_vcs_webhook_payload(event: Dict[str, Any]) -> Dict[str, Any]:
+def process_vcs_webhook_payload(event: dict[str, Any]) -> dict[str, Any]:
     """
     Processes the webhook payload from a version control system (VCS) and extracts relevant metadata
     based on the configured provider. The function is tailored to work with popular VCS providers
@@ -41,20 +41,36 @@ def process_vcs_webhook_payload(event: Dict[str, Any]) -> Dict[str, Any]:
     logger.info('Processing VCS webhook payload...')
     body: str = event['body']
 
-    webhook_payload: Dict[str, Any] = json.loads(body)
+    webhook_payload: dict[str, Any] = json.loads(body)
 
-    metadata: Dict[str, Any] = {}
+    metadata: dict[str, Any] = {}
 
     match config.vcs_provider:
         case 'gitlab':
-            commit_id: str | None = webhook_payload['merge_request']['last_commit']['id']
+            try:
+                merge_request: dict[str, Any] = webhook_payload['merge_request']
+                object_attributes: dict[str, Any] = webhook_payload['object_attributes']
+                commit_id: str = merge_request['last_commit']['id']
+                repo_id_or_name: int = webhook_payload['project_id']
+                source_branch: str = merge_request['source_branch']
+                comment_text: str = object_attributes['note']
+                merge_or_pull_req_id: int = merge_request['iid']
+                comment_id: str = object_attributes['id']
+            except (KeyError, TypeError):
+                raise MissingWebhookDataException
 
-            repo_id_or_name: str | None = webhook_payload['project_id']
-            source_branch: str | None = webhook_payload['merge_request']['source_branch']
-            comment_text: str = webhook_payload['object_attributes']['note'].strip()
-            merge_or_pull_req_id: str = webhook_payload['merge_request']['iid']
-            commit_short_sha: str | None = commit_id[:8] if commit_id else None
-            comment_id: str | None = webhook_payload['object_attributes']['id']
+            if any(value is None or value == '' for value in (
+                    commit_id,
+                    repo_id_or_name,
+                    source_branch,
+                    comment_text,
+                    merge_or_pull_req_id,
+                    comment_id
+            )):
+                raise MissingWebhookDataException
+
+            comment_text = comment_text.strip()
+            commit_short_sha: str = commit_id[:8]
 
             metadata = {
                 'repo_id_or_name': repo_id_or_name,
@@ -67,15 +83,28 @@ def process_vcs_webhook_payload(event: Dict[str, Any]) -> Dict[str, Any]:
 
         case 'github':
             is_github_issue_comment(event)
-            repository: Dict[str, Any] = webhook_payload['repository']
-            repo_id_or_name: str = repository['full_name']
-            comment: Dict[str, Any] = webhook_payload['comment']
-            comment_text: str = comment['body'].strip()
-            comment_id: str | None = comment['id']
-            issue: Dict[str, Any] = webhook_payload['issue']
-            merge_or_pull_req_id: int = issue['number']
-            commit_sha: str | None = get_last_commit_sha_github(repo_id_or_name, merge_or_pull_req_id)
-            commit_short_sha: str | None = commit_sha[:8] if commit_sha else None
+            try:
+                repository: dict[str, Any] = webhook_payload['repository']
+                repo_id_or_name: str = repository['full_name']
+                comment: dict[str, Any] = webhook_payload['comment']
+                comment_text: str = comment['body']
+                comment_id: int = comment['id']
+                issue: dict[str, Any] = webhook_payload['issue']
+                merge_or_pull_req_id: int = issue['number']
+            except (KeyError, TypeError):
+                raise MissingWebhookDataException
+
+            if any(value is None or value == '' for value in (
+                    repo_id_or_name,
+                    comment_text,
+                    comment_id,
+                    merge_or_pull_req_id
+            )):
+                raise MissingWebhookDataException
+
+            comment_text = comment_text.strip()
+            commit_sha: str = get_last_commit_sha_github(repo_id_or_name, merge_or_pull_req_id)
+            commit_short_sha: str = commit_sha[:8]
 
             metadata = {
                 'repo_id_or_name': repo_id_or_name,
@@ -94,7 +123,7 @@ def process_vcs_webhook_payload(event: Dict[str, Any]) -> Dict[str, Any]:
     return event
 
 
-def lambda_handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:  # noqa:
+def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:  # noqa:
     """
     Handles an AWS Lambda function triggered by a Version Control System (VCS) webhook. The function
     validates the webhook request, processes the payload, and extracts bot commands, if any. It returns
