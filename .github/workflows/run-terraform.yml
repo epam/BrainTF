@@ -1,0 +1,199 @@
+name: Run Terraform
+
+# Shared job template for terraform-validate, terraform-plan and terraform-apply
+# in pipeline.yml. All three follow the same init → command pattern; the
+# differences (which directories, whether to post a PR comment, S3 backend vs
+# local, deployment environment) are controlled via inputs (EPMCACMAWS-464).
+
+on:
+  workflow_call:
+    inputs:
+      deploy-environment:
+        description: "GitHub environment name to require before running (e.g. terraform-apply). Leave empty to skip."
+        required: false
+        type: string
+        default: ""
+      first-dir-only:
+        description: "Process only the first directory from work-dirs (true for plan/apply)"
+        required: false
+        type: boolean
+        default: false
+      post-comment:
+        description: "Upload log to S3 and post a PR comment with the result"
+        required: false
+        type: boolean
+        default: true
+      source-sha:
+        description: "Commit SHA to report against (needs.setup.outputs.source-sha in the caller)"
+        required: true
+        type: string
+      terraform-command:
+        description: "Terraform subcommand to run after init: validate / plan / apply"
+        required: true
+        type: string
+      terraform-version:
+        description: "Terraform version to install via setup-terraform"
+        required: true
+        type: string
+      use-backend:
+        description: "Init with real S3 backend (true for plan/apply). False runs init -backend=false."
+        required: false
+        type: boolean
+        default: false
+      work-dirs:
+        description: "Comma-separated list of directories (same format as WORK_DIRS env var)"
+        required: true
+        type: string
+    secrets:
+      job-token:
+        required: true
+
+jobs:
+  terraform:
+    name: Terraform ${{ inputs.terraform-command }}
+    runs-on: ubuntu-latest
+    environment: ${{ inputs.deploy-environment }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ inputs.terraform-version }}
+          terraform_wrapper: false
+
+      - name: Assume AWS role
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
+          audience: ${{ vars.OIDC_AUDIENCE }}
+          role-session-name: VCSRunner-role-${{ github.event.repository.name }}-${{ vars.AWS_REGION }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Terraform init & ${{ inputs.terraform-command }}
+        shell: bash
+        env:
+          TERRAFORM_COMMAND: ${{ inputs.terraform-command }}
+          WORK_DIRS: ${{ inputs.work-dirs }}
+          GITHUB_SHA: ${{ inputs.source-sha }}
+          FIRST_DIR_ONLY: ${{ inputs.first-dir-only }}
+          USE_BACKEND: ${{ inputs.use-backend }}
+          POST_COMMENT: ${{ inputs.post-comment }}
+          AWS_S3_BUCKET: ${{ vars.ARTIFACTS_BUCKET }}
+          VCS_API_ENDPOINT: ${{ github.api_url }}
+          OIDC_ROLE_ARN: ${{ vars.OIDC_ROLE_ARN }}
+          JOB_TOKEN: ${{ secrets.job-token }}
+          VCS_PROVIDER: ${{ vars.VCS_PROVIDER }}
+          AI_HANDLER_CREATE: ${{ vars.AI_HANDLER_CREATE }}
+          TERRAFORM_BACKEND_PARAMS: ${{ vars.TERRAFORM_BACKEND_PARAMS }}
+          GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          TOOL_NAME="Terraform $TERRAFORM_COMMAND"
+          LOG_NAME="terraform_${TERRAFORM_COMMAND}.log"
+          LOG_FILE_PATH="$GITHUB_WORKSPACE/${LOG_NAME}"
+          PLAIN_TEXT_LOG="$GITHUB_WORKSPACE/plain_text_log.txt"
+          EXIT_CODE=0
+          COMMENT_EXIT_CODE=0
+
+          echo -e "\033[34mStarting $TOOL_NAME...\033[0m"
+          echo "REPO_NAME=${GITHUB_REPOSITORY##*/}" >> "$GITHUB_ENV"
+
+          terraform --version || { echo -e "\033[31mTerraform not found.\033[0m"; exit 1; }
+
+          IFS=',' read -r -a DIRS <<< "$(echo "$WORK_DIRS" | tr -d ' ')"
+
+          if [[ "$FIRST_DIR_ONLY" == "true" ]]; then
+            if [[ ${#DIRS[@]} -gt 1 ]]; then
+              echo -e "\033[33mTemporary limitation: $TOOL_NAME processes only the first directory from WORK_DIRS. Remaining directories will be ignored.\033[0m"
+              for ignored_dir in "${DIRS[@]:1}"; do
+                echo -e "\033[33m - ${ignored_dir}\033[0m"
+              done
+            fi
+            DIRS=("${DIRS[0]}")
+          fi
+
+          for dir in "${DIRS[@]}"; do
+            echo -e "\033[34mRunning $TOOL_NAME init in directory: $dir\033[0m"
+
+            if [[ "$USE_BACKEND" == "true" ]]; then
+              # `tee >(sed ... >> file)`: ANSI-stripped copy goes to log file while
+              # colored output reaches the console. PIPESTATUS[0] is terraform's exit code.
+              terraform -chdir="$dir" init -input=false $TERRAFORM_BACKEND_PARAMS 2>&1 | tee >(sed -r 's/\x1B\[[0-9;]*[mK]//g' >> "$LOG_FILE_PATH")
+              EXIT_CODE=${PIPESTATUS[0]}
+            else
+              # validate: no real backend needed, errors go to log via stderr redirect
+              terraform -chdir="$dir" init -backend=false 2> >(tee temp.log >&2) || true
+              if [[ -f temp.log && -s temp.log ]]; then
+                echo -e "Running $TOOL_NAME init in directory: $dir\n" >> "${LOG_FILE_PATH}"
+                # Four sed passes: strip ANSI, drop ╷/╵ border lines, collapse trailing blank, strip │ prefix
+                sed -r 's/\x1B\[[0-9;]*[mK]//g' temp.log | sed '/^╷$/d; /^╵$/d' | sed ':a;N;$!ba;s/\n$//' | sed -r 's/^│ //g' >> "${LOG_FILE_PATH}"
+                EXIT_CODE=1
+              fi
+            fi
+
+            if [[ $EXIT_CODE -eq 0 ]]; then
+              echo -e "\033[34mRunning $TOOL_NAME $TERRAFORM_COMMAND in directory: $dir\033[0m"
+              if [[ "$USE_BACKEND" == "true" ]]; then
+                terraform -chdir="$dir" $TERRAFORM_COMMAND -input=false $([[ "$TERRAFORM_COMMAND" == "apply" ]] && echo "-auto-approve") 2>&1 | tee -a >(sed -r 's/\x1B\[[0-9;]*[mK]//g' >> "$LOG_FILE_PATH")
+                EXIT_CODE=${PIPESTATUS[0]}
+              else
+                terraform -chdir="$dir" validate 2> >(tee temp.log >&2) || true
+                if [[ -f temp.log && -s temp.log ]]; then
+                  echo -e "Running $TOOL_NAME validate in directory: $dir\n" >> "${LOG_FILE_PATH}"
+                  sed -r 's/\x1B\[[0-9;]*[mK]//g' temp.log | sed '/^╷$/d; /^╵$/d' | sed ':a;N;$!ba;s/\n$//' | sed -r 's/^│ //g' >> "${LOG_FILE_PATH}"
+                  EXIT_CODE=1
+                else
+                  echo -e "\033[32mNo issues in $dir.\033[0m"
+                fi
+              fi
+            fi
+          done
+
+          if [[ "$POST_COMMENT" == "true" ]]; then
+            if [[ -f "$LOG_FILE_PATH" && -s "$LOG_FILE_PATH" ]]; then
+              cat "$LOG_FILE_PATH" >> "$PLAIN_TEXT_LOG"
+              if [[ "$TERRAFORM_COMMAND" == "validate" ]]; then
+                ACTION=$([[ "$AI_HANDLER_CREATE" == "true" ]] && echo "both" || echo "post")
+              else
+                ACTION="post"
+              fi
+            else
+              echo -e "\033[32mNo issues found.\033[0m"
+              echo "$TOOL_NAME completed successfully. No issues were found." > "$PLAIN_TEXT_LOG"
+              ACTION="post"
+            fi
+
+            cp "$LOG_FILE_PATH" "$PLAIN_TEXT_LOG" 2>/dev/null || true
+
+            PR_NUMBER="${{ github.event.pull_request.number }}"
+            bash "$GITHUB_WORKSPACE/scripts/upload_and_comment.sh" \
+              "$VCS_PROVIDER" \
+              "$ACTION" \
+              "$LOG_FILE_PATH" \
+              "$LOG_NAME" \
+              "$AWS_S3_BUCKET" \
+              "$GITHUB_REPOSITORY" \
+              "$GITHUB_REPOSITORY_OWNER" \
+              "$GITHUB_HEAD_REF" \
+              "$GITHUB_SHA" \
+              "$JOB_TOKEN" \
+              "$GITHUB_REF" \
+              "$GITHUB_RUN_ID" \
+              "$PR_NUMBER" \
+              "$OIDC_ROLE_ARN" \
+              "$TOOL_NAME" \
+              "$PLAIN_TEXT_LOG" \
+              "$GITHUB_RUN_URL"
+            COMMENT_EXIT_CODE=$?
+          fi
+
+          if [[ $COMMENT_EXIT_CODE -ne 0 ]]; then
+            echo -e "\033[31mFailed to publish $TOOL_NAME comment to PR.\033[0m"
+            exit $COMMENT_EXIT_CODE
+          fi
+          if [[ $EXIT_CODE -ne 0 ]]; then
+            echo -e "\033[31m$TOOL_NAME completed with errors. Failing the job.\033[0m"
+            exit $EXIT_CODE
+          fi
+          echo -e "\033[32m$TOOL_NAME completed successfully.\033[0m"
