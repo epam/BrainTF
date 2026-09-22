@@ -71,7 +71,7 @@ jobs:
           role-session-name: VCSRunner-role-${{ github.event.repository.name }}-${{ vars.AWS_REGION }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Run Terraform ${{ inputs.terraform-command }}
+      - name: Terraform init & ${{ inputs.terraform-command }}
         shell: bash
         env:
           TERRAFORM_COMMAND: ${{ inputs.terraform-command }}
