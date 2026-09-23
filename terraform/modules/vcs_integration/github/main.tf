@@ -9,7 +9,7 @@ resource "github_actions_secret" "secrets" {
 
   repository      = local.repository_name
   secret_name     = each.value.key
-  plaintext_value = each.value.value
+  value = each.value.value
 }
 
 # Create GitHub Actions variables
