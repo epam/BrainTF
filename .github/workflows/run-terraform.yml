@@ -89,7 +89,14 @@ jobs:
           TERRAFORM_BACKEND_PARAMS: ${{ vars.TERRAFORM_BACKEND_PARAMS }}
           GITHUB_RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
         run: |
-          TOOL_NAME="Terraform $TERRAFORM_COMMAND"
+          # AI handler's tool-name matching (utilities/ai/prompt.py) still expects the
+          # bare "Terraform" string for validate; keep it bare here to match, since it
+          # was never migrated to the command-suffixed form plan/apply already used.
+          if [[ "$TERRAFORM_COMMAND" == "validate" ]]; then
+            TOOL_NAME="Terraform"
+          else
+            TOOL_NAME="Terraform $TERRAFORM_COMMAND"
+          fi
           LOG_NAME="terraform_${TERRAFORM_COMMAND}.log"
           LOG_FILE_PATH="$GITHUB_WORKSPACE/${LOG_NAME}"
           PLAIN_TEXT_LOG="$GITHUB_WORKSPACE/plain_text_log.txt"
