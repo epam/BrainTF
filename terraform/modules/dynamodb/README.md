@@ -33,7 +33,6 @@ No resources.
 | <a name="input_range_key"></a> [range\_key](#input\_range\_key) | The range key of the DynamoDB table (optional) | `string` | `null` | no |
 | <a name="input_server_side_encryption_enabled"></a> [server\_side\_encryption\_enabled](#input\_server\_side\_encryption\_enabled) | Whether server-side encryption is enabled | `bool` | `true` | no |
 | <a name="input_server_side_encryption_kms_key_arn"></a> [server\_side\_encryption\_kms\_key\_arn](#input\_server\_side\_encryption\_kms\_key\_arn) | KMS key ARN for server-side encryption | `string` | n/a | yes |
-| <a name="input_tags"></a> [tags](#input\_tags) | Tags to apply to the DynamoDB table | `map(string)` | `{}` | no |
 | <a name="input_ttl_attribute_name"></a> [ttl\_attribute\_name](#input\_ttl\_attribute\_name) | The name of the TTL attribute | `string` | `null` | no |
 | <a name="input_ttl_enabled"></a> [ttl\_enabled](#input\_ttl\_enabled) | Whether TTL is enabled | `bool` | `false` | no |
 

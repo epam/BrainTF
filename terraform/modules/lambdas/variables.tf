@@ -101,8 +101,3 @@ variable "log_level" {
     error_message = "Log level must be one of DEBUG, INFO, WARN, or ERROR."
   }
 }
-
-variable "tags" {
-  description = "Tags to apply to all resources"
-  type        = map(string)
-}

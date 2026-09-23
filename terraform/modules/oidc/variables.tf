@@ -33,12 +33,6 @@ variable "kms_key_arn" {
   type        = string
 }
 
-variable "tags" {
-  description = "Tags to apply to all resources"
-  type        = map(string)
-  default     = {}
-}
-
 variable "client_id_list" {
   description = "List of client IDs for the OIDC provider"
   type        = list(string)

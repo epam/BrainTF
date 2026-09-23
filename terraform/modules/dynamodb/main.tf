@@ -12,5 +12,4 @@ module "dynamodb_table" {
   point_in_time_recovery_enabled     = var.point_in_time_recovery_enabled
   ttl_attribute_name                 = var.ttl_attribute_name
   ttl_enabled                        = var.ttl_enabled
-  tags                               = var.tags
 }

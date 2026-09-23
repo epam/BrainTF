@@ -24,11 +24,6 @@ variable "account_id" {
   type        = string
 }
 
-variable "tags" {
-  description = "Tags to apply to all resources"
-  type        = map(string)
-}
-
 variable "kms_key_arn" {
   description = "The ARN of the KMS key used for bucket encryption"
   type        = string

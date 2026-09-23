@@ -8,7 +8,6 @@ resource "aws_iam_openid_connect_provider" "vcs_oidc_provider" {
   url             = "https://${var.oidc_provider}"
   client_id_list  = var.client_id_list
   thumbprint_list = [data.external.get_thumbprint.result.thumbprint]
-  tags            = var.tags
 }
 
 # IAM AssumeRole policy for OIDC
@@ -40,7 +39,6 @@ data "aws_iam_policy_document" "vcs_assume_role_policy" {
 resource "aws_iam_role" "vcs_oidc_role" {
   name               = var.oidc_role_name
   assume_role_policy = data.aws_iam_policy_document.vcs_assume_role_policy.json
-  tags               = var.tags
 }
 
 # Define IAM policy for OIDC integration
@@ -103,7 +101,6 @@ resource "aws_iam_policy" "oidc_policy" {
   name        = var.oidc_policy_name
   description = "IAM policy for ${var.vcs_provider} OIDC integration"
   policy      = data.aws_iam_policy_document.oidc_policy.json
-  tags        = var.tags
 }
 
 # Attach the IAM policy to the role

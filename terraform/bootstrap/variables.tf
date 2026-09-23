@@ -1,8 +1,3 @@
-variable "region" {
-  description = "The region where AWS resources will be created"
-  type        = string
-}
-
 variable "vcs_repo_name" {
   description = "The Project name"
   type        = string
@@ -25,11 +20,6 @@ variable "deployed_by" {
 
 variable "owner_mail" {
   description = "The owner e-mail"
-  type        = string
-}
-
-variable "account_id" {
-  description = "AWS account ID"
   type        = string
 }
 
