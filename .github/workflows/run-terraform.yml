@@ -125,7 +125,7 @@ jobs:
               # validate: no real backend needed, errors go to log via stderr redirect
               terraform -chdir="$dir" init -backend=false 2> >(tee temp.log >&2) || true
               if [[ -f temp.log && -s temp.log ]]; then
-                echo -e "Running $TOOL_NAME init in directory: $dir\n" >> "${LOG_FILE_PATH}"
+                echo -e "Running Terraform init in directory: $dir\n" >> "${LOG_FILE_PATH}"
                 # Four sed passes: strip ANSI, drop ╷/╵ border lines, collapse trailing blank, strip │ prefix
                 sed -r 's/\x1B\[[0-9;]*[mK]//g' temp.log | sed '/^╷$/d; /^╵$/d' | sed ':a;N;$!ba;s/\n$//' | sed -r 's/^│ //g' >> "${LOG_FILE_PATH}"
                 EXIT_CODE=1
@@ -140,7 +140,7 @@ jobs:
               else
                 terraform -chdir="$dir" validate 2> >(tee temp.log >&2) || true
                 if [[ -f temp.log && -s temp.log ]]; then
-                  echo -e "Running $TOOL_NAME validate in directory: $dir\n" >> "${LOG_FILE_PATH}"
+                  echo -e "Running Terraform validate in directory: $dir\n" >> "${LOG_FILE_PATH}"
                   sed -r 's/\x1B\[[0-9;]*[mK]//g' temp.log | sed '/^╷$/d; /^╵$/d' | sed ':a;N;$!ba;s/\n$//' | sed -r 's/^│ //g' >> "${LOG_FILE_PATH}"
                   EXIT_CODE=1
                 else
