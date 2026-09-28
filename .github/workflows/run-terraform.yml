@@ -77,7 +77,7 @@ jobs:
           TERRAFORM_COMMAND: ${{ inputs.terraform-command }}
           TOOL_NAME: "Terraform"
           WORK_DIRS: ${{ inputs.work-dirs }}
-          GITHUB_SHA: ${{ inputs.source-sha }}
+          SOURCE_SHA: ${{ inputs.source-sha }}
           FIRST_DIR_ONLY: ${{ inputs.first-dir-only }}
           USE_BACKEND: ${{ inputs.use-backend }}
           POST_COMMENT: ${{ inputs.post-comment }}
@@ -179,7 +179,7 @@ jobs:
               "$GITHUB_REPOSITORY" \
               "$GITHUB_REPOSITORY_OWNER" \
               "$GITHUB_HEAD_REF" \
-              "$GITHUB_SHA" \
+              "$SOURCE_SHA" \
               "$JOB_TOKEN" \
               "$GITHUB_REF" \
               "$GITHUB_RUN_ID" \
