@@ -95,7 +95,7 @@ jobs:
           WORK_DIRS: ${{ inputs.work-dirs }}
           SCANNER_COMMAND: ${{ inputs.scanner-command }}
           PRE_COMMAND: ${{ inputs.pre-command }}
-          GITHUB_SHA: ${{ inputs.source-sha }}
+          SOURCE_SHA: ${{ inputs.source-sha }}
           AWS_S3_BUCKET: ${{ vars.ARTIFACTS_BUCKET }}
           VCS_API_ENDPOINT: ${{ github.api_url }}
           OIDC_ROLE_ARN: ${{ vars.OIDC_ROLE_ARN }}
@@ -170,7 +170,7 @@ jobs:
             "$GITHUB_REPOSITORY" \
             "$GITHUB_REPOSITORY_OWNER" \
             "$GITHUB_HEAD_REF" \
-            "$GITHUB_SHA" \
+            "$SOURCE_SHA" \
             "$JOB_TOKEN" \
             "$GITHUB_REF" \
             "$GITHUB_RUN_ID" \
