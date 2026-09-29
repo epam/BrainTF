@@ -210,7 +210,7 @@ jobs:
     with:
       tool-name: TFLint
       work-dirs: ${{ needs.setup.outputs.work-dirs }}
-      scanner-command: 'tflint --force --chdir="$dir"'
+      scanner-command: 'tflint --chdir="$dir"'
       pre-command: 'tflint --init --config "$GITHUB_WORKSPACE/.tflint.hcl"'
       source-sha: ${{ needs.setup.outputs.source-sha }}
       cache-key: ${{ needs.setup.outputs.cache-key }}
