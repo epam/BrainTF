@@ -43,6 +43,7 @@ def patched_environment(monkeypatch):
     monkeypatch.setenv("AI_API_TOKEN_NAME", "token")
     monkeypatch.setenv("LLM_MODEL", "gpt-3.5-turbo")
     monkeypatch.setenv("AI_API_BASE_URL", "https://api.testopenai.com/v1")
+    monkeypatch.setenv("AI_TEMPERATURE", "0.4")
     monkeypatch.setenv("DYNAMODB_TABLE_NAME", "table_name")
     monkeypatch.setenv("LOG_LEVEL", "DEBUG")
     monkeypatch.setenv("RAG_ENABLED", "true")

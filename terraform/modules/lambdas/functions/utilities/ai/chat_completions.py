@@ -55,7 +55,7 @@ def generate_response_ai(messages: list[ChatCompletionMessageParam], retries: in
             response = client.chat.completions.create(
                 model=config.llm_model,
                 messages=request_messages,
-                temperature=0.4,
+                temperature=config.ai_temperature,
             )
 
             break

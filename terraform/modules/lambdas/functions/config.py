@@ -26,6 +26,7 @@ class _ConfigLambda:
         path_to_artifacts (str): Folder within the artifacts bucket for uploads.
         ai_api_token_name (str): SSM parameter name for AI service credentials.
         llm_model (str): Identifier of the large language model to invoke.
+        ai_temperature (float): Sampling temperature passed to the LLM.
         ai_api_base_url (str): Fully qualified base URL for the AI service.
         table_name (str): DynamoDB table name for persistent state.
         log_level (str): Logging verbosity level.
@@ -42,6 +43,7 @@ class _ConfigLambda:
         ARTIFACTS_PATH: Specifies the path under the artifact bucket.
         AI_API_TOKEN_NAME: Points to the AI credential parameter.
         LLM_MODEL: Identifies the LLM to use for inference.
+        AI_TEMPERATURE: Sets the sampling temperature for the model.
         AI_API_BASE_URL: Supplies the AI service base URL.
         DYNAMODB_TABLE_NAME: Sets the application’s DynamoDB table name.
         LOG_LEVEL: Controls the log verbosity.
@@ -72,6 +74,7 @@ class _ConfigLambda:
         self.path_to_artifacts: str = os.environ.get('ARTIFACTS_PATH', 'artifacts')
         self.ai_api_token_name: str | None = os.environ.get('AI_API_TOKEN_NAME')
         self.llm_model: str | None = os.environ.get("LLM_MODEL")
+        self.ai_temperature: float = float(os.environ.get("AI_TEMPERATURE", "0.1"))
         self.ai_api_base_url: str | None = os.environ.get("AI_API_BASE_URL")
         self.table_name: str | None = os.environ.get("DYNAMODB_TABLE_NAME")
         self.log_level: str = os.environ.get("LOG_LEVEL", "INFO").upper()
@@ -139,6 +142,9 @@ class _ConfigLambda:
 
         if not self.llm_model:
             raise ValueError("LLM_MODEL environment variable is required")
+
+        if not 0 <= self.ai_temperature <= 2:
+            raise ValueError("AI_TEMPERATURE must be in the range [0, 2]")
 
         if not self.ai_api_base_url:
             raise ValueError("AI_API_BASE_URL environment variable is required")

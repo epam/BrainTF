@@ -125,6 +125,7 @@ module "ai_lambda_vcs" {
     WEBHOOK_SECRET_NAME = var.webhook_secret_name
     AI_API_TOKEN_NAME   = var.ai_api_token_name
     AI_API_BASE_URL     = var.ai_api_base_url
+    AI_TEMPERATURE      = tostring(var.ai_temperature)
     ARTIFACTS_BUCKET    = var.artifacts_bucket
     ARTIFACTS_PATH      = var.artifacts_path
     DYNAMODB_TABLE_NAME = var.dynamodb_table_name
@@ -181,6 +182,7 @@ module "process_comment_lambda_vcs" {
     WEBHOOK_SECRET_NAME = var.webhook_secret_name
     AI_API_TOKEN_NAME   = var.ai_api_token_name
     AI_API_BASE_URL     = var.ai_api_base_url
+    AI_TEMPERATURE      = tostring(var.ai_temperature)
     ARTIFACTS_BUCKET    = var.artifacts_bucket
     ARTIFACTS_PATH      = var.artifacts_path
     DYNAMODB_TABLE_NAME = var.dynamodb_table_name
