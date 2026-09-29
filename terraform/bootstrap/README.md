@@ -6,14 +6,14 @@
 | Name | Version |
 | ---- | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.7, < 2.0 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | = 6.60 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | ~> 6.66 |
 | <a name="requirement_local"></a> [local](#requirement\_local) | ~> 2.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| <a name="provider_aws"></a> [aws](#provider\_aws) | = 6.60 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | ~> 6.66 |
 | <a name="provider_local"></a> [local](#provider\_local) | ~> 2.0 |
 
 ## Modules
@@ -27,13 +27,13 @@
 
 | Name | Type |
 | ---- | ---- |
-| [aws_iam_role.terraform_role](https://registry.terraform.io/providers/hashicorp/aws/6.60/docs/resources/iam_role) | resource |
-| [aws_iam_role_policy.terraform_state_access](https://registry.terraform.io/providers/hashicorp/aws/6.60/docs/resources/iam_role_policy) | resource |
-| [aws_s3_bucket_policy.state_bucket_policy](https://registry.terraform.io/providers/hashicorp/aws/6.60/docs/resources/s3_bucket_policy) | resource |
+| [aws_iam_role.terraform_role](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role) | resource |
+| [aws_iam_role_policy.terraform_state_access](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/iam_role_policy) | resource |
+| [aws_s3_bucket_policy.state_bucket_policy](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_policy) | resource |
 | [local_file.backend_config](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/file) | resource |
 | [local_file.this](https://registry.terraform.io/providers/hashicorp/local/latest/docs/resources/file) | resource |
-| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/6.60/docs/data-sources/caller_identity) | data source |
-| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/6.60/docs/data-sources/region) | data source |
+| [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
+| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 | [local_file.this](https://registry.terraform.io/providers/hashicorp/local/latest/docs/data-sources/file) | data source |
 
 ## Inputs
