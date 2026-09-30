@@ -120,7 +120,7 @@ jobs:
           echo -e "\033[34mChecking if tools are already cached...\033[0m"
           LOCAL_BIN="$HOME/.local/bin"
           mkdir -p "$LOCAL_BIN"
-          if [ -x "$LOCAL_BIN/checkov" ] && [ -x "$LOCAL_BIN/tfsec" ] && python -c "import openai" >/dev/null 2>&1; then
+          if [ -x "$LOCAL_BIN/checkov" ] && [ -x "$LOCAL_BIN/tfsec" ]; then
             echo -e "\033[32mTools are already cached. Skipping installation.\033[0m"
             echo "cached=true" >> "$GITHUB_OUTPUT"
           else
@@ -131,14 +131,10 @@ jobs:
       # binary), so these two installs don't depend on each other and run
       # concurrently (EPMCACMAWS-497).
       - parallel:
-          - name: Install Python tools
+          - name: Install Checkov
             if: steps.tools-check.outputs.cached != 'true'
             run: |
-              echo -e "\033[34mInstalling OpenAI Python library...\033[0m"
               pip install --upgrade pip
-              pip install -q --user openai
-              echo -e "\033[32mOpenAI library installed successfully.\033[0m"
-
               echo -e "\033[34mInstalling Checkov...\033[0m"
               pip install -q --user checkov==${CHECKOV_VERSION}
               echo -e "\033[32mCheckov installed successfully.\033[0m"
@@ -156,7 +152,6 @@ jobs:
         id: setup-status
         run: |
           echo -e "\033[34mVerifying installed tools:\033[0m"
-          python -c "import openai; print('OpenAI version:', openai.__version__)" || { echo "OpenAI library is not installed"; exit 1; }
           echo -n "Checkov Version: "; checkov --version || { echo "Checkov installation failed"; exit 1; }
           echo -n "TFsec Version: "; tfsec --version || { echo "TFsec installation failed"; exit 1; }
 
