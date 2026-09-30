@@ -114,40 +114,44 @@ jobs:
           path: ~/.local
           key: tools-cache-v5-${{ env.CHECKOV_VERSION }}-${{ env.TFSEC_VERSION }}
 
-      - name: Install Tools
-        id: setup-status
+      - name: Detect cached tools
+        id: tools-check
         run: |
           echo -e "\033[34mChecking if tools are already cached...\033[0m"
           LOCAL_BIN="$HOME/.local/bin"
-          export LOCAL_BIN
-          if [ -x "$LOCAL_BIN/checkov" ] && [ -x "$LOCAL_BIN/tfsec" ] && python -c "import openai" >/dev/null 2>&1; then
+          mkdir -p "$LOCAL_BIN"
+          if [ -x "$LOCAL_BIN/checkov" ] && [ -x "$LOCAL_BIN/tfsec" ]; then
             echo -e "\033[32mTools are already cached. Skipping installation.\033[0m"
-            exit 0
+            echo "cached=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "cached=false" >> "$GITHUB_OUTPUT"
           fi
 
-          echo -e "\033[34mInstalling tools...\033[0m"
-          mkdir -p "$LOCAL_BIN"
+      # pip and curl write to different things (Python packages vs. a single
+      # binary), so these two installs don't depend on each other and run
+      # concurrently (EPMCACMAWS-497).
+      - parallel:
+          - name: Install Checkov
+            if: steps.tools-check.outputs.cached != 'true'
+            run: |
+              pip install --upgrade pip
+              echo -e "\033[34mInstalling Checkov...\033[0m"
+              pip install -q --user checkov==${CHECKOV_VERSION}
+              echo -e "\033[32mCheckov installed successfully.\033[0m"
 
-          # Install OpenAI Python library
-          echo -e "\033[34mInstalling OpenAI Python library...\033[0m"
-          pip install --upgrade pip
-          pip install -q --user openai
-          echo -e "\033[32mOpenAI library installed successfully.\033[0m"
+          - name: Install TFsec
+            if: steps.tools-check.outputs.cached != 'true'
+            run: |
+              LOCAL_BIN="$HOME/.local/bin"
+              echo -e "\033[34mInstalling TFsec...\033[0m"
+              curl -L https://github.com/aquasecurity/tfsec/releases/download/${TFSEC_VERSION}/tfsec-linux-amd64 -o "$LOCAL_BIN/tfsec"
+              chmod +x "$LOCAL_BIN/tfsec"
+              echo -e "\033[32mTFsec installed successfully.\033[0m"
 
-          # Install Checkov
-          echo -e "\033[34mInstalling Checkov...\033[0m"
-          pip install -q --user checkov==${CHECKOV_VERSION}
-          echo -e "\033[32mCheckov installed successfully.\033[0m"
-
-          # Install TFsec
-          echo -e "\033[34mInstalling TFsec...\033[0m"
-          curl -L https://github.com/aquasecurity/tfsec/releases/download/${TFSEC_VERSION}/tfsec-linux-amd64 -o "$LOCAL_BIN/tfsec"
-          chmod +x "$LOCAL_BIN/tfsec"
-          echo -e "\033[32mTFsec installed successfully.\033[0m"
-
-          # Verify installed tools
+      - name: Verify installed tools
+        id: setup-status
+        run: |
           echo -e "\033[34mVerifying installed tools:\033[0m"
-          python -c "import openai; print('OpenAI version:', openai.__version__)" || { echo "OpenAI library is not installed"; exit 1; }
           echo -n "Checkov Version: "; checkov --version || { echo "Checkov installation failed"; exit 1; }
           echo -n "TFsec Version: "; tfsec --version || { echo "TFsec installation failed"; exit 1; }
 
@@ -177,8 +181,12 @@ jobs:
   terraform-fmt:
     name: Terraform Format Check
     runs-on: ubuntu-latest
+    # Doesn't use anything the setup job produces (no checkov/tfsec/openai, no
+    # source-sha/cache-key outputs) -- only needs validate-work-dirs, so it
+    # starts immediately and runs concurrently with setup (EPMCACMAWS-497)
+    # instead of waiting for it.
     needs:
-      - setup
+      - validate-work-dirs
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -188,11 +196,6 @@ jobs:
         with:
           terraform_version: ${{ env.TERRAFORM_VERSION }}
           terraform_wrapper: false
-
-      - name: Restore Tools Cache
-        uses: actions/cache@v5
-        id: cache-tools
-        with: *tools-cache
 
       - name: Terraform Format Check
         run: |

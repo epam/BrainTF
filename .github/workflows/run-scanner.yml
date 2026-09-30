@@ -60,33 +60,36 @@ jobs:
       # a setup action dynamically by tool name -- instead each tool-specific
       # setup action is listed once and conditionally skipped via `if:`. Only
       # the caller that needs it sets the matching *_version input.
-      - name: Setup TFLint
-        if: inputs.tflint-version != ''
-        uses: terraform-linters/setup-tflint@v6
-        with:
-          tflint_version: ${{ inputs.tflint-version }}
-          cache: true
+      # None of these four steps depend on each other's output, so they run
+      # concurrently (EPMCACMAWS-497) instead of one after another.
+      - parallel:
+          - name: Setup TFLint
+            if: inputs.tflint-version != ''
+            uses: terraform-linters/setup-tflint@v6
+            with:
+              tflint_version: ${{ inputs.tflint-version }}
+              cache: true
 
-      - name: Setup Trivy
-        if: inputs.trivy-version != ''
-        uses: aquasecurity/setup-trivy@v0.2.6
-        with:
-          version: v${{ inputs.trivy-version }}
-          cache: true
+          - name: Setup Trivy
+            if: inputs.trivy-version != ''
+            uses: aquasecurity/setup-trivy@v0.2.6
+            with:
+              version: v${{ inputs.trivy-version }}
+              cache: true
 
-      - name: Restore Tools Cache
-        uses: actions/cache@v5
-        with:
-          path: ~/.local
-          key: ${{ inputs.cache-key }}
+          - name: Restore Tools Cache
+            uses: actions/cache@v5
+            with:
+              path: ~/.local
+              key: ${{ inputs.cache-key }}
 
-      - name: Assume AWS role
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
-          audience: ${{ vars.OIDC_AUDIENCE }}
-          role-session-name: VCSRunner-role-${{ github.event.repository.name }}-${{ vars.AWS_REGION }}
-          aws-region: ${{ vars.AWS_REGION }}
+          - name: Assume AWS role
+            uses: aws-actions/configure-aws-credentials@v6
+            with:
+              role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
+              audience: ${{ vars.OIDC_AUDIENCE }}
+              role-session-name: VCSRunner-role-${{ github.event.repository.name }}-${{ vars.AWS_REGION }}
+              aws-region: ${{ vars.AWS_REGION }}
 
       - name: Run ${{ inputs.tool-name }} Analysis
         shell: bash
