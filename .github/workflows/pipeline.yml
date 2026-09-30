@@ -112,7 +112,7 @@ jobs:
         id: cache-tools
         with: &tools-cache
           path: ~/.local
-          key: tools-cache-v5-${{ env.CHECKOV_VERSION }}-${{ env.TFSEC_VERSION }}
+          key: tools-cache-v5-parallel-test-${{ env.CHECKOV_VERSION }}-${{ env.TFSEC_VERSION }}
 
       - name: Detect cached tools
         id: tools-check
@@ -178,7 +178,7 @@ jobs:
           # Cache key built here, once -- run-scanner.yml just takes the
           # finished string, so the format only needs to match the "setup"
           # job's own Restore Tools Cache step in one place, not two.
-          echo "cache_key=tools-cache-v5-${CHECKOV_VERSION}-${TFSEC_VERSION}" >> "$GITHUB_OUTPUT"
+          echo "cache_key=tools-cache-v5-parallel-test-${CHECKOV_VERSION}-${TFSEC_VERSION}" >> "$GITHUB_OUTPUT"
           echo "terraform_version=$TERRAFORM_VERSION" >> "$GITHUB_OUTPUT"
           echo "tflint_version=$TFLINT_VERSION" >> "$GITHUB_OUTPUT"
           echo "trivy_version=$TRIVY_VERSION" >> "$GITHUB_OUTPUT"
