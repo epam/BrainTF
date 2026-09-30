@@ -57,19 +57,22 @@ jobs:
       - name: Checkout code
         uses: actions/checkout@v6
 
-      - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
-        with:
-          terraform_version: ${{ inputs.terraform-version }}
-          terraform_wrapper: false
+      # Neither step depends on the other's output, so they run concurrently
+      # (EPMCACMAWS-497) instead of one after another.
+      - parallel:
+          - name: Setup Terraform
+            uses: hashicorp/setup-terraform@v3
+            with:
+              terraform_version: ${{ inputs.terraform-version }}
+              terraform_wrapper: false
 
-      - name: Assume AWS role
-        uses: aws-actions/configure-aws-credentials@v6
-        with:
-          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
-          audience: ${{ vars.OIDC_AUDIENCE }}
-          role-session-name: VCSRunner-role-${{ github.event.repository.name }}-${{ vars.AWS_REGION }}
-          aws-region: ${{ vars.AWS_REGION }}
+          - name: Assume AWS role
+            uses: aws-actions/configure-aws-credentials@v6
+            with:
+              role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
+              audience: ${{ vars.OIDC_AUDIENCE }}
+              role-session-name: VCSRunner-role-${{ github.event.repository.name }}-${{ vars.AWS_REGION }}
+              aws-region: ${{ vars.AWS_REGION }}
 
       - name: Terraform init & ${{ inputs.terraform-command }}
         shell: bash
