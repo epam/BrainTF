@@ -74,7 +74,7 @@ class _ConfigLambda:
         self.path_to_artifacts: str = os.environ.get('ARTIFACTS_PATH', 'artifacts')
         self.ai_api_token_name: str | None = os.environ.get('AI_API_TOKEN_NAME')
         self.llm_model: str | None = os.environ.get("LLM_MODEL")
-        self.ai_temperature: float = float(os.environ.get("AI_TEMPERATURE", "0.1"))
+        self.ai_temperature: str | float | None = os.environ.get("AI_TEMPERATURE")
         self.ai_api_base_url: str | None = os.environ.get("AI_API_BASE_URL")
         self.table_name: str | None = os.environ.get("DYNAMODB_TABLE_NAME")
         self.log_level: str = os.environ.get("LOG_LEVEL", "INFO").upper()
@@ -143,8 +143,18 @@ class _ConfigLambda:
         if not self.llm_model:
             raise ValueError("LLM_MODEL environment variable is required")
 
-        if not 0 <= self.ai_temperature <= 2:
-            raise ValueError("AI_TEMPERATURE must be in the range [0, 2]")
+        if not self.ai_temperature:
+            raise ValueError("AI_TEMPERATURE environment variable is required")
+
+        try:
+            ai_temperature = float(self.ai_temperature)
+        except (TypeError, ValueError) as error:
+            raise ValueError("AI_TEMPERATURE must be a valid number") from error
+
+        if ai_temperature < 0 or ai_temperature > 2:
+            raise ValueError("AI_TEMPERATURE must be between zero and two")
+
+        self.ai_temperature = ai_temperature
 
         if not self.ai_api_base_url:
             raise ValueError("AI_API_BASE_URL environment variable is required")
