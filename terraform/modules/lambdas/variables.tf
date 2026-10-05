@@ -105,7 +105,6 @@ variable "log_level" {
 variable "ai_temperature" {
   description = "The sampling temperature for the AI model. Must be between 0 and 2."
   type        = number
-  default     = 0.1
 
   validation {
     condition     = var.ai_temperature >= 0 && var.ai_temperature <= 2

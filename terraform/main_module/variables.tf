@@ -119,6 +119,16 @@ variable "llm_model" {
   type        = string
 }
 
+variable "ai_temperature" {
+  description = "The sampling temperature for the AI model. Must be between 0 and 2."
+  type        = number
+
+  validation {
+    condition     = var.ai_temperature >= 0 && var.ai_temperature <= 2
+    error_message = "AI temperature must be between 0 and 2."
+  }
+}
+
 variable "ai_api_base_url" {
   description = "The API base URL for the AI service"
   type        = string
