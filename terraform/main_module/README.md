@@ -6,17 +6,17 @@
 | Name | Version |
 | ---- | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.11 |
-| <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.0 |
+| <a name="requirement_aws"></a> [aws](#requirement\_aws) | ~> 6.66 |
 | <a name="requirement_github"></a> [github](#requirement\_github) | ~> 6.13 |
 | <a name="requirement_gitlab"></a> [gitlab](#requirement\_gitlab) | ~> 18.1.1 |
-| <a name="requirement_random"></a> [random](#requirement\_random) | >= 3.0 |
+| <a name="requirement_random"></a> [random](#requirement\_random) | ~> 3.9 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
-| <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.0 |
-| <a name="provider_random"></a> [random](#provider\_random) | >= 3.0 |
+| <a name="provider_aws"></a> [aws](#provider\_aws) | ~> 6.66 |
+| <a name="provider_random"></a> [random](#provider\_random) | ~> 3.9 |
 
 ## Modules
 
