@@ -1,6 +1,6 @@
 repos:
   - repo: https://github.com/antonbabenko/pre-commit-terraform  # Use pre-commit-terraform repository
-    rev: v1.105.0  # Use specific version of the hooks
+    rev: v1.109.2  # Use specific version of the hooks
     hooks:
       - id: terraform_fmt  # This hook reformats Terraform configuration files to adhere to HashiCorp's standards
       - id: terraform_docs  # This hook generates Terraform documentation
