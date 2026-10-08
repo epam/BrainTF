@@ -101,3 +101,13 @@ variable "log_level" {
     error_message = "Log level must be one of DEBUG, INFO, WARN, or ERROR."
   }
 }
+
+variable "ai_temperature" {
+  description = "The sampling temperature for the AI model. Must be between 0 and 2."
+  type        = number
+
+  validation {
+    condition     = var.ai_temperature >= 0 && var.ai_temperature <= 2
+    error_message = "AI temperature must be between 0 and 2."
+  }
+}

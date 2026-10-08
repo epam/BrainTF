@@ -332,6 +332,7 @@ module "ai_lambda" {
   ai_api_token_name    = local.ai_api_token_name
   vcs_api_endpoint     = local.vcs_api_endpoint
   llm_model            = var.llm_model
+  ai_temperature       = var.ai_temperature
   webhook_secret_name  = local.webhook_secret_name
   kms_key_arn          = data.aws_kms_alias.kms_key.target_key_arn
   dynamodb_table_name  = local.ai_dynamodb_table_name

@@ -23,6 +23,7 @@ artifacts_path          = "artifacts"                                # The path 
 log_level               = "INFO"                                     # The logging level for AWS Lambda functions. Possible values: DEBUG, INFO, WARN, ERROR.
 ai_api_base_url         = "<my_ai_api_base_url>"                     # Base URL for AI API
 llm_model               = "<my_llm_model_name>"                      # Name of the AI model used
+ai_temperature          = 0.1                                        # Sampling temperature for the model; valid range is 0.0–2.0.
 oidc_provider           = "<my_oidc_provider>"                       # Audience for OIDC provider (gitlab.com for GitLab, token.actions.githubusercontent.com for GitHub or other for custom variant)
 artifacts_bucket_prefix = "ai-handler-artifacts-bucket"              # Prefix for the name of the artifacts S3 bucket
 private_subnet_ids      = ["<subnet_a>", "<subnet_b>", "<subnet_c>"] # List of private subnet IDs for Lambda functions
