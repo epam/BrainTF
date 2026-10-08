@@ -46,6 +46,7 @@
 | ---- | ----------- | ---- | ------- | :------: |
 | <a name="input_ai_api_base_url"></a> [ai\_api\_base\_url](#input\_ai\_api\_base\_url) | The API base URL for the AI service | `string` | n/a | yes |
 | <a name="input_ai_handler_create"></a> [ai\_handler\_create](#input\_ai\_handler\_create) | Whether to create AI handler webhooks. | `bool` | `false` | no |
+| <a name="input_ai_temperature"></a> [ai\_temperature](#input\_ai\_temperature) | The sampling temperature for the AI model. Must be between 0 and 2. | `number` | n/a | yes |
 | <a name="input_ai_token"></a> [ai\_token](#input\_ai\_token) | The AI token | `string` | `""` | no |
 | <a name="input_artifacts_bucket_prefix"></a> [artifacts\_bucket\_prefix](#input\_artifacts\_bucket\_prefix) | The prefix to be used for naming an artifacts bucket | `string` | n/a | yes |
 | <a name="input_artifacts_path"></a> [artifacts\_path](#input\_artifacts\_path) | The path where the corrected Terraform files (artifacts) will be stored. | `string` | `"artifacts"` | no |
@@ -53,7 +54,6 @@
 | <a name="input_environment"></a> [environment](#input\_environment) | The Project environment | `string` | n/a | yes |
 | <a name="input_job_token"></a> [job\_token](#input\_job\_token) | Git Notes token used for GitLab integration | `string` | n/a | yes |
 | <a name="input_llm_model"></a> [llm\_model](#input\_llm\_model) | The name or identifier of the LLM (Large Language Model) to be used | `string` | n/a | yes |
-| <a name="input_ai_temperature"></a> [ai\_temperature](#input\_ai\_temperature) | The sampling temperature for the AI model. Must be between 0 and 2. | `number` | n/a | yes |
 | <a name="input_log_level"></a> [log\_level](#input\_log\_level) | The logging level for AWS Lambda functions. Possible values: DEBUG, INFO, WARN, ERROR. | `string` | `"INFO"` | no |
 | <a name="input_managed_state_bucket"></a> [managed\_state\_bucket](#input\_managed\_state\_bucket) | Name of an existing S3 bucket to store Terraform state for the code under WORK\_DIRS (the workload managed by this pipeline). If empty, the bootstrap platform state bucket will be used with a separate prefix directory. | `string` | `""` | no |
 | <a name="input_managed_state_key"></a> [managed\_state\_key](#input\_managed\_state\_key) | S3 key (path) for the Terraform state file used by the managed workload (code under WORK\_DIRS). Must include a directory prefix, e.g. 'pipeline/terraform.tfstate'. | `string` | `"pipeline/terraform.tfstate"` | no |
