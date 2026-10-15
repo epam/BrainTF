@@ -1,4 +1,4 @@
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Callable
 
 from config import config
 from utilities.ai.chat_completions import generate_response_ai
@@ -9,6 +9,50 @@ from utilities.handlers import handle_ai_response_message
 from utilities.logger import logger
 from utilities.messages import AI_RESPONSE_MESSAGE
 from utilities.vcs import post_comment
+
+
+def validate_s3_metadata(metadata: Dict[str, Any]) -> None:
+    """Validate required S3 metadata values."""
+
+    def check_commit_short_sha(value: Any) -> bool:
+        return (
+            isinstance(value, str)
+            and bool(value.strip())
+            and all(
+                character in "0123456789abcdefABCDEF"
+                for character in value.strip()
+            )
+        )
+
+    required_keys: tuple[str, ...] = (
+        "base_repo_owner",
+        "base_repo_name",
+        "source_branch",
+        "merge_or_pull_req_id",
+        "commit_short_sha",
+        "tool_name",
+    )
+    required_types: Dict[str, Callable[[Any], Any]] = {
+        "merge_or_pull_req_id": int,
+        "commit_short_sha": check_commit_short_sha,
+    }
+    errors: List[str] = []
+
+    for key in required_keys:
+        if key not in metadata:
+            errors.append(f"Required value ({key}).")
+        elif not metadata.get(key):
+            errors.append(f"Required value ({key}).")
+        elif key in required_types:
+            try:
+                result = required_types[key](metadata[key])
+                if isinstance(result, bool) and not result:
+                    raise ValueError
+            except (TypeError, ValueError):
+                errors.append(f"Invalid value ({key}).")
+
+    if errors:
+        raise ValueError("\n".join(errors))
 
 
 def process_s3_event(event: Dict[str, Any]) -> Dict[str, Any]:
