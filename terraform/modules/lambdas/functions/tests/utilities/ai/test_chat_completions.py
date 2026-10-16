@@ -2,7 +2,7 @@ import logging
 from types import SimpleNamespace
 from typing import Any
 
-import httpx
+import httpx2
 import pytest
 from openai.types.chat import ChatCompletionUserMessageParam
 
@@ -84,7 +84,7 @@ def test_generate_response_ai_retries_then_success(patched_environment, ssm_setu
 
     from utilities.ai.chat_completions import generate_response_ai
 
-    request = httpx.Request("POST", "https://api.testopenai.com/v1")
+    request = httpx2.Request("POST", "https://api.testopenai.com/v1")
     responses = [
         APITimeoutError(request=request),
         FakeOpenAIResponse(
@@ -127,7 +127,7 @@ def test_generate_response_ai_raises_after_retries(patched_environment, ssm_setu
 
     sleeps = []
     create_calls = {"count": 0}
-    request = httpx.Request("POST", "https://api.testopenai.com/v1")
+    request = httpx2.Request("POST", "https://api.testopenai.com/v1")
 
     def fake_create(**kwargs: Any):
         assert kwargs["temperature"] == 0.4
