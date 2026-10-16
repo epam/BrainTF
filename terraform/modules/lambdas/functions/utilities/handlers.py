@@ -131,6 +131,11 @@ def handle_bot_commands(event: Dict[str, Any], rest_comment: List[str]) -> None:
             logger.info('Prompt context found in the comment.')
             add_award_to_note(event, SUCCESS)
             handle_prompt_command(event, rest_comment)
+
+        elif command == 'show':
+            logger.info('Show context found in the comment.')
+            add_award_to_note(event, SUCCESS)
+            # handle_show_command(event)
         else:
             logger.info(f'Unknown bot command: {command}')
             add_award_to_note(event, FAILURE)
