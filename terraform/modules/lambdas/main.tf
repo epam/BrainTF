@@ -4,7 +4,6 @@ locals {
   layer_path           = "${path.module}/functions"
   container_layer_path = "/var/task"
   zip_file_path        = "${local.layer_path}/layer.zip" # Path to the output ZIP file
-  zip_file_exists      = fileexists(local.zip_file_path)
   requirements_sha     = filesha1("${path.module}/functions/requirements.txt")
   # Patterns to exclude from Lambda deployment package
   lambda_exclude_patterns = [
@@ -16,16 +15,17 @@ locals {
   ]
 }
 
-# Install Python dependencies and write layer.zip
+# Install Python dependencies and write layer.zip.
+# rm=true removes the container on exit so no named container ever persists,
+# eliminating "container name already in use" conflicts across machines or after
+# a state reset. Pip re-runs on every apply; this is intentional.
 resource "docker_container" "lambda_layer" {
-  count = var.ai_handler_create == "true" ? 1 : 0
-  # Recreate the container when layer.zip is missing so pip runs again.
-  # Suffix is dropped on the following apply once the zip exists again.
-  name        = "braintf-${var.vcs_repo_name}-lambda-layer-${local.requirements_sha}${local.zip_file_exists ? "" : "-missing-zip"}"
+  count       = var.ai_handler_create == "true" ? 1 : 0
+  name        = "braintf-${var.vcs_repo_name}-lambda-layer-${local.requirements_sha}"
   image       = "public.ecr.aws/sam/build-python3.11:latest"
   attach      = true
-  must_run    = false # leave the exited container alone; default true would restart (and re-run pip) every apply
-  rm          = false # rm=true removes it on exit, so the next apply recreates it and re-runs pip
+  must_run    = false
+  rm          = true
   working_dir = local.container_layer_path
   command = [
     "/bin/sh",
@@ -33,7 +33,6 @@ resource "docker_container" "lambda_layer" {
     "pip install --no-cache-dir -q -r requirements.txt -t /tmp/python/lib/python3.11/site-packages/ && python -m zipfile -c layer.zip /tmp/python"
   ]
 
-  # Bind-mount host functions dir: requirements.txt in, layer.zip out. pip writes to /tmp, not the volume.
   volumes {
     host_path      = abspath(local.layer_path)
     container_path = local.container_layer_path
