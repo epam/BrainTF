@@ -1,11 +1,10 @@
 #======================= The Lambda function for AI Handler =======================#
 locals {
-  # Path to the functions directory
   layer_path           = "${path.module}/functions"
   container_layer_path = "/var/task"
-  zip_file_path        = "${local.layer_path}/layer.zip" # Path to the output ZIP file
+  zip_file_path        = "${local.layer_path}/layer.zip"
   requirements_sha     = filesha1("${path.module}/functions/requirements.txt")
-  # Patterns to exclude from Lambda deployment package
+  python_files_sha     = sha1(join("", [for f in sort(fileset("${path.module}/functions", "**/*.py")) : filesha1("${path.module}/functions/${f}")]))
   lambda_exclude_patterns = [
     "!.*\\.pyc$",
     "!.*/__pycache__/.*",
@@ -18,14 +17,14 @@ locals {
 resource "terraform_data" "lambda_layer" {
   count = var.ai_handler_create == "true" ? 1 : 0
 
-  triggers_replace = local.requirements_sha
+  triggers_replace = sha1(join("", [local.requirements_sha, local.python_files_sha, var.lambda_builder_image]))
 
   provisioner "local-exec" {
     command = <<-EOT
       docker run --rm \
         -v ${abspath(local.layer_path)}:${local.container_layer_path} \
         -w ${local.container_layer_path} \
-        public.ecr.aws/sam/build-python3.11:latest-x86_64 \
+        ${var.lambda_builder_image} \
         /bin/sh -c "pip install --no-cache-dir -q -r requirements.txt -t /tmp/python/lib/python3.11/site-packages/ && python -m zipfile -c layer.zip /tmp/python"
     EOT
   }

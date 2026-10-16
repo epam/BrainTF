@@ -102,6 +102,12 @@ variable "log_level" {
   }
 }
 
+variable "lambda_builder_image" {
+  description = "Docker image used to build the Lambda layer"
+  type        = string
+  default     = "public.ecr.aws/sam/build-python3.11:latest-x86_64"
+}
+
 variable "ai_temperature" {
   description = "The sampling temperature for the AI model. Must be between 0 and 2."
   type        = number
