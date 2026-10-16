@@ -15,27 +15,19 @@ locals {
   ]
 }
 
-# Install Python dependencies and write layer.zip.
-# rm=true removes the container on exit so no named container ever persists,
-# eliminating "container name already in use" conflicts across machines or after
-# a state reset. Pip re-runs on every apply; this is intentional.
-resource "docker_container" "lambda_layer" {
-  count       = var.ai_handler_create == "true" ? 1 : 0
-  name        = "braintf-${var.vcs_repo_name}-lambda-layer-${local.requirements_sha}"
-  image       = "public.ecr.aws/sam/build-python3.11:latest"
-  attach      = true
-  must_run    = false
-  rm          = true
-  working_dir = local.container_layer_path
-  command = [
-    "/bin/sh",
-    "-c",
-    "pip install --no-cache-dir -q -r requirements.txt -t /tmp/python/lib/python3.11/site-packages/ && python -m zipfile -c layer.zip /tmp/python"
-  ]
+resource "terraform_data" "lambda_layer" {
+  count = var.ai_handler_create == "true" ? 1 : 0
 
-  volumes {
-    host_path      = abspath(local.layer_path)
-    container_path = local.container_layer_path
+  triggers_replace = local.requirements_sha
+
+  provisioner "local-exec" {
+    command = <<-EOT
+      docker run --rm \
+        -v ${abspath(local.layer_path)}:${local.container_layer_path} \
+        -w ${local.container_layer_path} \
+        public.ecr.aws/sam/build-python3.11:latest \
+        /bin/sh -c "pip install --no-cache-dir -q -r requirements.txt -t /tmp/python/lib/python3.11/site-packages/ && python -m zipfile -c layer.zip /tmp/python"
+    EOT
   }
 }
 
@@ -45,7 +37,7 @@ resource "aws_lambda_layer_version" "layer" {
   filename            = local.zip_file_path
   source_code_hash    = local.requirements_sha
   layer_name          = var.layer_name
-  depends_on          = [docker_container.lambda_layer]
+  depends_on          = [terraform_data.lambda_layer]
   compatible_runtimes = ["python3.11"]
 }
 
