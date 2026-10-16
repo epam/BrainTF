@@ -97,6 +97,7 @@ def process_s3_event(event: Dict[str, Any]) -> Dict[str, Any]:
 
         file_metadata: Dict[str, str] = log_file_content_with_metadata.get('metadata')
 
+        validate_s3_metadata(file_metadata)
         base_repo_owner: str = file_metadata.get('base_repo_owner')
         base_repo_name: str = file_metadata.get('base_repo_name')
 

@@ -60,22 +60,34 @@ MOCK_TRIVY_FILE_CONTENT = {
     },
 }
 
+VALID_S3_METADATA = {
+    "base_repo_owner": "some-org",
+    "base_repo_name": "BrainTF",
+    "source_branch": "FEAT-branch",
+    "merge_or_pull_req_id": "22",
+    "commit_short_sha": "a65f6658",
+    "tool_name": "TFLint",
+}
+REQUIRED_S3_METADATA_KEYS = tuple(VALID_S3_METADATA)
+
 
 def setup_monkeypatches(monkeypatch):
     """Common setup for monkeypatching dependencies in tests."""
-    monkeypatch.setattr("utilities.aws.get_file_content_with_metadata_from_s3", mock_s3_file_content)
-    monkeypatch.setattr("utilities.vcs.get_all_tf_files_from_paths_list", mock_tf_files_list)
-    monkeypatch.setattr("utilities.ai.chat_completions.generate_response_ai", mock_ai_response)
-    monkeypatch.setattr("utilities.vcs.post_comment", lambda x, y: {})
-    monkeypatch.setattr("utilities.ai.context.create_context_memory_window", lambda event: None)
+    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.validate_s3_metadata", lambda metadata: None)
+    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.get_file_content_with_metadata_from_s3", mock_s3_file_content)
+    monkeypatch.setattr("utilities.ai.prompt.get_all_tf_files_from_paths_list", mock_tf_files_list)
+    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.generate_response_ai", mock_ai_response)
+    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.post_comment", lambda x, y: {})
+    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.create_context_memory_window", lambda event: None)
 
 
 def setup_monkeypatches_trivy(monkeypatch):
-    monkeypatch.setattr("utilities.aws.get_file_content_with_metadata_from_s3", lambda bucket, key: MOCK_TRIVY_FILE_CONTENT)
-    monkeypatch.setattr("utilities.vcs.get_all_tf_files_from_paths_list", mock_tf_files_list)
-    monkeypatch.setattr("utilities.ai.chat_completions.generate_response_ai", mock_ai_response)
-    monkeypatch.setattr("utilities.vcs.post_comment", lambda x, y: {})
-    monkeypatch.setattr("utilities.ai.context.create_context_memory_window", lambda event: None)
+    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.validate_s3_metadata", lambda metadata: None)
+    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.get_file_content_with_metadata_from_s3", lambda bucket, key: MOCK_TRIVY_FILE_CONTENT)
+    monkeypatch.setattr("utilities.ai.prompt.get_all_tf_files_from_paths_list", mock_tf_files_list)
+    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.generate_response_ai", mock_ai_response)
+    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.post_comment", lambda x, y: {})
+    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.create_context_memory_window", lambda event: None)
 
 
 # Tests
@@ -121,3 +133,64 @@ def test_process_s3_event_raises_missing_records(patched_config_gitlab):
 
     with pytest.raises(ValueError, match="S3 event is missing Records entries."):
         process_s3_event({})
+
+
+def test_validate_s3_metadata_accepts_valid_metadata():
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
+
+    assert validate_s3_metadata(VALID_S3_METADATA) is None
+
+
+@pytest.mark.parametrize("key", REQUIRED_S3_METADATA_KEYS)
+def test_validate_s3_metadata_rejects_missing_key(key):
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
+
+    metadata = VALID_S3_METADATA.copy()
+    del metadata[key]
+
+    with pytest.raises(ValueError) as error:
+        validate_s3_metadata(metadata)
+
+    assert str(error.value) == f"Required value ({key})."
+
+
+@pytest.mark.parametrize(("key", "value"), [
+    (key, value)
+    for key in REQUIRED_S3_METADATA_KEYS
+    for value in (None, "")
+])
+def test_validate_s3_metadata_rejects_empty_value(key, value):
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
+
+    metadata = VALID_S3_METADATA.copy()
+    metadata[key] = value
+
+    with pytest.raises(ValueError) as error:
+        validate_s3_metadata(metadata)
+
+    assert str(error.value) == f"Required value ({key})."
+
+
+def test_validate_s3_metadata_rejects_request_id_with_letters():
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
+
+    metadata = VALID_S3_METADATA.copy()
+    metadata["merge_or_pull_req_id"] = "22abc"
+
+    with pytest.raises(ValueError) as error:
+        validate_s3_metadata(metadata)
+
+    assert str(error.value) == "Invalid value (merge_or_pull_req_id)."
+
+
+@pytest.mark.parametrize("value", ("not-a-sha", "a65f665g", 12345678))
+def test_validate_s3_metadata_rejects_invalid_commit_short_sha(value):
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
+
+    metadata = VALID_S3_METADATA.copy()
+    metadata["commit_short_sha"] = value
+
+    with pytest.raises(ValueError) as error:
+        validate_s3_metadata(metadata)
+
+    assert str(error.value) == "Invalid value (commit_short_sha)."
