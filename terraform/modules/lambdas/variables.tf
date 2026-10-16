@@ -102,6 +102,12 @@ variable "log_level" {
   }
 }
 
+variable "python_runtime" {
+  description = "Python runtime for Lambda functions and layer build (e.g. python3.11, python3.12)"
+  type        = string
+  default     = "python3.11"
+}
+
 variable "lambda_builder_image" {
   description = "Docker image used to build the Lambda layer"
   type        = string

@@ -4,7 +4,6 @@ locals {
   container_layer_path = "/var/task"
   zip_file_path        = "${local.layer_path}/layer.zip"
   requirements_sha     = filesha1("${path.module}/functions/requirements.txt")
-  python_files_sha     = sha1(join("", [for f in sort(fileset("${path.module}/functions", "**/*.py")) : filesha1("${path.module}/functions/${f}")]))
   lambda_exclude_patterns = [
     "!.*\\.pyc$",
     "!.*/__pycache__/.*",
@@ -17,7 +16,7 @@ locals {
 resource "terraform_data" "lambda_layer" {
   count = var.ai_handler_create == "true" ? 1 : 0
 
-  triggers_replace = sha1(join("", [local.requirements_sha, local.python_files_sha, var.lambda_builder_image]))
+  triggers_replace = sha1(join("", [local.requirements_sha, var.lambda_builder_image, var.python_runtime]))
 
   provisioner "local-exec" {
     command = <<-EOT
@@ -25,7 +24,7 @@ resource "terraform_data" "lambda_layer" {
         -v ${abspath(local.layer_path)}:${local.container_layer_path} \
         -w ${local.container_layer_path} \
         ${var.lambda_builder_image} \
-        /bin/sh -c "pip install --no-cache-dir -q -r requirements.txt -t /tmp/python/lib/python3.11/site-packages/ && python -m zipfile -c layer.zip /tmp/python"
+        /bin/sh -c "pip install --no-cache-dir -q -r requirements.txt -t /tmp/python/lib/${var.python_runtime}/site-packages/ && python -m zipfile -c layer.zip /tmp/python"
     EOT
   }
 }
@@ -34,10 +33,10 @@ resource "terraform_data" "lambda_layer" {
 resource "aws_lambda_layer_version" "layer" {
   count               = var.ai_handler_create == "true" ? 1 : 0
   filename            = local.zip_file_path
-  source_code_hash    = local.requirements_sha
+  source_code_hash    = sha1(join("", [local.requirements_sha, var.lambda_builder_image, var.python_runtime]))
   layer_name          = var.layer_name
   depends_on          = [terraform_data.lambda_layer]
-  compatible_runtimes = ["python3.11"]
+  compatible_runtimes = [var.python_runtime]
 }
 
 # AWS S3 Bucket Notification for triggering Lambda functions
@@ -78,7 +77,7 @@ module "ai_lambda_vcs" {
   description     = "AI Handler for Terraform error handling for the ${var.vcs_repo_name} repository"
   function_name   = "AI_Handler_TF_Errors_${var.vcs_repo_name}"
   handler         = "ai_handler_tf_errors_lambda.lambda_handler"
-  runtime         = "python3.11"
+  runtime         = var.python_runtime
   timeout         = 420
   memory_size     = 256
   create_role     = false
@@ -135,7 +134,7 @@ module "process_comment_lambda_vcs" {
   description     = "AI Handler for processing comments in Git MR"
   function_name   = "AI_Handler_Comment_${var.vcs_repo_name}"
   handler         = "ai_handler_comment_lambda.lambda_handler"
-  runtime         = "python3.11"
+  runtime         = var.python_runtime
   timeout         = 420
   memory_size     = 256
   create_role     = false
