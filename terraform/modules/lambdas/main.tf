@@ -25,7 +25,7 @@ resource "terraform_data" "lambda_layer" {
       docker run --rm \
         -v ${abspath(local.layer_path)}:${local.container_layer_path} \
         -w ${local.container_layer_path} \
-        public.ecr.aws/sam/build-python3.11:latest \
+        public.ecr.aws/sam/build-python3.11:latest-x86_64 \
         /bin/sh -c "pip install --no-cache-dir -q -r requirements.txt -t /tmp/python/lib/python3.11/site-packages/ && python -m zipfile -c layer.zip /tmp/python"
     EOT
   }
