@@ -14,27 +14,36 @@ from utilities.vcs import post_comment
 def validate_s3_metadata(metadata: Dict[str, Any]) -> None:
     """Validate required S3 metadata values."""
 
-    def check_commit_short_sha(value: Any) -> bool:
-        return (
+    def check_hash(value: Any) -> None:
+        if not (
             isinstance(value, str)
             and bool(value.strip())
             and all(
                 character in "0123456789abcdefABCDEF"
                 for character in value.strip()
             )
-        )
+        ):
+            raise ValueError
+
+    def check_integer(value: Any) -> None:
+        if isinstance(value, bool) or not isinstance(value, (int, str)):
+            raise ValueError
+        try:
+            int(value)
+        except ValueError:
+            raise ValueError
 
     required_keys: tuple[str, ...] = (
         "base_repo_owner",
         "base_repo_name",
         "source_branch",
         "merge_or_pull_req_id",
-        "commit_short_sha",
+        "commit_sha",
         "tool_name",
     )
-    required_types: Dict[str, Callable[[Any], Any]] = {
-        "merge_or_pull_req_id": int,
-        "commit_short_sha": check_commit_short_sha,
+    required_types: Dict[str, Callable[[Any], None]] = {
+        "merge_or_pull_req_id": check_integer,
+        "commit_sha": check_hash,
     }
     errors: List[str] = []
 
@@ -45,9 +54,7 @@ def validate_s3_metadata(metadata: Dict[str, Any]) -> None:
             errors.append(f"Required value ({key}).")
         elif key in required_types:
             try:
-                result = required_types[key](metadata[key])
-                if isinstance(result, bool) and not result:
-                    raise ValueError
+                required_types[key](metadata[key])
             except (TypeError, ValueError):
                 errors.append(f"Invalid value ({key}).")
 

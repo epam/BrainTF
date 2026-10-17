@@ -65,7 +65,7 @@ VALID_S3_METADATA = {
     "base_repo_name": "BrainTF",
     "source_branch": "FEAT-branch",
     "merge_or_pull_req_id": "22",
-    "commit_short_sha": "a65f6658",
+    "commit_sha": "a65f6658",
     "tool_name": "TFLint",
 }
 REQUIRED_S3_METADATA_KEYS = tuple(VALID_S3_METADATA)
@@ -171,11 +171,12 @@ def test_validate_s3_metadata_rejects_empty_value(key, value):
     assert str(error.value) == f"Required value ({key})."
 
 
-def test_validate_s3_metadata_rejects_request_id_with_letters():
+@pytest.mark.parametrize("value", ("22abc", 22.5, 22.0, True))
+def test_validate_s3_metadata_rejects_invalid_request_id(value):
     from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
 
     metadata = VALID_S3_METADATA.copy()
-    metadata["merge_or_pull_req_id"] = "22abc"
+    metadata["merge_or_pull_req_id"] = value
 
     with pytest.raises(ValueError) as error:
         validate_s3_metadata(metadata)
@@ -184,13 +185,13 @@ def test_validate_s3_metadata_rejects_request_id_with_letters():
 
 
 @pytest.mark.parametrize("value", ("not-a-sha", "a65f665g", 12345678))
-def test_validate_s3_metadata_rejects_invalid_commit_short_sha(value):
+def test_validate_s3_metadata_rejects_invalid_commit_sha(value):
     from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
 
     metadata = VALID_S3_METADATA.copy()
-    metadata["commit_short_sha"] = value
+    metadata["commit_sha"] = value
 
     with pytest.raises(ValueError) as error:
         validate_s3_metadata(metadata)
 
-    assert str(error.value) == "Invalid value (commit_short_sha)."
+    assert str(error.value) == "Invalid value (commit_sha)."
