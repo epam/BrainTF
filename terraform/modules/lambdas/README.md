@@ -7,14 +7,13 @@
 | ---- | ------- |
 | <a name="requirement_terraform"></a> [terraform](#requirement\_terraform) | >= 1.7, < 2.0 |
 | <a name="requirement_aws"></a> [aws](#requirement\_aws) | >= 5.0 |
-| <a name="requirement_docker"></a> [docker](#requirement\_docker) | ~> 3.0 |
 
 ## Providers
 
 | Name | Version |
 | ---- | ------- |
 | <a name="provider_aws"></a> [aws](#provider\_aws) | >= 5.0 |
-| <a name="provider_docker"></a> [docker](#provider\_docker) | ~> 3.0 |
+| <a name="provider_terraform"></a> [terraform](#provider\_terraform) | n/a |
 
 ## Modules
 
@@ -31,7 +30,7 @@
 | [aws_lambda_layer_version.layer](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_layer_version) | resource |
 | [aws_lambda_permission.allow_bucket](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/lambda_permission) | resource |
 | [aws_s3_bucket_notification.bucket_notification](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/resources/s3_bucket_notification) | resource |
-| [docker_container.lambda_layer](https://registry.terraform.io/providers/kreuzwerker/docker/latest/docs/resources/container) | resource |
+| [terraform_data.lambda_layer](https://registry.terraform.io/providers/hashicorp/terraform/latest/docs/resources/data) | resource |
 
 ## Inputs
 
@@ -45,11 +44,13 @@
 | <a name="input_artifacts_path"></a> [artifacts\_path](#input\_artifacts\_path) | The path where the corrected Terraform files (artifacts) will be stored. | `string` | n/a | yes |
 | <a name="input_dynamodb_table_name"></a> [dynamodb\_table\_name](#input\_dynamodb\_table\_name) | The name for a dynamodb table | `string` | n/a | yes |
 | <a name="input_kms_key_arn"></a> [kms\_key\_arn](#input\_kms\_key\_arn) | The ARN of the KMS key used for encryption | `string` | n/a | yes |
+| <a name="input_lambda_builder_image"></a> [lambda\_builder\_image](#input\_lambda\_builder\_image) | Docker image used to build the Lambda layer | `string` | `"public.ecr.aws/sam/build-python3.11:latest-x86_64"` | no |
 | <a name="input_lambda_exec_role_arn"></a> [lambda\_exec\_role\_arn](#input\_lambda\_exec\_role\_arn) | ARN of the role to execute the lambda function | `string` | `""` | no |
 | <a name="input_layer_name"></a> [layer\_name](#input\_layer\_name) | AWS Lambda layer name | `string` | n/a | yes |
 | <a name="input_llm_model"></a> [llm\_model](#input\_llm\_model) | The name or identifier of the LLM (Large Language Model) to be used | `string` | n/a | yes |
 | <a name="input_log_level"></a> [log\_level](#input\_log\_level) | The logging level for AWS Lambda functions. Possible values: DEBUG, INFO, WARN, ERROR. | `string` | `"INFO"` | no |
 | <a name="input_private_subnet_ids"></a> [private\_subnet\_ids](#input\_private\_subnet\_ids) | VPC Private Subnet IDs | `list(string)` | n/a | yes |
+| <a name="input_python_runtime"></a> [python\_runtime](#input\_python\_runtime) | Python runtime for Lambda functions and layer build (e.g. python3.11, python3.12) | `string` | `"python3.11"` | no |
 | <a name="input_rag_enable"></a> [rag\_enable](#input\_rag\_enable) | Whether to turn on RAG for AI handler. | `bool` | `false` | no |
 | <a name="input_security_groups"></a> [security\_groups](#input\_security\_groups) | Security Groups for Lambda-Git Connection | `list(string)` | n/a | yes |
 | <a name="input_vcs_api_endpoint"></a> [vcs\_api\_endpoint](#input\_vcs\_api\_endpoint) | The API endpoint for VCS integration (e.g., GitLab, GitHub) | `string` | n/a | yes |
