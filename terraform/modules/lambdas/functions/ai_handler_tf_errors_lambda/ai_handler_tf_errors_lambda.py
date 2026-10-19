@@ -36,13 +36,13 @@ def validate_s3_metadata(metadata: Dict[str, Any]) -> None:
     required_keys: tuple[str, ...] = (
         "base_repo_owner",
         "base_repo_name",
-        "source_branch",
-        "merge_or_pull_req_id",
+        "head_branch_name",
+        "pull_num",
         "commit_sha",
         "tool_name",
     )
     field_validators: Dict[str, Callable[[Any], None]] = {
-        "merge_or_pull_req_id": check_integer,
+        "pull_num": check_integer,
         "commit_sha": check_hash,
     }
     errors: List[str] = []

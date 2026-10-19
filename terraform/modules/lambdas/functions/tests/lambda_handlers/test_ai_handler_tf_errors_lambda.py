@@ -63,8 +63,8 @@ MOCK_TRIVY_FILE_CONTENT = {
 VALID_S3_METADATA = {
     "base_repo_owner": "some-org",
     "base_repo_name": "BrainTF",
-    "source_branch": "FEAT-branch",
-    "merge_or_pull_req_id": "22",
+    "head_branch_name": "FEAT-branch",
+    "pull_num": "22",
     "commit_sha": "a65f6658",
     "tool_name": "TFLint",
 }
@@ -176,12 +176,12 @@ def test_validate_s3_metadata_rejects_invalid_request_id(value):
     from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
 
     metadata = VALID_S3_METADATA.copy()
-    metadata["merge_or_pull_req_id"] = value
+    metadata["pull_num"] = value
 
     with pytest.raises(ValueError) as error:
         validate_s3_metadata(metadata)
 
-    assert str(error.value) == "Invalid value (merge_or_pull_req_id)."
+    assert str(error.value) == "Invalid value (pull_num)."
 
 
 @pytest.mark.parametrize("value", ("not-a-sha", "a65f665g", 12345678))
