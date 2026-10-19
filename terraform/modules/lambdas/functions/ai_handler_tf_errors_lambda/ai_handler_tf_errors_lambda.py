@@ -41,7 +41,7 @@ def validate_s3_metadata(metadata: Dict[str, Any]) -> None:
         "commit_sha",
         "tool_name",
     )
-    required_types: Dict[str, Callable[[Any], None]] = {
+    field_validators: Dict[str, Callable[[Any], None]] = {
         "merge_or_pull_req_id": check_integer,
         "commit_sha": check_hash,
     }
@@ -52,9 +52,9 @@ def validate_s3_metadata(metadata: Dict[str, Any]) -> None:
             errors.append(f"Required value ({key}).")
         elif not metadata.get(key):
             errors.append(f"Required value ({key}).")
-        elif key in required_types:
+        elif key in field_validators:
             try:
-                required_types[key](metadata[key])
+                field_validators[key](metadata[key])
             except (TypeError, ValueError):
                 errors.append(f"Invalid value ({key}).")
 
