@@ -49,9 +49,9 @@ def validate_s3_metadata(metadata: Dict[str, Any]) -> None:
 
     for key in required_keys:
         if key not in metadata:
-            errors.append(f"Required value ({key}).")
+            errors.append(f"Required S3 object metadata field '{key}' is missing or empty.")
         elif not metadata.get(key):
-            errors.append(f"Required value ({key}).")
+            errors.append(f"Required S3 object metadata field '{key}' is missing or empty.")
         elif key in field_validators:
             try:
                 field_validators[key](metadata[key])

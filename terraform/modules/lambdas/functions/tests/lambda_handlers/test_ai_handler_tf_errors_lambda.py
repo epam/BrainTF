@@ -151,7 +151,7 @@ def test_validate_s3_metadata_rejects_missing_key(key):
     with pytest.raises(ValueError) as error:
         validate_s3_metadata(metadata)
 
-    assert str(error.value) == f"Required value ({key})."
+    assert str(error.value) == f"Required S3 object metadata field '{key}' is missing or empty."
 
 
 @pytest.mark.parametrize(("key", "value"), [
@@ -168,7 +168,7 @@ def test_validate_s3_metadata_rejects_empty_value(key, value):
     with pytest.raises(ValueError) as error:
         validate_s3_metadata(metadata)
 
-    assert str(error.value) == f"Required value ({key})."
+    assert str(error.value) == f"Required S3 object metadata field '{key}' is missing or empty."
 
 
 @pytest.mark.parametrize("value", ("22abc", 22.5, 22.0, True))
