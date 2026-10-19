@@ -3,7 +3,10 @@ locals {
   layer_path           = "${path.module}/functions"
   container_layer_path = "/var/task"
   zip_file_path        = "${local.layer_path}/layer.zip"
+  zip_file_exists      = fileexists(local.zip_file_path)
   requirements_sha     = filesha1("${path.module}/functions/requirements.txt")
+  # Hash of everything that affects layer.zip contents; keyed by aws_lambda_layer_version.
+  layer_hash = sha1(join("", [local.requirements_sha, var.lambda_builder_image, var.python_runtime]))
   lambda_exclude_patterns = [
     "!.*\\.pyc$",
     "!.*/__pycache__/.*",
@@ -16,7 +19,9 @@ locals {
 resource "terraform_data" "lambda_layer" {
   count = var.ai_handler_create == "true" ? 1 : 0
 
-  triggers_replace = sha1(join("", [local.requirements_sha, var.lambda_builder_image, var.python_runtime]))
+  # Rebuild on content change, and also when layer.zip is missing so pip runs again.
+  # The missing-zip component flips back once the zip exists, costing one extra rebuild on the next apply.
+  triggers_replace = sha1(join("", [local.layer_hash, tostring(local.zip_file_exists)]))
 
   provisioner "local-exec" {
     command = <<-EOT
@@ -33,7 +38,7 @@ resource "terraform_data" "lambda_layer" {
 resource "aws_lambda_layer_version" "layer" {
   count               = var.ai_handler_create == "true" ? 1 : 0
   filename            = local.zip_file_path
-  source_code_hash    = sha1(join("", [local.requirements_sha, var.lambda_builder_image, var.python_runtime]))
+  source_code_hash    = local.layer_hash
   layer_name          = var.layer_name
   depends_on          = [terraform_data.lambda_layer]
   compatible_runtimes = [var.python_runtime]
