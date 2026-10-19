@@ -1,9 +1,9 @@
-python-gitlab==8.2.0
-requests==2.33.1
-openai==2.32.0
-beautifulsoup4==4.14.3
-PyGithub==2.9.1
-boto3==1.42.93
-pytest==9.0.3
+python-gitlab==8.6.0
+requests==2.34.2
+openai==3.31.0
+beautifulsoup4==4.15.0
+PyGithub==2.10.0
+boto3==1.43.114
+pytest==9.1.1
 pytest-cov==7.1.0
-moto[all]
+moto[all]==5.2.4
