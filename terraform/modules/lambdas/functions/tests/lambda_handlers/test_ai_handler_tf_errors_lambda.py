@@ -135,10 +135,53 @@ def test_process_s3_event_raises_missing_records(patched_config_gitlab):
         process_s3_event({})
 
 
+@pytest.mark.parametrize("value", ("a65f6658", "A65F6658", " \ta65f6658 \n"))
+def test_check_hash_accepts_hexadecimal_values(value):
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import check_hash
+
+    assert check_hash(value) is None
+
+
+@pytest.mark.parametrize("value", ("", " \t\n", "not-a-hash", "a65f665g", "0xa65f6658"))
+def test_check_hash_rejects_empty_or_non_hexadecimal_values(value):
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import check_hash
+
+    with pytest.raises(ValueError):
+        check_hash(value)
+
+
+@pytest.mark.parametrize("value", ("1", "22", " +22 "))
+def test_check_pull_num_accepts_values_convertible_to_positive_integers(value):
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import check_pull_num
+
+    assert check_pull_num(value) is None
+
+
+@pytest.mark.parametrize("value", ("0", "-22"))
+def test_check_pull_num_does_not_reject_non_positive_integers(value):
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import check_pull_num
+
+    assert check_pull_num(value) is None
+
+
+def test_check_pull_num_rejects_values_not_convertible_to_integer():
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import check_pull_num
+
+    with pytest.raises(ValueError):
+        check_pull_num("22abc")
+
+
 def test_validate_s3_metadata_accepts_valid_metadata():
     from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
 
     assert validate_s3_metadata(VALID_S3_METADATA) is None
+
+
+def test_validate_s3_metadata_rejects_non_dictionary():
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
+
+    with pytest.raises(TypeError, match="Invalid S3 metadata type"):
+        validate_s3_metadata([])
 
 
 @pytest.mark.parametrize("key", REQUIRED_S3_METADATA_KEYS)
@@ -171,7 +214,7 @@ def test_validate_s3_metadata_rejects_empty_value(key, value):
     assert str(error.value) == f"Empty value for required S3 object metadata key '{key}'."
 
 
-@pytest.mark.parametrize("value", ("22abc", 22.5, 22.0, True))
+@pytest.mark.parametrize("value", ("22abc", "not-a-number"))
 def test_validate_s3_metadata_rejects_invalid_request_id(value):
     from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
 
@@ -181,10 +224,12 @@ def test_validate_s3_metadata_rejects_invalid_request_id(value):
     with pytest.raises(ValueError) as error:
         validate_s3_metadata(metadata)
 
-    assert str(error.value) == "Invalid value (pull_num)."
+    assert str(error.value) == (
+        f"Invalid S3 object metadata key value (pull_num - {value})."
+    )
 
 
-@pytest.mark.parametrize("value", ("not-a-sha", "a65f665g", 12345678))
+@pytest.mark.parametrize("value", ("not-a-sha", "a65f665g"))
 def test_validate_s3_metadata_rejects_invalid_commit_sha(value):
     from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
 
@@ -194,4 +239,28 @@ def test_validate_s3_metadata_rejects_invalid_commit_sha(value):
     with pytest.raises(ValueError) as error:
         validate_s3_metadata(metadata)
 
-    assert str(error.value) == "Invalid value (commit_sha)."
+    assert str(error.value) == (
+        f"Invalid S3 object metadata key value (commit_sha - {value})."
+    )
+
+
+def test_validate_s3_metadata_reports_and_logs_all_errors(caplog):
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
+
+    metadata = VALID_S3_METADATA.copy()
+    del metadata["base_repo_owner"]
+    metadata["base_repo_name"] = ""
+    metadata["pull_num"] = "22abc"
+    metadata["commit_sha"] = "not-a-sha"
+    expected_errors = (
+        "Missing required S3 object metadata key 'base_repo_owner'.\n"
+        "Empty value for required S3 object metadata key 'base_repo_name'.\n"
+        "Invalid S3 object metadata key value (pull_num - 22abc).\n"
+        "Invalid S3 object metadata key value (commit_sha - not-a-sha)."
+    )
+
+    with pytest.raises(ValueError) as error:
+        validate_s3_metadata(metadata)
+
+    assert str(error.value) == expected_errors
+    assert expected_errors in caplog.text

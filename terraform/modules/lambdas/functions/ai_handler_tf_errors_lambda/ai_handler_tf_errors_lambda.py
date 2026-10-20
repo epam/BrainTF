@@ -1,4 +1,6 @@
-from typing import Any, Dict, List, Callable
+import string
+from collections.abc import Callable
+from typing import Any
 
 from config import config
 from utilities.ai.chat_completions import generate_response_ai
@@ -11,27 +13,75 @@ from utilities.messages import AI_RESPONSE_MESSAGE
 from utilities.vcs import post_comment
 
 
-def validate_s3_metadata(metadata: Dict[str, Any]) -> None:
-    """Validate required S3 metadata values."""
+def check_hash(value: str) -> None:
+    """
+    Validate that ``value`` contains a non-empty hexadecimal string.
 
-    def check_hash(value: Any) -> None:
-        if not (
-            isinstance(value, str)
-            and bool(value.strip())
+    Leading and trailing whitespace is ignored. The value must support
+    ``strip``; a ``ValueError`` is raised if the stripped value is empty or
+    contains a non-hexadecimal character.
+
+    Args:
+        value (Any): Value to validate as a hexadecimal string.
+
+    Raises:
+        ValueError: If the value is empty after stripping or is not hexadecimal.
+    """
+    if not (bool(value.strip())
             and all(
-                character in "0123456789abcdefABCDEF"
-                for character in value.strip()
-            )
-        ):
-            raise ValueError
+        character in string.hexdigits
+        for character in value.strip()
+    )
+    ):
+        raise ValueError
 
-    def check_integer(value: Any) -> None:
-        if isinstance(value, bool) or not isinstance(value, (int, str)):
-            raise ValueError
-        try:
-            int(value)
-        except ValueError:
-            raise ValueError
+
+def check_pull_num(value: str) -> None:
+    """
+    Validate a pull request number by converting it to an integer.
+
+    Args:
+        value (Any): Value to convert to an integer.
+
+    Raises:
+        ValueError: If integer conversion fails.
+
+    Note:
+        The function returns for positive integers. A value converting to zero
+        or a negative integer does not raise an exception.
+    """
+    try:
+        if int(value) > 0:
+            return
+    except ValueError:
+        raise ValueError
+
+
+def validate_s3_metadata(metadata: dict[str, Any]) -> None:
+    """
+    Validate the required metadata values fetched from an S3 object.
+
+    Requires non-empty ``base_repo_owner``, ``base_repo_name``,
+    ``head_branch_name``, ``pull_num``, ``commit_sha``, and ``tool_name``
+    fields. The pull request number and commit SHA are additionally checked
+    with their field validators. Validation errors are logged and reported
+    together.
+
+    Args:
+        metadata (dict[str, Any]): S3 object metadata to validate.
+
+    Returns:
+        None: Returns implicitly when all required metadata is valid.
+
+    Raises:
+        TypeError: If ``metadata`` is not a dictionary.
+        ValueError: If required metadata is missing, empty, or invalid.
+    """
+
+    if not isinstance(metadata, dict):
+        error_message = f"Invalid S3 metadata type ({type(metadata)})."
+        logger.error(error_message)
+        raise TypeError(error_message)
 
     required_keys: tuple[str, ...] = (
         "base_repo_owner",
@@ -41,11 +91,11 @@ def validate_s3_metadata(metadata: Dict[str, Any]) -> None:
         "commit_sha",
         "tool_name",
     )
-    field_validators: Dict[str, Callable[[Any], None]] = {
-        "pull_num": check_integer,
+    field_validators: dict[str, Callable[[Any], None]] = {
+        "pull_num": check_pull_num,
         "commit_sha": check_hash,
     }
-    errors: List[str] = []
+    errors: list[str] = []
 
     for key in required_keys:
         if key not in metadata:
@@ -55,14 +105,16 @@ def validate_s3_metadata(metadata: Dict[str, Any]) -> None:
         elif key in field_validators:
             try:
                 field_validators[key](metadata[key])
-            except (TypeError, ValueError):
-                errors.append(f"Invalid value ({key}).")
+            except ValueError:
+                errors.append(f"Invalid S3 object metadata key value ({key} - {metadata[key]}).")
 
     if errors:
-        raise ValueError("\n".join(errors))
+        errors_message: str = "\n".join(errors)
+        logger.error(errors_message)
+        raise ValueError(errors_message)
 
 
-def process_s3_event(event: Dict[str, Any]) -> Dict[str, Any]:
+def process_s3_event(event: dict[str, Any]) -> dict[str, Any]:
     """
     Processes an incoming S3 event by extracting relevant details, fetching file content
     and metadata from the specified S3 bucket, and appending derived metadata to the event.
@@ -92,23 +144,23 @@ def process_s3_event(event: Dict[str, Any]) -> Dict[str, Any]:
         records = event.get('Records')
         if not isinstance(records, list) or not records:
             raise ValueError("S3 event is missing Records entries.")
-        event_record: Dict[str, Any] = records[0]
+        event_record: dict[str, Any] = records[0]
         s3_bucket: str = event_record.get('s3', {}).get('bucket', {}).get('name')
         s3_key: str = event_record.get('s3', {}).get('object', {}).get('key')
 
         logger.info(f"Processing S3 event for bucket '{s3_bucket}' and key '{s3_key}'...")
 
-        log_file_content_with_metadata: Dict[str, Any] | None = get_file_content_with_metadata_from_s3(s3_bucket,
+        log_file_content_with_metadata: dict[str, Any] | None = get_file_content_with_metadata_from_s3(s3_bucket,
                                                                                                        s3_key)
         log_file_content: str = log_file_content_with_metadata.get('content')
 
-        file_metadata: Dict[str, str] = log_file_content_with_metadata.get('metadata')
+        file_metadata: dict[str, str] = log_file_content_with_metadata.get('metadata')
 
         validate_s3_metadata(file_metadata)
         base_repo_owner: str = file_metadata.get('base_repo_owner')
         base_repo_name: str = file_metadata.get('base_repo_name')
 
-        metadata: Dict[str, Any] = {}
+        metadata: dict[str, Any] = {}
 
         metadata.update({
             'repo_id_or_name': f"{base_repo_owner}/{base_repo_name}" if config.vcs_provider == 'gitlab' else base_repo_name,
@@ -127,10 +179,10 @@ def process_s3_event(event: Dict[str, Any]) -> Dict[str, Any]:
 
     except Exception as error:
         logger.error(f"Error occurred while processing the S3 event: {error}.")
-        raise error
+        raise
 
 
-def lambda_handler(event: dict[str, dict], context: Any) -> Dict[str, Any]:  # noqa:
+def lambda_handler(event: dict[str, dict], context: Any) -> dict[str, Any]:  # noqa:
     """
     Handles an incoming Lambda event, processes input data, generates an AI response, and updates the output
     with results.
@@ -157,9 +209,9 @@ def lambda_handler(event: dict[str, dict], context: Any) -> Dict[str, Any]:  # n
     try:
         process_s3_event(event)
 
-        user_message: Dict = prepare_user_prompt_message(event)
-        user_prompt: List = [user_message]
-        generated_response: Dict[str, Any] = generate_response_ai(user_prompt)
+        user_message: dict = prepare_user_prompt_message(event)
+        user_prompt: list = [user_message]
+        generated_response: dict[str, Any] = generate_response_ai(user_prompt)
         message: str = generated_response.get("message", "").strip()
         event.get("metadata").update({"ai_response": message})
 
@@ -180,4 +232,4 @@ def lambda_handler(event: dict[str, dict], context: Any) -> Dict[str, Any]:  # n
 
     except Exception as error:
         logger.error(f"Error occurred while invoking the Lambda function: {error}.")
-        raise error
+        raise
