@@ -22,16 +22,15 @@ def check_hash(value: str) -> None:
     contains a non-hexadecimal character.
 
     Args:
-        value (Any): Value to validate as a hexadecimal string.
+        value (str): Value to validate as a hexadecimal string.
 
     Raises:
         ValueError: If the value is empty after stripping or is not hexadecimal.
     """
-    if not (bool(value.strip())
-            and all(
-        character in string.hexdigits
-        for character in value.strip()
-    )
+    stripped_value = value.strip()
+    if not (
+        stripped_value
+        and all(character in string.hexdigits for character in stripped_value)
     ):
         raise ValueError
 
@@ -41,7 +40,7 @@ def check_pull_num(value: str) -> None:
     Validate a pull request number by converting it to an integer.
 
     Args:
-        value (Any): Value to convert to an integer.
+        value (str): Value to convert to an integer.
 
     Raises:
         ValueError: If integer conversion fails.
