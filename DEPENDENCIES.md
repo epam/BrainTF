@@ -2,13 +2,14 @@
 
 This document lists all external dependencies used in the project, their locations, current versions, and where to check for updates.
 
-> Last updated: 2026-10-16 (EPMCACMAWS-538)
+> Last updated: 2026-10-20 (EPMCACMAWS-539)
 
 ## CI/CD Pipeline Tools
 
 | Tool | File | Variable/Pattern | Current Version | Check Latest |
 |------|------|-----------------|-----------------|--------------|
 | Terraform | `.github/workflows/pipeline.yml` | `TERRAFORM_VERSION` | 1.14.8 | https://releases.hashicorp.com/terraform/ |
+| Terraform | `.github/workflows/terraform-tests.yml` | `TERRAFORM_VERSION` | 1.14.8 | https://releases.hashicorp.com/terraform/ |
 | TFLint | `.github/workflows/pipeline.yml` | `TFLINT_VERSION` | v0.62.0 | https://github.com/terraform-linters/tflint/releases |
 | Checkov | `.github/workflows/pipeline.yml` | `CHECKOV_VERSION` | 3.2.524 | https://github.com/bridgecrewio/checkov/releases |
 | TFSec | `.github/workflows/pipeline.yml` | `TFSEC_VERSION` | v1.28.14 | https://github.com/aquasecurity/tfsec/releases |
@@ -62,13 +63,17 @@ This document lists all external dependencies used in the project, their locatio
 | Action | Files | Current Version | Check Latest |
 |--------|-------|-----------------|--------------|
 | actions/checkout | `pipeline.yml`, `release.yml` | v6 | https://github.com/actions/checkout/releases |
-| actions/cache | `pipeline.yml` | v5 | https://github.com/actions/cache/releases |
+| actions/cache | `pipeline.yml`, `terraform-tests.yml` | v5 | https://github.com/actions/cache/releases |
 | aws-actions/configure-aws-credentials | `pipeline.yml` | v6 | https://github.com/aws-actions/configure-aws-credentials/releases |
 | amannn/action-semantic-pull-request | `pipeline.yml` | v6.1.1 | https://github.com/amannn/action-semantic-pull-request/releases |
 | cycjimmy/semantic-release-action | `release.yml` | v6 | https://github.com/cycjimmy/semantic-release-action/releases |
 | clowdhaus/terraform-composite-actions | `pipeline.yml` | v1.14.0 | https://github.com/clowdhaus/terraform-composite-actions/releases |
 | clowdhaus/terraform-min-max | `pipeline.yml` | v3.0.1 | https://github.com/clowdhaus/terraform-min-max/releases |
 | actions/stale | `.github/workflows/stale.yml` | v10 | https://github.com/actions/stale/releases |
+| hashicorp/setup-terraform | `pipeline.yml`, `run-terraform.yml` | v3 | https://github.com/hashicorp/setup-terraform/releases |
+| hashicorp/setup-terraform | `terraform-tests.yml` | v4 (Node.js 24) | https://github.com/hashicorp/setup-terraform/releases |
+| actions/upload-artifact, actions/download-artifact | `developer-pipeline.yml`, `terraform-tests.yml` | v7 | https://github.com/actions/upload-artifact/releases |
+| dorny/test-reporter | `developer-pipeline.yml`, `terraform-tests.yml` | v3 | https://github.com/dorny/test-reporter/releases |
 
 ## Terraform Modules (pinned by commit hash)
 
@@ -80,6 +85,12 @@ This document lists all external dependencies used in the project, their locatio
 | terraform-aws-lambda (x2) | `terraform/modules/lambdas/main.tf` | `4cfa5b42...` | v8.7.0 | https://github.com/terraform-aws-modules/terraform-aws-lambda/releases |
 
 > **Note:** Terraform modules are pinned by commit hash, not tag. To update: find the latest release tag on GitHub, then get the full commit SHA of that tag.
+
+## Terraform tests
+
+| Item | File | Current Version | Notes |
+|------|------|-----------------|-------|
+| Minimum Terraform for `terraform test` | `terraform/**/tests/unit/*.tftest.hcl` | 1.7 | `mock_provider` and `override_*` need 1.7+; CI uses `TERRAFORM_VERSION` from `terraform-tests.yml` |
 
 ## Python Packages (production)
 

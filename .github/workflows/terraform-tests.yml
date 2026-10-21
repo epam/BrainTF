@@ -1,0 +1,153 @@
+name: Terraform Tests
+
+# Developer pipeline for BrainTF's own Terraform code (terraform/**). It is separate from
+# pipeline.yml, which scans the demo workload in WORK_DIRS. See docs/terraform_testing.md.
+#   Stage 1, unit tests: one job per configuration that has tests/unit/*.tftest.hcl.
+#     Mocked providers, no AWS credentials, no network while the tests run. Nothing is
+#     created anywhere.
+#   Stage 2, report: publishes the JUnit results of Stage 1 as a check on the commit.
+
+on:
+  pull_request:
+    branches:
+      - main
+    paths:
+      - terraform/**
+      - .github/workflows/terraform-tests.yml
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+env:
+  TERRAFORM_VERSION: "1.14.8" # Keep in sync with pipeline.yml and DEPENDENCIES.md
+  TF_IN_AUTOMATION: "true"
+  ARTIFACT_RETENTION_DAYS: 14
+
+jobs:
+  discover:
+    name: Find test suites
+    runs-on: ubuntu-latest
+    outputs:
+      unit: ${{ steps.find.outputs.unit }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: List configurations with unit tests
+        id: find
+        run: |
+          dirs=$(find terraform -path '*/tests/unit/*.tftest.hcl' -not -path '*/.terraform/*' \
+            | sed 's|/tests/unit/.*||' | sort -u | jq -R . | jq -cs .)
+          echo "unit=$dirs" >> "$GITHUB_OUTPUT"
+          echo "Configurations with unit tests: $dirs"
+
+  unit:
+    name: Unit · ${{ matrix.dir }}
+    needs: discover
+    if: needs.discover.outputs.unit != '[]'
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        dir: ${{ fromJson(needs.discover.outputs.unit) }}
+    defaults:
+      run:
+        working-directory: ${{ matrix.dir }}
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v4
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Prepare provider cache
+        run: |
+          mkdir -p "$HOME/.terraform.d/plugin-cache"
+          echo "TF_PLUGIN_CACHE_DIR=$HOME/.terraform.d/plugin-cache" >> "$GITHUB_ENV"
+
+      # Most of the init time is cloning the pinned terraform-aws-modules from GitHub.
+      - name: Restore providers and modules
+        uses: actions/cache@v5
+        with:
+          path: |
+            ~/.terraform.d/plugin-cache
+            ${{ matrix.dir }}/.terraform/modules
+          key: tf-${{ env.TERRAFORM_VERSION }}-${{ matrix.dir }}-${{ hashFiles('terraform/**/*.tf') }}
+          restore-keys: tf-${{ env.TERRAFORM_VERSION }}-${{ matrix.dir }}-
+
+      - name: Terraform fmt (configuration and tests)
+        run: terraform fmt -check -recursive -diff
+
+      - name: Terraform init
+        run: terraform init -backend=false -input=false -test-directory=tests/unit
+
+      - name: Terraform validate (configuration and tests)
+        run: terraform validate -test-directory=tests/unit
+
+      - name: Terraform test (no credentials, no network)
+        env:
+          AWS_CONFIG_FILE: /dev/null
+          AWS_SHARED_CREDENTIALS_FILE: /dev/null
+          AWS_EC2_METADATA_DISABLED: "true"
+          REPORT: ${{ github.workspace }}/junit-unit-${{ strategy.job-index }}.xml
+        run: |
+          # A mock_provider only replaces providers declared in the root module under test, and
+          # local-exec provisioners run even for mocked resources. Either would quietly reach the
+          # network; in a network namespace without interfaces it fails the test instead.
+          # Ubuntu 24.04 runners block unprivileged user namespaces, hence the sudo fallback,
+          # which drops back to the runner user before starting terraform.
+          tf="$(command -v terraform)"
+          if unshare -rn true 2>/dev/null; then
+            unshare -rn "$tf" test -test-directory=tests/unit -junit-xml="$REPORT"
+          else
+            sudo -E unshare --net -- setpriv --reuid="$(id -u)" --regid="$(id -g)" --init-groups -- \
+              "$tf" test -test-directory=tests/unit -junit-xml="$REPORT"
+          fi
+
+      # terraform test leaves <testsuite time> empty (the report shows "NaNms") and keeps the
+      # reason of a missing expected failure out of the error message (the report shows
+      # "Encountered an error"). The script fills both in; see its docstring.
+      - name: Normalize JUnit report
+        if: ${{ !cancelled() }}
+        working-directory: ${{ github.workspace }}
+        run: python3 scripts/normalize_terraform_junit.py "junit-unit-${{ strategy.job-index }}.xml"
+
+      - name: Upload JUnit report
+        if: ${{ !cancelled() }}
+        uses: actions/upload-artifact@v7
+        with:
+          name: junit-unit-${{ strategy.job-index }}
+          path: junit-unit-${{ strategy.job-index }}.xml
+          if-no-files-found: ignore
+          retention-days: ${{ env.ARTIFACT_RETENTION_DAYS }}
+
+  report:
+    name: Publish test report
+    needs: unit
+    if: ${{ !cancelled() && needs.unit.result != 'skipped' }}
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      checks: write
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v6
+
+      - name: Download JUnit reports
+        uses: actions/download-artifact@v7
+        with:
+          pattern: junit-unit-*
+          path: junit
+          merge-multiple: true
+
+      - name: Publish test results
+        uses: dorny/test-reporter@v3
+        with:
+          name: Terraform test results
+          path: junit/*.xml
+          reporter: java-junit
+          fail-on-error: false

@@ -170,6 +170,16 @@ terraform init
 terraform validate
 ```
 
+If the directory has Terraform unit tests (`tests/unit`), run them too. They need no AWS
+access and create nothing:
+
+```bash
+terraform init -backend=false -test-directory=tests/unit
+terraform test -test-directory=tests/unit
+```
+
+See [docs/terraform_testing.md](docs/terraform_testing.md) for what the tests check and how to write new ones.
+
 Ensure there are no errors or warnings.
 
 ## Documentation
