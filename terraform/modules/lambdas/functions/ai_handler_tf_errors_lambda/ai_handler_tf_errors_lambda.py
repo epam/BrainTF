@@ -37,17 +37,13 @@ def check_hash(value: str) -> None:
 
 def check_pull_num(value: str) -> None:
     """
-    Validate a pull request number by converting it to an integer.
+    Validate that a pull request number is a positive integer.
 
     Args:
         value (str): Value to convert to an integer.
 
     Raises:
-        ValueError: If integer conversion fails.
-
-    Note:
-        The function returns for positive integers. A value converting to zero
-        or a negative integer does not raise an exception.
+        ValueError: If integer conversion fails or the number is not positive.
     """
     if int(value) <= 0:
         raise ValueError
