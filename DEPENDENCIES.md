@@ -2,7 +2,7 @@
 
 This document lists all external dependencies used in the project, their locations, current versions, and where to check for updates.
 
-> Last updated: 2026-04-21 (EPMCACMAWS-420)
+> Last updated: 2026-10-16 (EPMCACMAWS-538)
 
 ## CI/CD Pipeline Tools
 
@@ -85,18 +85,19 @@ This document lists all external dependencies used in the project, their locatio
 
 | Package | File | Current Version | Check Latest |
 |---------|------|-----------------|--------------|
-| python-gitlab | `terraform/modules/lambdas/functions/requirements.txt` | 8.2.0 | https://pypi.org/project/python-gitlab/ |
-| requests | `terraform/modules/lambdas/functions/requirements.txt` | 2.33.1 | https://pypi.org/project/requests/ |
-| openai | `terraform/modules/lambdas/functions/requirements.txt` | 2.32.0 | https://pypi.org/project/openai/ |
-| beautifulsoup4 | `terraform/modules/lambdas/functions/requirements.txt` | 4.14.3 | https://pypi.org/project/beautifulsoup4/ |
-| PyGithub | `terraform/modules/lambdas/functions/requirements.txt` | 2.9.1 | https://pypi.org/project/PyGithub/ |
+| python-gitlab | `terraform/modules/lambdas/functions/requirements.txt` | 8.6.0 | https://pypi.org/project/python-gitlab/ |
+| requests | `terraform/modules/lambdas/functions/requirements.txt` | 2.34.2 | https://pypi.org/project/requests/ |
+| openai | `terraform/modules/lambdas/functions/requirements.txt` | 3.31.0 | https://pypi.org/project/openai/ |
+| beautifulsoup4 | `terraform/modules/lambdas/functions/requirements.txt` | 4.15.0 | https://pypi.org/project/beautifulsoup4/ |
+| PyGithub | `terraform/modules/lambdas/functions/requirements.txt` | 2.10.0 | https://pypi.org/project/PyGithub/ |
 
 ## Python Packages (test)
 
 | Package | File | Current Version | Check Latest |
 |---------|------|-----------------|--------------|
-| boto3 | `terraform/modules/lambdas/functions/test-requirements.txt` | 1.42.93 | https://pypi.org/project/boto3/ |
-| pytest | `terraform/modules/lambdas/functions/test-requirements.txt` | 9.0.3 | https://pypi.org/project/pytest/ |
+| boto3 | `terraform/modules/lambdas/functions/test-requirements.txt` | 1.43.114 | https://pypi.org/project/boto3/ |
+| pytest | `terraform/modules/lambdas/functions/test-requirements.txt` | 9.1.1 | https://pypi.org/project/pytest/ |
 | pytest-cov | `terraform/modules/lambdas/functions/test-requirements.txt` | 7.1.0 | https://pypi.org/project/pytest-cov/ |
+| moto[all] | `terraform/modules/lambdas/functions/test-requirements.txt` | 5.2.4 | https://pypi.org/project/moto/ |
 
 > **Note:** test-requirements.txt also includes the same packages as requirements.txt (production). Keep versions in sync.
