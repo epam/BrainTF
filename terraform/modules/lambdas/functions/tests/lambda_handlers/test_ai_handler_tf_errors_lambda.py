@@ -2,7 +2,6 @@ import pytest
 
 from tests.data.logs_s3 import LOG_TEXT_TRIVY
 
-
 # Constants
 MOCK_FILE_CONTENT = {
     'content': '2 issue(s) found:\n\nWarning: terraform "required_version" attribute is required ('
@@ -73,21 +72,31 @@ REQUIRED_S3_METADATA_KEYS = tuple(VALID_S3_METADATA)
 
 def setup_monkeypatches(monkeypatch):
     """Common setup for monkeypatching dependencies in tests."""
-    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.validate_s3_metadata", lambda metadata: None)
-    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.get_file_content_with_metadata_from_s3", mock_s3_file_content)
+    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.validate_s3_metadata",
+                        lambda metadata: None)
+    monkeypatch.setattr(
+        "ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.get_file_content_with_metadata_from_s3",
+        mock_s3_file_content)
     monkeypatch.setattr("utilities.ai.prompt.get_all_tf_files_from_paths_list", mock_tf_files_list)
-    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.generate_response_ai", mock_ai_response)
+    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.generate_response_ai",
+                        mock_ai_response)
     monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.post_comment", lambda x, y: {})
-    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.create_context_memory_window", lambda event: None)
+    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.create_context_memory_window",
+                        lambda event: None)
 
 
 def setup_monkeypatches_trivy(monkeypatch):
-    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.validate_s3_metadata", lambda metadata: None)
-    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.get_file_content_with_metadata_from_s3", lambda bucket, key: MOCK_TRIVY_FILE_CONTENT)
+    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.validate_s3_metadata",
+                        lambda metadata: None)
+    monkeypatch.setattr(
+        "ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.get_file_content_with_metadata_from_s3",
+        lambda bucket, key: MOCK_TRIVY_FILE_CONTENT)
     monkeypatch.setattr("utilities.ai.prompt.get_all_tf_files_from_paths_list", mock_tf_files_list)
-    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.generate_response_ai", mock_ai_response)
+    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.generate_response_ai",
+                        mock_ai_response)
     monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.post_comment", lambda x, y: {})
-    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.create_context_memory_window", lambda event: None)
+    monkeypatch.setattr("ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda.create_context_memory_window",
+                        lambda event: None)
 
 
 # Tests
@@ -99,7 +108,8 @@ def test_lambda_invokes_ai_handler_successfully(patched_config_github, monkeypat
     assert 'Successfully invoked' in caplog.text
 
 
-def test_lambda_invokes_ai_handler_successfully_for_trivy(patched_config_github, monkeypatch, s3_bucket_event_trivy, caplog):
+def test_lambda_invokes_ai_handler_successfully_for_trivy(patched_config_github, monkeypatch, s3_bucket_event_trivy,
+                                                          caplog):
     setup_monkeypatches_trivy(monkeypatch)
     from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import lambda_handler
 
@@ -157,13 +167,6 @@ def test_check_pull_num_accepts_values_convertible_to_positive_integers(value):
     assert check_pull_num(value) is None
 
 
-@pytest.mark.parametrize("value", ("0", "-22"))
-def test_check_pull_num_does_not_reject_non_positive_integers(value):
-    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import check_pull_num
-
-    assert check_pull_num(value) is None
-
-
 def test_check_pull_num_rejects_values_not_convertible_to_integer():
     from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import check_pull_num
 
@@ -214,7 +217,7 @@ def test_validate_s3_metadata_rejects_empty_value(key, value):
     assert str(error.value) == f"Empty value for required S3 object metadata key '{key}'."
 
 
-@pytest.mark.parametrize("value", ("22abc", "not-a-number"))
+@pytest.mark.parametrize("value", ("22abc", "not-a-number", "0", "-5"))
 def test_validate_s3_metadata_rejects_invalid_request_id(value):
     from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
 

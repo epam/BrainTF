@@ -29,8 +29,8 @@ def check_hash(value: str) -> None:
     """
     stripped_value = value.strip()
     if not (
-        stripped_value
-        and all(character in string.hexdigits for character in stripped_value)
+            stripped_value
+            and all(character in string.hexdigits for character in stripped_value)
     ):
         raise ValueError
 
@@ -49,10 +49,7 @@ def check_pull_num(value: str) -> None:
         The function returns for positive integers. A value converting to zero
         or a negative integer does not raise an exception.
     """
-    try:
-        if int(value) > 0:
-            return
-    except ValueError:
+    if int(value) <= 0:
         raise ValueError
 
 
