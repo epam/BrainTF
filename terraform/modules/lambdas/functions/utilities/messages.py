@@ -17,6 +17,8 @@ Below is a guide to the supported commands:
 
 `bot list` - lists files corrected by AI and ready to commit.
 
+`bot show <path/to/file1> [<path/to/file2> ...]` - shows the content of files corrected by AI and ready to commit.
+
 `bot prompt <user prompt>` - sends custom prompt to AI.
 
 `help` - shows this help information in the {spec_provider}.
@@ -40,6 +42,25 @@ List of files corrected by AI bot
 ---
 
 {files_list}
+
+---
+
+""".lstrip().removesuffix("\n")
+
+SHOW_FILES_MESSAGE: str = """
+:information_source: AI Bot message
+
+---
+
+Content of files corrected by AI bot
+
+---
+
+<details>
+<summary>Show content of files corrected by AI bot</summary>
+
+{files_list}
+</details>
 
 ---
 
