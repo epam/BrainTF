@@ -1,27 +1,39 @@
 import textwrap
-from typing import Any, Dict, List
+from typing import Any
 
 from config import config
 from utilities.ai.chat_completions import generate_response_ai
-from utilities.ai.context import (create_context_memory_window,
-                                  get_context_memory_window)
-from utilities.aws import (delete_files_from_s3,
-                           get_all_files_from_s3_directory,
-                           get_file_names_from_s3_directory,
-                           get_particular_files_from_s3_directory,
-                           upload_files_to_s3)
+from utilities.ai.context import create_context_memory_window, get_context_memory_window
+from utilities.aws import (
+    delete_files_from_s3,
+    get_all_files_from_s3_directory,
+    get_file_names_from_s3_directory,
+    get_particular_files_from_s3_directory,
+    upload_files_to_s3,
+)
 from utilities.exceptions import InvalidEventMetadata
 from utilities.logger import logger
-from utilities.messages import (AI_RESPONSE_MESSAGE, FILES_NOT_IN_REPO_MESSAGE,
-                                LIST_FILES_MESSAGE, NO_APPROVAL_FILES_MESSAGE,
-                                UNAVAILABLE_APPROVAL_FILES_MESSAGE, SHOW_FILES_MESSAGE)
+from utilities.messages import (
+    AI_RESPONSE_MESSAGE,
+    FILES_NOT_IN_REPO_MESSAGE,
+    LIST_FILES_MESSAGE,
+    NO_APPROVAL_FILES_MESSAGE,
+    SHOW_FILES_MESSAGE,
+    UNAVAILABLE_APPROVAL_FILES_MESSAGE,
+)
 from utilities.parsers import parse_hcl_blocks
-from utilities.vcs import (FAILURE, SUCCESS, add_award_to_note,
-                           check_files_exist_in_repo, commit_files_to_branch,
-                           post_comment, post_help_message)
+from utilities.vcs import (
+    FAILURE,
+    SUCCESS,
+    add_award_to_note,
+    check_files_exist_in_repo,
+    commit_files_to_branch,
+    post_comment,
+    post_help_message,
+)
 
 
-def handle_ai_response_message(event: Dict[str, Any]) -> None:
+def handle_ai_response_message(event: dict[str, Any]) -> None:
     """Process an AI response and upload extracted HCL blocks to S3.
 
     The function reads the AI response from event metadata, extracts HCL blocks,
@@ -54,7 +66,7 @@ def handle_ai_response_message(event: Dict[str, Any]) -> None:
         upload_files_to_s3(config.artifacts_bucket, pull_number, filenames_with_hcl_blocks)
 
 
-def handle_help_command(event: Dict[str, Any]) -> None:
+def handle_help_command(event: dict[str, Any]) -> None:
     """Handle the ``help`` bot command.
 
     Args:
@@ -64,7 +76,7 @@ def handle_help_command(event: Dict[str, Any]) -> None:
     post_help_message(event)
 
 
-def handle_comment_commands(event: Dict[str, Any]) -> None:
+def handle_comment_commands(event: dict[str, Any]) -> None:
     """Dispatch a comment to the matching bot handler.
 
     Args:
@@ -86,7 +98,7 @@ def handle_comment_commands(event: Dict[str, Any]) -> None:
         logger.info('No actionable context found in the comment.')
 
 
-def handle_list_command(event: Dict[str, Any]) -> None:
+def handle_list_command(event: dict[str, Any]) -> None:
     """Handle the ``list`` bot command.
 
     Args:
@@ -105,7 +117,7 @@ def handle_list_command(event: Dict[str, Any]) -> None:
     post_comment(event, LIST_FILES_MESSAGE.format(files_list=files_list))
 
 
-def handle_show_command(event: Dict[str, Any], rest_comment: List[str]) -> None:
+def handle_show_command(event: dict[str, Any], rest_comment: list[str]) -> None:
     """Handle the ``show`` bot command.
 
     Args:
@@ -168,7 +180,7 @@ def handle_show_command(event: Dict[str, Any], rest_comment: List[str]) -> None:
             logger.debug('No artifact files found.')
 
 
-def handle_bot_commands(event: Dict[str, Any], rest_comment: List[str]) -> None:
+def handle_bot_commands(event: dict[str, Any], rest_comment: list[str]) -> None:
     """Route a parsed bot command to the appropriate handler.
 
     Args:
@@ -179,7 +191,7 @@ def handle_bot_commands(event: Dict[str, Any], rest_comment: List[str]) -> None:
     logger.debug(f"Parsed command arguments: {rest_comment}.")
     if rest_comment:
         command: str = rest_comment[0]
-        rest_comment: List[str] = rest_comment[1:]
+        rest_comment: list[str] = rest_comment[1:]
 
         if command == 'approve' and rest_comment:
             logger.info('Approve context found in the comment.')
@@ -206,7 +218,7 @@ def handle_bot_commands(event: Dict[str, Any], rest_comment: List[str]) -> None:
         add_award_to_note(event, FAILURE)
 
 
-def handle_prompt_command(event: Dict[str, Any], rest_comment: List[str]) -> None:
+def handle_prompt_command(event: dict[str, Any], rest_comment: list[str]) -> None:
     """Handle the ``prompt`` bot command.
 
     Args:
@@ -234,7 +246,7 @@ def handle_prompt_command(event: Dict[str, Any], rest_comment: List[str]) -> Non
     create_context_memory_window(event)
 
 
-def render_approval_commit_message(approved_files: List[str], include_suffix: bool = False) -> str:
+def render_approval_commit_message(approved_files: list[str], include_suffix: bool = False) -> str:
     """Render a wrapped commit message for approved AI-generated files.
 
     Args:
@@ -256,7 +268,7 @@ def render_approval_commit_message(approved_files: List[str], include_suffix: bo
     return textwrap.fill(message, width=72, break_long_words=False, break_on_hyphens=False)
 
 
-def build_approval_commit_message(approved_files: List[str]) -> str:
+def build_approval_commit_message(approved_files: list[str]) -> str:
     """Build a commit message for approved AI-generated file changes.
 
     Args:
@@ -270,7 +282,7 @@ def build_approval_commit_message(approved_files: List[str]) -> str:
     if len(commit_message) <= 1000:
         return commit_message
 
-    selected_files: List[str] = []
+    selected_files: list[str] = []
     for file_name in approved_files:
         candidate_files = selected_files + [file_name]
         candidate_message = render_approval_commit_message(candidate_files, include_suffix=True)
@@ -282,7 +294,7 @@ def build_approval_commit_message(approved_files: List[str]) -> str:
     return render_approval_commit_message(selected_files, include_suffix=True)
 
 
-def handle_approve_command(event: Dict[str, Any], rest_comment: List[str]) -> None:
+def handle_approve_command(event: dict[str, Any], rest_comment: list[str]) -> None:
     """Handle the ``approve`` bot command.
 
     Args:
