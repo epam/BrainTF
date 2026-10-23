@@ -133,27 +133,25 @@ def handle_show_command(event: dict[str, Any], rest_comment: list[str]) -> None:
 
     if rest_comment:
 
-        fixed_files: list[str] = get_file_names_from_s3_directory(config.artifacts_bucket, path_to_files_for_approval)
+        available_files: list[str] = get_file_names_from_s3_directory(config.artifacts_bucket,
+                                                                      path_to_files_for_approval)
 
-        wrong_files = [file_name for file_name in rest_comment if file_name not in fixed_files]
+        wrong_files = [file_name for file_name in rest_comment if file_name not in available_files]
 
         if wrong_files:
-            logger.warning(f'Requested files are not available to show: {wrong_files}.')
+            logger.warning(f"Files requested to show are not available in s3 bucket: {wrong_files}")
             unavailable_files = ', '.join(wrong_files)
             add_award_to_note(event, FAILURE)
-            post_comment(
-                event,
-                UNAVAILABLE_APPROVAL_FILES_MESSAGE.format(unavailable_files=unavailable_files)
-            )
+            post_comment(event, UNAVAILABLE_APPROVAL_FILES_MESSAGE.format(unavailable_files=unavailable_files))
         else:
 
             add_award_to_note(event, SUCCESS)
 
-            files_names_with_content: list[tuple[str, str]] = get_particular_files_from_s3_directory(
+            file_names_with_content: list[tuple[str, str]] = get_particular_files_from_s3_directory(
                 config.artifacts_bucket, path_to_files_for_approval, rest_comment
             )
 
-            for file_name, file_content in files_names_with_content:
+            for file_name, file_content in file_names_with_content:
                 show_message += f"Corrected file `{file_name}`\n```hcl\n{file_content}\n```\n\n"
 
             post_comment(event, SHOW_FILES_MESSAGE.format(files_list=show_message))
@@ -162,22 +160,22 @@ def handle_show_command(event: dict[str, Any], rest_comment: list[str]) -> None:
 
         add_award_to_note(event, SUCCESS)
 
-        files_names_with_content: list[tuple[str, str]] = get_all_files_from_s3_directory(
+        file_names_with_content: list[tuple[str, str]] = get_all_files_from_s3_directory(
             config.artifacts_bucket, path_to_files_for_approval
         )
 
-        logger.debug(f"Corrected files from S3 artifacts with its content: {files_names_with_content}")
+        logger.debug(f"Corrected files from S3 artifacts with its content: {file_names_with_content}")
 
-        if files_names_with_content:
+        if file_names_with_content:
 
-            for file_name, file_content in files_names_with_content:
+            for file_name, file_content in file_names_with_content:
                 show_message += f"Corrected file `{file_name}`\n```hcl\n{file_content}\n```\n\n"
 
             post_comment(event, SHOW_FILES_MESSAGE.format(files_list=show_message))
 
         else:
+            logger.warning('No corrected files found in artifact s3 bucket')
             post_comment(event, NO_APPROVAL_FILES_MESSAGE)
-            logger.debug('No artifact files found.')
 
 
 def handle_bot_commands(event: dict[str, Any], rest_comment: list[str]) -> None:
