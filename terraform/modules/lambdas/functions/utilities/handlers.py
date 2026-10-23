@@ -117,6 +117,22 @@ def handle_list_command(event: dict[str, Any]) -> None:
     post_comment(event, LIST_FILES_MESSAGE.format(files_list=files_list))
 
 
+def render_show_message(files_with_content: list[tuple[str, str]]) -> str:
+    """Render the ``show`` command comment for the given artifact files.
+
+    Args:
+        files_with_content: Pairs of ``(file_name, file_content)`` to display.
+
+    Returns:
+        The comment body with each file rendered as an ``hcl`` code block.
+    """
+    files_list = ''.join(
+        f"Corrected file `{file_name}`\n```hcl\n{file_content}\n```\n\n"
+        for file_name, file_content in files_with_content
+    )
+    return SHOW_FILES_MESSAGE.format(files_list=files_list)
+
+
 def handle_show_command(event: dict[str, Any], rest_comment: list[str]) -> None:
     """Handle the ``show`` bot command.
 
@@ -128,8 +144,6 @@ def handle_show_command(event: dict[str, Any], rest_comment: list[str]) -> None:
 
     merge_or_pull_req_id = event["metadata"]["merge_or_pull_req_id"]
     path_to_files_for_approval = f"{config.path_to_artifacts}/{merge_or_pull_req_id}/"
-
-    show_message: str = ''
 
     if rest_comment:
 
@@ -151,10 +165,7 @@ def handle_show_command(event: dict[str, Any], rest_comment: list[str]) -> None:
                 config.artifacts_bucket, path_to_files_for_approval, rest_comment
             )
 
-            for file_name, file_content in file_names_with_content:
-                show_message += f"Corrected file `{file_name}`\n```hcl\n{file_content}\n```\n\n"
-
-            post_comment(event, SHOW_FILES_MESSAGE.format(files_list=show_message))
+            post_comment(event, render_show_message(file_names_with_content))
 
     else:
 
@@ -168,10 +179,7 @@ def handle_show_command(event: dict[str, Any], rest_comment: list[str]) -> None:
 
         if file_names_with_content:
 
-            for file_name, file_content in file_names_with_content:
-                show_message += f"Corrected file `{file_name}`\n```hcl\n{file_content}\n```\n\n"
-
-            post_comment(event, SHOW_FILES_MESSAGE.format(files_list=show_message))
+            post_comment(event, render_show_message(file_names_with_content))
 
         else:
             logger.warning('No corrected files found in artifact s3 bucket')
