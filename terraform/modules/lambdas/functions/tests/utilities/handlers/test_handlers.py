@@ -90,6 +90,71 @@ def test_handle_comment_commands_webhook_bot_list_context_no_files(patched_envir
     assert 'Prepared artifact file list: `demo/broken/main.tf`\n\n`demo/broken/validate.tf`.' in caplog.text
 
 
+def test_handle_comment_commands_webhook_bot_show_context(
+        patched_environment, webhook_event_command_bot_list_github, caplog, monkeypatch):
+    from utilities import handlers
+
+    show_calls = []
+    webhook_event_command_bot_list_github['metadata']['comment_text'] = (
+        'bot show demo/broken/main.tf demo/broken/validate.tf'
+    )
+    monkeypatch.setattr(
+        "utilities.handlers.handle_show_command",
+        lambda event, rest_comment: show_calls.append((event, rest_comment))
+    )
+
+    handlers.handle_comment_commands(webhook_event_command_bot_list_github)
+
+    assert show_calls == [(
+        webhook_event_command_bot_list_github,
+        ['demo/broken/main.tf', 'demo/broken/validate.tf']
+    )]
+    assert 'Bot context found in the comment.' in caplog.text
+    assert 'Show context found in the comment.' in caplog.text
+
+
+def test_handle_comment_commands_webhook_bot_prompt_context(
+        patched_environment, webhook_event_command_bot_list_github, caplog, monkeypatch):
+    from utilities import handlers
+
+    prompt_calls = []
+    award_calls = []
+    webhook_event_command_bot_list_github['metadata']['comment_text'] = 'bot prompt fix this'
+    monkeypatch.setattr(
+        "utilities.handlers.add_award_to_note",
+        lambda event, award: award_calls.append((event, award))
+    )
+    monkeypatch.setattr(
+        "utilities.handlers.handle_prompt_command",
+        lambda event, rest_comment: prompt_calls.append((event, rest_comment))
+    )
+
+    handlers.handle_comment_commands(webhook_event_command_bot_list_github)
+
+    assert prompt_calls == [(webhook_event_command_bot_list_github, ['fix', 'this'])]
+    assert award_calls == [(webhook_event_command_bot_list_github, handlers.SUCCESS)]
+    assert 'Bot context found in the comment.' in caplog.text
+    assert 'Prompt context found in the comment.' in caplog.text
+
+
+def test_handle_comment_commands_webhook_bot_without_command(
+        patched_environment, webhook_event_command_bot_list_github, caplog, monkeypatch):
+    from utilities import handlers
+
+    award_calls = []
+    webhook_event_command_bot_list_github['metadata']['comment_text'] = 'bot'
+    monkeypatch.setattr(
+        "utilities.handlers.add_award_to_note",
+        lambda event, award: award_calls.append((event, award))
+    )
+
+    handlers.handle_comment_commands(webhook_event_command_bot_list_github)
+
+    assert award_calls == [(webhook_event_command_bot_list_github, handlers.FAILURE)]
+    assert 'Bot context found in the comment.' in caplog.text
+    assert 'No specific bot command provided.' in caplog.text
+
+
 def test_handle_show_command_specific_files(patched_environment, webhook_event_command_bot_list_github, monkeypatch):
     from utilities import handlers
 
