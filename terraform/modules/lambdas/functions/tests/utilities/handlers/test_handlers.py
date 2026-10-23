@@ -660,3 +660,99 @@ def test_handle_approve_command_specific_deletes_artifacts_after_commit(patched_
     ]
     assert delete_calls == [('artifacts_bucket', 'artifacts/32/')]
     assert award_calls == [(webhook_event_command_bot_approve_all_context_github, handlers.SUCCESS)]
+
+
+def test_handle_bot_commands_dispatches_diff(patched_environment, webhook_event_command_bot_list_github, monkeypatch):
+    from utilities import handlers
+
+    diff_calls = []
+    monkeypatch.setattr("utilities.handlers.handle_diff_command", lambda event, rest: diff_calls.append(rest))
+
+    handlers.handle_bot_commands(webhook_event_command_bot_list_github, ['diff', 'demo/broken/main.tf'])
+
+    assert diff_calls == [['demo/broken/main.tf']]
+
+
+def test_handle_diff_command_specific_files(patched_environment, webhook_event_command_bot_list_github, monkeypatch):
+    from utilities import handlers
+
+    comments = []
+    award_calls = []
+
+    monkeypatch.setattr("utilities.handlers.add_award_to_note", lambda event, award: award_calls.append(award))
+    monkeypatch.setattr(
+        "utilities.handlers.get_file_names_from_s3_directory",
+        lambda _bucket_name, _path: ['demo/broken/main.tf', 'demo/broken/gone.tf']
+    )
+    monkeypatch.setattr(
+        "utilities.handlers.get_particular_files_from_s3_directory",
+        lambda _bucket_name, _path, _names: [
+            ('demo/broken/main.tf', 'a = 1\nb = 3\n'),
+            ('demo/broken/gone.tf', 'x = 1\n'),
+        ]
+    )
+    monkeypatch.setattr(
+        "utilities.handlers.get_files_content_from_repo",
+        lambda _event, _paths: {'demo/broken/main.tf': 'a = 1\nb = 2\n', 'demo/broken/gone.tf': None}
+    )
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda event, body: comments.append(body))
+
+    handlers.handle_diff_command(
+        webhook_event_command_bot_list_github, ['demo/broken/main.tf', 'demo/broken/gone.tf']
+    )
+
+    assert len(comments) == 1
+    assert (
+        'Diff for corrected file `demo/broken/main.tf`\n```diff\n'
+        '--- a/demo/broken/main.tf\n+++ b/demo/broken/main.tf\n'
+        '@@ -1,2 +1,2 @@\n a = 1\n-b = 2\n+b = 3\n```'
+    ) in comments[0]
+    assert 'File `demo/broken/gone.tf` does not exist in the branch.' in comments[0]
+    assert award_calls == [handlers.SUCCESS]
+
+
+def test_handle_diff_command_no_differences(patched_environment, webhook_event_command_bot_list_github, monkeypatch):
+    from utilities import handlers
+
+    comments = []
+    monkeypatch.setattr("utilities.handlers.add_award_to_note", lambda event, award: None)
+    monkeypatch.setattr(
+        "utilities.handlers.get_all_files_from_s3_directory",
+        lambda _bucket_name, _path: [('demo/broken/main.tf', 'same')]
+    )
+    monkeypatch.setattr("utilities.handlers.get_files_content_from_repo", lambda _e, _p: {'demo/broken/main.tf': 'same'})
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda event, body: comments.append(body))
+
+    handlers.handle_diff_command(webhook_event_command_bot_list_github, [])
+
+    assert '```diff\nNo differences.\n```' in comments[0]
+
+
+def test_handle_diff_command_reports_unavailable_files(patched_environment,
+                                                        webhook_event_command_bot_list_github,
+                                                        monkeypatch):
+    from utilities import handlers
+
+    comments = []
+    award_calls = []
+    monkeypatch.setattr("utilities.handlers.add_award_to_note", lambda event, award: award_calls.append(award))
+    monkeypatch.setattr("utilities.handlers.get_file_names_from_s3_directory", lambda _b, _p: ['demo/broken/main.tf'])
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda event, body: comments.append(body))
+
+    handlers.handle_diff_command(webhook_event_command_bot_list_github, ['demo/broken/missing.tf'])
+
+    assert 'demo/broken/missing.tf' in comments[0]
+    assert award_calls == [handlers.FAILURE]
+
+
+def test_handle_diff_command_reports_no_files(patched_environment, webhook_event_command_bot_list_github, monkeypatch):
+    from utilities import handlers
+
+    comments = []
+    monkeypatch.setattr("utilities.handlers.add_award_to_note", lambda event, award: None)
+    monkeypatch.setattr("utilities.handlers.get_all_files_from_s3_directory", lambda _b, _p: [])
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda event, body: comments.append(body))
+
+    handlers.handle_diff_command(webhook_event_command_bot_list_github, [])
+
+    assert 'Not available' in comments[0]

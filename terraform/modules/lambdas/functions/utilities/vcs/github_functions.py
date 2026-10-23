@@ -398,3 +398,38 @@ def get_all_tf_files_from_paths_list_github(
                 logger.info(f"Terraform file {item.path} fetched from GitHub...")
                 tf_files.append((item.path, item.decoded_content.decode("utf-8")))
     return tf_files
+
+
+def get_files_content_from_repo_github(
+        event: dict[str, Any],
+        file_paths: list[str]
+) -> dict[str, str | None]:
+    """Fetch the current content of files from the pull request branch in GitHub.
+
+    Args:
+        event (dict[str, Any]): Event metadata containing repository and pull request
+            information.
+            Mandatory keys include:
+            - 'metadata':
+                - 'repo_id_or_name' (int | str): The GitHub repository ID or full name.
+                - 'merge_or_pull_req_id' (int): The pull request number.
+        file_paths (list[str]): Paths to files relative to the repository root.
+
+    Returns:
+        dict[str, str | None]: Mapping of each path to its decoded UTF-8 content, or
+            ``None`` when the file does not exist on the branch.
+    """
+    pull = _get_pull_request(
+        event['metadata']['repo_id_or_name'], event['metadata']['merge_or_pull_req_id'], "files content"
+    )
+    repo = _get_github_client(config.vcs_api_token).get_repo(event['metadata']['repo_id_or_name'])
+    branch = pull.head.ref
+
+    contents: dict[str, str | None] = {}
+    for path in file_paths:
+        try:
+            contents[path] = repo.get_contents(path, ref=branch).decoded_content.decode("utf-8")
+        except UnknownObjectException:
+            logger.warning(f"File does not exist in repo on branch '{branch}': {path}")
+            contents[path] = None
+    return contents

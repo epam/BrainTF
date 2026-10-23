@@ -1,3 +1,4 @@
+import difflib
 import textwrap
 from typing import Any
 
@@ -15,6 +16,7 @@ from utilities.exceptions import InvalidEventMetadata
 from utilities.logger import logger
 from utilities.messages import (
     AI_RESPONSE_MESSAGE,
+    DIFF_FILES_MESSAGE,
     FILES_NOT_IN_REPO_MESSAGE,
     LIST_FILES_MESSAGE,
     NO_APPROVAL_FILES_MESSAGE,
@@ -28,6 +30,7 @@ from utilities.vcs import (
     add_award_to_note,
     check_files_exist_in_repo,
     commit_files_to_branch,
+    get_files_content_from_repo,
     post_comment,
     post_help_message,
 )
@@ -190,6 +193,80 @@ def handle_show_command(event: dict[str, Any], rest_comment: list[str]) -> None:
             post_comment(event, NO_APPROVAL_FILES_MESSAGE)
 
 
+def render_diff_message(files_with_content: list[tuple[str, str]], repo_contents: dict[str, str | None]) -> str:
+    """Render the ``diff`` command comment for the given artifact files.
+
+    Args:
+        files_with_content: Pairs of ``(file_name, corrected_content)`` from the S3 artifacts.
+        repo_contents: Current branch content per file name, ``None`` if the file is missing.
+
+    Returns:
+        The comment body with each file rendered as a ``diff`` code block, which VCS
+        markdown colors (red for removed lines, green for added ones).
+    """
+    rendered_files: list[str] = []
+    for file_name, corrected_content in files_with_content:
+        current_content = repo_contents.get(file_name)
+        if current_content is None:
+            rendered_files.append(f"File `{file_name}` does not exist in the branch.\n\n")
+            continue
+        diff_lines = list(difflib.unified_diff(
+            current_content.splitlines(),
+            corrected_content.splitlines(),
+            fromfile=f"a/{file_name}",
+            tofile=f"b/{file_name}",
+            lineterm='',
+        ))
+        diff_text = '\n'.join(diff_lines) if diff_lines else 'No differences.'
+        rendered_files.append(f"Diff for corrected file `{file_name}`\n```diff\n{diff_text}\n```\n\n")
+    return DIFF_FILES_MESSAGE.format(files_list=''.join(rendered_files))
+
+
+def handle_diff_command(event: dict[str, Any], rest_comment: list[str]) -> None:
+    """Handle the ``diff`` bot command.
+
+    Note:
+        Like ``show``, ``diff`` is informational, so having no artifacts is not an error (``SUCCESS``).
+
+    Args:
+        event: Event payload used to locate the current artifact directory and the repository.
+        rest_comment: File names supplied by the user.
+    """
+    logger.info('Processing diff command...')
+
+    merge_or_pull_req_id = event["metadata"]["merge_or_pull_req_id"]
+    path_to_files_for_approval = f"{config.path_to_artifacts}/{merge_or_pull_req_id}/"
+
+    if rest_comment:
+        available_files: list[str] = get_file_names_from_s3_directory(config.artifacts_bucket,
+                                                                      path_to_files_for_approval)
+        wrong_files = [file_name for file_name in rest_comment if file_name not in available_files]
+
+        if wrong_files:
+            logger.warning(f"Files requested to diff are not available in s3 bucket: {wrong_files}")
+            add_award_to_note(event, FAILURE)
+            post_comment(event, UNAVAILABLE_APPROVAL_FILES_MESSAGE.format(unavailable_files=', '.join(wrong_files)))
+            return
+
+        file_names_with_content: list[tuple[str, str]] = get_particular_files_from_s3_directory(
+            config.artifacts_bucket, path_to_files_for_approval, rest_comment
+        )
+    else:
+        file_names_with_content = get_all_files_from_s3_directory(
+            config.artifacts_bucket, path_to_files_for_approval
+        )
+
+    add_award_to_note(event, SUCCESS)
+
+    if not file_names_with_content:
+        logger.warning('No corrected files found in artifact s3 bucket')
+        post_comment(event, NO_APPROVAL_FILES_MESSAGE)
+        return
+
+    repo_contents = get_files_content_from_repo(event, [file_name for file_name, _ in file_names_with_content])
+    post_comment(event, render_diff_message(file_names_with_content, repo_contents))
+
+
 def handle_bot_commands(event: dict[str, Any], rest_comment: list[str]) -> None:
     """Route a parsed bot command to the appropriate handler.
 
@@ -220,6 +297,10 @@ def handle_bot_commands(event: dict[str, Any], rest_comment: list[str]) -> None:
         elif command == 'show':
             logger.info('Show context found in the comment.')
             handle_show_command(event, rest_comment)
+
+        elif command == 'diff':
+            logger.info('Diff context found in the comment.')
+            handle_diff_command(event, rest_comment)
         else:
             logger.info(f'Unknown bot command: {command}')
             add_award_to_note(event, FAILURE)
