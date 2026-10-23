@@ -136,6 +136,10 @@ def render_show_message(files_with_content: list[tuple[str, str]]) -> str:
 def handle_show_command(event: dict[str, Any], rest_comment: list[str]) -> None:
     """Handle the ``show`` bot command.
 
+    Note:
+        ``show`` is informational, so having no artifacts is not an error (``SUCCESS``).
+        Unlike ``handle_approve_command``, which reacts with ``FAILURE`` in that case.
+
     Args:
         rest_comment: File names supplied by the user.
         event: Event payload used to locate the current artifact directory.
