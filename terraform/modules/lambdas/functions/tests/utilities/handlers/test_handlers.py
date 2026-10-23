@@ -24,21 +24,21 @@ def _patch_specific_approval_dependencies(monkeypatch, comments, commit_calls, a
 
 def test_handle_help_command(patched_environment, webhook_event_dummy, caplog, monkeypatch):
     from utilities import handlers
-    monkeypatch.setattr("utilities.handlers.post_help_message", lambda x: {})
+    monkeypatch.setattr("utilities.handlers.post_help_message", lambda _x: {})
     handlers.handle_help_command(webhook_event_dummy)
     assert 'Processing help command...' in caplog.text
 
 
 def test_handle_comment_commands_dummy_webhook(patched_environment, webhook_event_dummy, caplog, monkeypatch):
     from utilities import handlers
-    monkeypatch.setattr("utilities.handlers.post_comment", lambda x, y: {})
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda _x, _y: {})
     handlers.handle_comment_commands(webhook_event_dummy)
     assert 'No actionable context found in the comment.' in caplog.text
 
 
 def test_handle_comment_commands_webhook_help_context(patched_environment, webhook_event_command_help_github, caplog, monkeypatch):
     from utilities import handlers
-    monkeypatch.setattr("utilities.handlers.post_help_message", lambda x: {})
+    monkeypatch.setattr("utilities.handlers.post_help_message", lambda _x: {})
 
     def mock_add_award_to_note(note_id, award_name):
         return f"Mocked award '{award_name}' added to note {note_id}"
@@ -51,7 +51,7 @@ def test_handle_comment_commands_webhook_help_context(patched_environment, webho
 def test_handle_comment_commands_webhook_help_with_rest_context(patched_environment, webhook_event_command_help_rest_context_github, caplog,
                                                                 monkeypatch):
     from utilities import handlers
-    monkeypatch.setattr("utilities.handlers.post_comment", lambda x, y: {})
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda _x, _y: {})
 
     def mock_add_award_to_note(note_id, award_name):
         return f"Mocked award '{award_name}' added to note {note_id}"
@@ -76,7 +76,7 @@ def test_handle_comment_commands_webhook_bot_list_context(patched_environment, w
 def test_handle_comment_commands_webhook_bot_list_context_no_files(patched_environment, webhook_event_command_bot_list_github, caplog,
                                                                    monkeypatch):
     from utilities import handlers
-    monkeypatch.setattr("utilities.handlers.post_comment", lambda x, y: {})
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda _x, _y: {})
 
     def mock_get_file_names_from_s3_directory(_bucket_name: str, _path_to_files: str) -> list[str]:
         return ['demo/broken/main.tf', 'demo/broken/validate.tf']
@@ -167,11 +167,11 @@ def test_handle_show_command_specific_files(patched_environment, webhook_event_c
     )
     monkeypatch.setattr(
         "utilities.handlers.get_file_names_from_s3_directory",
-        lambda bucket_name, path_to_files: ['demo/broken/main.tf', 'demo/broken/validate.tf']
+        lambda _bucket_name, _path_to_files: ['demo/broken/main.tf', 'demo/broken/validate.tf']
     )
     monkeypatch.setattr(
         "utilities.handlers.get_particular_files_from_s3_directory",
-        lambda bucket_name, path_to_files, file_names: [
+        lambda _bucket_name, _path_to_files, _file_names: [
             ('demo/broken/main.tf', 'resource "aws_instance" "example" {}')
         ]
     )
@@ -215,11 +215,11 @@ def test_handle_show_command_reports_unavailable_files(patched_environment,
     )
     monkeypatch.setattr(
         "utilities.handlers.get_file_names_from_s3_directory",
-        lambda bucket_name, path_to_files: ['demo/broken/main.tf']
+        lambda _bucket_name, _path_to_files: ['demo/broken/main.tf']
     )
     monkeypatch.setattr(
         "utilities.handlers.get_particular_files_from_s3_directory",
-        lambda bucket_name, path_to_files, file_names: particular_files_calls.append(file_names)
+        lambda _bucket_name, _path_to_files, file_names: particular_files_calls.append(file_names)
     )
     monkeypatch.setattr("utilities.handlers.post_comment", lambda event, body: comments.append(body))
 
@@ -251,7 +251,7 @@ def test_handle_show_command_all_files(patched_environment, webhook_event_comman
     )
     monkeypatch.setattr(
         "utilities.handlers.get_all_files_from_s3_directory",
-        lambda bucket_name, path_to_files: [
+        lambda _bucket_name, _path_to_files: [
             ('demo/broken/main.tf', 'main content'),
             ('demo/broken/validate.tf', 'validate content')
         ]
@@ -288,7 +288,7 @@ def test_handle_show_command_reports_no_files(patched_environment, webhook_event
     )
     monkeypatch.setattr(
         "utilities.handlers.get_all_files_from_s3_directory",
-        lambda bucket_name, path_to_files: []
+        lambda _bucket_name, _path_to_files: []
     )
     monkeypatch.setattr("utilities.handlers.post_comment", lambda event, body: comments.append(body))
 
@@ -385,7 +385,7 @@ def test_handle_prompt_command_persists_metadata_when_missing(monkeypatch):
     monkeypatch.setattr("utilities.handlers.get_context_memory_window", lambda _event: [])
     monkeypatch.setattr(
         "utilities.handlers.generate_response_ai",
-        lambda messages: {
+        lambda _messages: {
             "message": "done",
             "tokens": {
                 "prompt_tokens": 1,
@@ -420,9 +420,9 @@ def test_handle_approve_command_all_uses_generated_commit_message(patched_enviro
     )
     monkeypatch.setattr(
         "utilities.handlers.get_all_files_from_s3_directory",
-        lambda bucket_name, path_to_files: [('demo/broken/main.tf', 'content')]
+        lambda _bucket_name, _path_to_files: [('demo/broken/main.tf', 'content')]
     )
-    monkeypatch.setattr("utilities.handlers.check_files_exist_in_repo", lambda event, files: True)
+    monkeypatch.setattr("utilities.handlers.check_files_exist_in_repo", lambda _event, _files: True)
     monkeypatch.setattr(
         "utilities.handlers.commit_files_to_branch",
         lambda event, files, commit_message: commit_calls.append((files, commit_message))
@@ -459,9 +459,9 @@ def test_handle_approve_command_all_stops_when_repo_check_fails(patched_environm
     )
     monkeypatch.setattr(
         "utilities.handlers.get_all_files_from_s3_directory",
-        lambda bucket_name, path_to_files: [('demo/broken/main.tf', 'content')]
+        lambda _bucket_name, _path_to_files: [('demo/broken/main.tf', 'content')]
     )
-    monkeypatch.setattr("utilities.handlers.check_files_exist_in_repo", lambda event, files: False)
+    monkeypatch.setattr("utilities.handlers.check_files_exist_in_repo", lambda _event, _files: False)
     monkeypatch.setattr(
         "utilities.handlers.commit_files_to_branch",
         lambda event, files, commit_message: commit_calls.append((files, commit_message))
@@ -496,7 +496,7 @@ def test_handle_approve_command_all_reports_no_available_files(patched_environme
     )
     monkeypatch.setattr(
         "utilities.handlers.get_all_files_from_s3_directory",
-        lambda bucket_name, path_to_files: []
+        lambda _bucket_name, _path_to_files: []
     )
     monkeypatch.setattr(
         "utilities.handlers.commit_files_to_branch",
@@ -532,12 +532,12 @@ def test_handle_approve_command_specific_checks_repo_before_commit(patched_envir
     )
     monkeypatch.setattr(
         "utilities.handlers.get_file_names_from_s3_directory",
-        lambda bucket_name, path_to_files: ['demo/broken/main.tf']
+        lambda _bucket_name, _path_to_files: ['demo/broken/main.tf']
     )
-    monkeypatch.setattr("utilities.handlers.check_files_exist_in_repo", lambda event, files: False)
+    monkeypatch.setattr("utilities.handlers.check_files_exist_in_repo", lambda _event, _files: False)
     monkeypatch.setattr(
         "utilities.handlers.get_particular_files_from_s3_directory",
-        lambda bucket_name, path_to_files, file_names: [('demo/broken/main.tf', 'content')]
+        lambda _bucket_name, _path_to_files, _file_names: [('demo/broken/main.tf', 'content')]
     )
     monkeypatch.setattr(
         "utilities.handlers.commit_files_to_branch",
@@ -569,7 +569,7 @@ def test_handle_approve_command_specific_reports_single_unavailable_file(
     _patch_specific_approval_dependencies(monkeypatch, comments, commit_calls, award_calls)
     monkeypatch.setattr(
         "utilities.handlers.get_file_names_from_s3_directory",
-        lambda bucket_name, path_to_files: ['demo/broken/main.tf']
+        lambda _bucket_name, _path_to_files: ['demo/broken/main.tf']
     )
 
     handlers.handle_approve_command(
@@ -599,7 +599,7 @@ def test_handle_approve_command_specific_reports_all_unavailable_files(
     _patch_specific_approval_dependencies(monkeypatch, comments, commit_calls, award_calls)
     monkeypatch.setattr(
         "utilities.handlers.get_file_names_from_s3_directory",
-        lambda bucket_name, path_to_files: ['demo/broken/main.tf']
+        lambda _bucket_name, _path_to_files: ['demo/broken/main.tf']
     )
 
     handlers.handle_approve_command(
@@ -634,12 +634,12 @@ def test_handle_approve_command_specific_deletes_artifacts_after_commit(patched_
     )
     monkeypatch.setattr(
         "utilities.handlers.get_file_names_from_s3_directory",
-        lambda bucket_name, path_to_files: ['demo/broken/main.tf', 'demo/broken/validate.tf']
+        lambda _bucket_name, _path_to_files: ['demo/broken/main.tf', 'demo/broken/validate.tf']
     )
-    monkeypatch.setattr("utilities.handlers.check_files_exist_in_repo", lambda event, files: True)
+    monkeypatch.setattr("utilities.handlers.check_files_exist_in_repo", lambda _event, _files: True)
     monkeypatch.setattr(
         "utilities.handlers.get_particular_files_from_s3_directory",
-        lambda bucket_name, path_to_files, file_names: [('demo/broken/main.tf', 'content')]
+        lambda _bucket_name, _path_to_files, _file_names: [('demo/broken/main.tf', 'content')]
     )
     monkeypatch.setattr(
         "utilities.handlers.commit_files_to_branch",
