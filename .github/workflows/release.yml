@@ -12,6 +12,12 @@ on:
       - '*.yaml'
       - '*.yml'
 
+# Least privilege: only what semantic-release needs
+permissions:
+  contents: write       # create the tag and the GitHub Release
+  issues: write         # comments added by @semantic-release/github
+  pull-requests: write  # comments added by @semantic-release/github
+
 jobs:
   release:
     name: Release
