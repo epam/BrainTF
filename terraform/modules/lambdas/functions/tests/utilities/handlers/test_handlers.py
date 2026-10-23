@@ -304,7 +304,7 @@ def test_handle_show_command_reports_no_files(patched_environment, webhook_event
     assert award_calls == [(webhook_event_command_bot_list_github, handlers.SUCCESS)]
 
 
-def test_handle_comment_commands_webhook_bot_approve_context_mising(patched_environment, 
+def test_handle_comment_commands_webhook_bot_approve_context_missing(patched_environment,
         webhook_event_command_bot_approve_context_missing_all_github, caplog,
         monkeypatch):
     from utilities import handlers
