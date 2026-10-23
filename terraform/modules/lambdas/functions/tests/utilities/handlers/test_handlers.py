@@ -75,6 +75,153 @@ def test_handle_comment_commands_webhook_bot_list_context_no_files(patched_envir
     assert 'Prepared artifact file list: `demo/broken/main.tf`\n\n`demo/broken/validate.tf`.' in caplog.text
 
 
+def test_handle_show_command_specific_files(patched_environment, webhook_event_command_bot_list_github, monkeypatch):
+    from utilities import handlers
+
+    comments = []
+    award_calls = []
+
+    monkeypatch.setattr(
+        "utilities.handlers.add_award_to_note",
+        lambda event, award: award_calls.append((event, award))
+    )
+    monkeypatch.setattr(
+        "utilities.handlers.get_file_names_from_s3_directory",
+        lambda bucket_name, path_to_files: ['demo/broken/main.tf', 'demo/broken/validate.tf']
+    )
+    monkeypatch.setattr(
+        "utilities.handlers.get_particular_files_from_s3_directory",
+        lambda bucket_name, path_to_files, file_names: [
+            ('demo/broken/main.tf', 'resource "aws_instance" "example" {}')
+        ]
+    )
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda event, body: comments.append(body))
+
+    handlers.handle_show_command(
+        webhook_event_command_bot_list_github,
+        ['demo/broken/main.tf']
+    )
+
+    assert comments == [
+        ':information_source: AI Bot message\n\n'
+        '---\n\n'
+        'Content of files corrected by AI bot\n\n'
+        '---\n\n'
+        '<details>\n'
+        '<summary>Show content of files corrected by AI bot</summary>\n\n'
+        'Corrected file `demo/broken/main.tf`\n'
+        '```hcl\n'
+        'resource "aws_instance" "example" {}\n'
+        '```\n\n\n'
+        '</details>\n\n'
+        '---\n'
+    ]
+    assert award_calls == [(webhook_event_command_bot_list_github, handlers.SUCCESS)]
+
+
+def test_handle_show_command_reports_unavailable_files(patched_environment,
+                                                        webhook_event_command_bot_list_github,
+                                                        monkeypatch):
+    from utilities import handlers
+
+    comments = []
+    award_calls = []
+    particular_files_calls = []
+
+    monkeypatch.setattr(
+        "utilities.handlers.add_award_to_note",
+        lambda event, award: award_calls.append((event, award))
+    )
+    monkeypatch.setattr(
+        "utilities.handlers.get_file_names_from_s3_directory",
+        lambda bucket_name, path_to_files: ['demo/broken/main.tf']
+    )
+    monkeypatch.setattr(
+        "utilities.handlers.get_particular_files_from_s3_directory",
+        lambda bucket_name, path_to_files, file_names: particular_files_calls.append(file_names)
+    )
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda event, body: comments.append(body))
+
+    handlers.handle_show_command(
+        webhook_event_command_bot_list_github,
+        ['demo/broken/missing.tf']
+    )
+
+    assert comments == [
+        ':information_source: AI Bot message\n\n'
+        '---\n'
+        '> :no_entry: Not available\\\n'
+        '> The following files are not available for approval: **demo/broken/missing.tf**.\\\n'
+        '> Comment `bot list` to see corrected files currently available for approval.'
+    ]
+    assert particular_files_calls == []
+    assert award_calls == [(webhook_event_command_bot_list_github, handlers.FAILURE)]
+
+
+def test_handle_show_command_all_files(patched_environment, webhook_event_command_bot_list_github, monkeypatch):
+    from utilities import handlers
+
+    comments = []
+    award_calls = []
+
+    monkeypatch.setattr(
+        "utilities.handlers.add_award_to_note",
+        lambda event, award: award_calls.append((event, award))
+    )
+    monkeypatch.setattr(
+        "utilities.handlers.get_all_files_from_s3_directory",
+        lambda bucket_name, path_to_files: [
+            ('demo/broken/main.tf', 'main content'),
+            ('demo/broken/validate.tf', 'validate content')
+        ]
+    )
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda event, body: comments.append(body))
+
+    handlers.handle_show_command(webhook_event_command_bot_list_github, [])
+
+    assert comments == [
+        ':information_source: AI Bot message\n\n'
+        '---\n\n'
+        'Content of files corrected by AI bot\n\n'
+        '---\n\n'
+        '<details>\n'
+        '<summary>Show content of files corrected by AI bot</summary>\n\n'
+        'Corrected file `demo/broken/main.tf`\n```hcl\nmain content\n```\n\n'
+        'Corrected file `demo/broken/validate.tf`\n```hcl\nvalidate content\n```\n\n\n'
+        '</details>\n\n'
+        '---\n'
+    ]
+    assert award_calls == [(webhook_event_command_bot_list_github, handlers.SUCCESS)]
+
+
+def test_handle_show_command_reports_no_files(patched_environment, webhook_event_command_bot_list_github, monkeypatch):
+    from utilities import handlers
+
+    comments = []
+    award_calls = []
+
+    monkeypatch.setattr(
+        "utilities.handlers.add_award_to_note",
+        lambda event, award: award_calls.append((event, award))
+    )
+    monkeypatch.setattr(
+        "utilities.handlers.get_all_files_from_s3_directory",
+        lambda bucket_name, path_to_files: []
+    )
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda event, body: comments.append(body))
+
+    handlers.handle_show_command(webhook_event_command_bot_list_github, [])
+
+    assert comments == [
+        ':information_source: AI Bot message\n\n'
+        '---\n'
+        '> :no_entry: Not available\\\n'
+        '> There are no corrected files available for approval.\\\n'
+        '> Comment `bot list` to check available files.'
+    ]
+    assert award_calls == [(webhook_event_command_bot_list_github, handlers.SUCCESS)]
+
+
 def test_handle_comment_commands_webhook_bot_approve_context_mising(patched_environment, 
         webhook_event_command_bot_approve_context_missing_all_github, caplog,
         monkeypatch):
