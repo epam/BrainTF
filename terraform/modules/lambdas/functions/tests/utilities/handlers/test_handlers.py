@@ -1,20 +1,44 @@
+def _mock_post_comment(*_args):
+    return {}
+
+
+def _mock_add_award_to_note(note_id, award_name):
+    return f"Mocked award '{award_name}' added to note {note_id}"
+
+
+def _mock_empty_file_names(*_args):
+    return []
+
+
+def _patch_specific_approval_dependencies(monkeypatch, comments, commit_calls, award_calls):
+    monkeypatch.setattr(
+        "utilities.handlers.add_award_to_note",
+        lambda event, award: award_calls.append((event, award))
+    )
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda event, body: comments.append(body))
+    monkeypatch.setattr(
+        "utilities.handlers.commit_files_to_branch",
+        lambda event, files, commit_message: commit_calls.append((files, commit_message))
+    )
+
+
 def test_handle_help_command(patched_environment, webhook_event_dummy, caplog, monkeypatch):
     from utilities import handlers
-    monkeypatch.setattr("utilities.handlers.post_help_message", lambda x: {})
+    monkeypatch.setattr("utilities.handlers.post_help_message", lambda _x: {})
     handlers.handle_help_command(webhook_event_dummy)
     assert 'Processing help command...' in caplog.text
 
 
 def test_handle_comment_commands_dummy_webhook(patched_environment, webhook_event_dummy, caplog, monkeypatch):
     from utilities import handlers
-    monkeypatch.setattr("utilities.handlers.post_comment", lambda x, y: {})
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda _x, _y: {})
     handlers.handle_comment_commands(webhook_event_dummy)
     assert 'No actionable context found in the comment.' in caplog.text
 
 
 def test_handle_comment_commands_webhook_help_context(patched_environment, webhook_event_command_help_github, caplog, monkeypatch):
     from utilities import handlers
-    monkeypatch.setattr("utilities.handlers.post_help_message", lambda x: {})
+    monkeypatch.setattr("utilities.handlers.post_help_message", lambda _x: {})
 
     def mock_add_award_to_note(note_id, award_name):
         return f"Mocked award '{award_name}' added to note {note_id}"
@@ -27,7 +51,7 @@ def test_handle_comment_commands_webhook_help_context(patched_environment, webho
 def test_handle_comment_commands_webhook_help_with_rest_context(patched_environment, webhook_event_command_help_rest_context_github, caplog,
                                                                 monkeypatch):
     from utilities import handlers
-    monkeypatch.setattr("utilities.handlers.post_comment", lambda x, y: {})
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda _x, _y: {})
 
     def mock_add_award_to_note(note_id, award_name):
         return f"Mocked award '{award_name}' added to note {note_id}"
@@ -40,16 +64,9 @@ def test_handle_comment_commands_webhook_help_with_rest_context(patched_environm
 def test_handle_comment_commands_webhook_bot_list_context(patched_environment, webhook_event_command_bot_list_github, caplog,
                                                           monkeypatch):
     from utilities import handlers
-    monkeypatch.setattr("utilities.handlers.post_comment", lambda x, y: {})
-
-    def mock_add_award_to_note(note_id, award_name):
-        return f"Mocked award '{award_name}' added to note {note_id}"
-
-    def mock_get_file_names_from_s3_directory(bucket_name: str, path_to_files: str) -> list[str]:
-        return []
-
-    monkeypatch.setattr("utilities.handlers.add_award_to_note", mock_add_award_to_note)
-    monkeypatch.setattr("utilities.handlers.get_file_names_from_s3_directory", mock_get_file_names_from_s3_directory)
+    monkeypatch.setattr("utilities.handlers.post_comment", _mock_post_comment)
+    monkeypatch.setattr("utilities.handlers.add_award_to_note", _mock_add_award_to_note)
+    monkeypatch.setattr("utilities.handlers.get_file_names_from_s3_directory", _mock_empty_file_names)
     handlers.handle_comment_commands(webhook_event_command_bot_list_github)
     assert 'Bot context found in the comment.' in caplog.text
     assert 'Processing list command...' in caplog.text
@@ -59,15 +76,13 @@ def test_handle_comment_commands_webhook_bot_list_context(patched_environment, w
 def test_handle_comment_commands_webhook_bot_list_context_no_files(patched_environment, webhook_event_command_bot_list_github, caplog,
                                                                    monkeypatch):
     from utilities import handlers
-    monkeypatch.setattr("utilities.handlers.post_comment", lambda x, y: {})
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda _x, _y: {})
 
-    def mock_add_award_to_note(note_id, award_name):
-        return f"Mocked award '{award_name}' added to note {note_id}"
-
-    def mock_get_file_names_from_s3_directory(bucket_name: str, path_to_files: str) -> list[str]:
+    def mock_get_file_names_from_s3_directory(_bucket_name: str, _path_to_files: str) -> list[str]:
         return ['demo/broken/main.tf', 'demo/broken/validate.tf']
 
-    monkeypatch.setattr("utilities.handlers.add_award_to_note", mock_add_award_to_note)
+    monkeypatch.setattr("utilities.handlers.post_comment", _mock_post_comment)
+    monkeypatch.setattr("utilities.handlers.add_award_to_note", _mock_add_award_to_note)
     monkeypatch.setattr("utilities.handlers.get_file_names_from_s3_directory", mock_get_file_names_from_s3_directory)
     handlers.handle_comment_commands(webhook_event_command_bot_list_github)
     assert 'Bot context found in the comment.' in caplog.text
@@ -75,20 +90,227 @@ def test_handle_comment_commands_webhook_bot_list_context_no_files(patched_envir
     assert 'Prepared artifact file list: `demo/broken/main.tf`\n\n`demo/broken/validate.tf`.' in caplog.text
 
 
-def test_handle_comment_commands_webhook_bot_approve_context_mising(patched_environment, 
+def test_handle_comment_commands_webhook_bot_show_context(
+        patched_environment, webhook_event_command_bot_list_github, caplog, monkeypatch):
+    from utilities import handlers
+
+    show_calls = []
+    webhook_event_command_bot_list_github['metadata']['comment_text'] = (
+        'bot show demo/broken/main.tf demo/broken/validate.tf'
+    )
+    monkeypatch.setattr(
+        "utilities.handlers.handle_show_command",
+        lambda event, rest_comment: show_calls.append((event, rest_comment))
+    )
+
+    handlers.handle_comment_commands(webhook_event_command_bot_list_github)
+
+    assert show_calls == [(
+        webhook_event_command_bot_list_github,
+        ['demo/broken/main.tf', 'demo/broken/validate.tf']
+    )]
+    assert 'Bot context found in the comment.' in caplog.text
+    assert 'Show context found in the comment.' in caplog.text
+
+
+def test_handle_comment_commands_webhook_bot_prompt_context(
+        patched_environment, webhook_event_command_bot_list_github, caplog, monkeypatch):
+    from utilities import handlers
+
+    prompt_calls = []
+    award_calls = []
+    webhook_event_command_bot_list_github['metadata']['comment_text'] = 'bot prompt fix this'
+    monkeypatch.setattr(
+        "utilities.handlers.add_award_to_note",
+        lambda event, award: award_calls.append((event, award))
+    )
+    monkeypatch.setattr(
+        "utilities.handlers.handle_prompt_command",
+        lambda event, rest_comment: prompt_calls.append((event, rest_comment))
+    )
+
+    handlers.handle_comment_commands(webhook_event_command_bot_list_github)
+
+    assert prompt_calls == [(webhook_event_command_bot_list_github, ['fix', 'this'])]
+    assert award_calls == [(webhook_event_command_bot_list_github, handlers.SUCCESS)]
+    assert 'Bot context found in the comment.' in caplog.text
+    assert 'Prompt context found in the comment.' in caplog.text
+
+
+def test_handle_comment_commands_webhook_bot_without_command(
+        patched_environment, webhook_event_command_bot_list_github, caplog, monkeypatch):
+    from utilities import handlers
+
+    award_calls = []
+    webhook_event_command_bot_list_github['metadata']['comment_text'] = 'bot'
+    monkeypatch.setattr(
+        "utilities.handlers.add_award_to_note",
+        lambda event, award: award_calls.append((event, award))
+    )
+
+    handlers.handle_comment_commands(webhook_event_command_bot_list_github)
+
+    assert award_calls == [(webhook_event_command_bot_list_github, handlers.FAILURE)]
+    assert 'Bot context found in the comment.' in caplog.text
+    assert 'No specific bot command provided.' in caplog.text
+
+
+def test_handle_show_command_specific_files(patched_environment, webhook_event_command_bot_list_github, monkeypatch):
+    from utilities import handlers
+
+    comments = []
+    award_calls = []
+
+    monkeypatch.setattr(
+        "utilities.handlers.add_award_to_note",
+        lambda event, award: award_calls.append((event, award))
+    )
+    monkeypatch.setattr(
+        "utilities.handlers.get_file_names_from_s3_directory",
+        lambda _bucket_name, _path_to_files: ['demo/broken/main.tf', 'demo/broken/validate.tf']
+    )
+    monkeypatch.setattr(
+        "utilities.handlers.get_particular_files_from_s3_directory",
+        lambda _bucket_name, _path_to_files, _file_names: [
+            ('demo/broken/main.tf', 'resource "aws_instance" "example" {}')
+        ]
+    )
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda event, body: comments.append(body))
+
+    handlers.handle_show_command(
+        webhook_event_command_bot_list_github,
+        ['demo/broken/main.tf']
+    )
+
+    assert comments == [(
+        ':information_source: AI Bot message\n\n'
+        '---\n\n'
+        'Content of files corrected by AI bot\n\n'
+        '---\n\n'
+        '<details>\n'
+        '<summary>Show content of files corrected by AI bot</summary>\n\n'
+        '<br>\n\n'
+        'Corrected file `demo/broken/main.tf`\n'
+        '```hcl\n'
+        'resource "aws_instance" "example" {}\n'
+        '```\n\n\n'
+        '</details>\n\n'
+        '---\n'
+    )]
+    assert award_calls == [(webhook_event_command_bot_list_github, handlers.SUCCESS)]
+
+
+def test_handle_show_command_reports_unavailable_files(patched_environment,
+                                                        webhook_event_command_bot_list_github,
+                                                        monkeypatch):
+    from utilities import handlers
+
+    comments = []
+    award_calls = []
+    particular_files_calls = []
+
+    monkeypatch.setattr(
+        "utilities.handlers.add_award_to_note",
+        lambda event, award: award_calls.append((event, award))
+    )
+    monkeypatch.setattr(
+        "utilities.handlers.get_file_names_from_s3_directory",
+        lambda _bucket_name, _path_to_files: ['demo/broken/main.tf']
+    )
+    monkeypatch.setattr(
+        "utilities.handlers.get_particular_files_from_s3_directory",
+        lambda _bucket_name, _path_to_files, file_names: particular_files_calls.append(file_names)
+    )
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda event, body: comments.append(body))
+
+    handlers.handle_show_command(
+        webhook_event_command_bot_list_github,
+        ['demo/broken/missing.tf']
+    )
+
+    assert comments == [(
+        ':information_source: AI Bot message\n\n'
+        '---\n'
+        '> :no_entry: Not available\\\n'
+        '> The following files are not available for approval: **demo/broken/missing.tf**.\\\n'
+        '> Comment `bot list` to see corrected files currently available for approval.'
+    )]
+    assert particular_files_calls == []
+    assert award_calls == [(webhook_event_command_bot_list_github, handlers.FAILURE)]
+
+
+def test_handle_show_command_all_files(patched_environment, webhook_event_command_bot_list_github, monkeypatch):
+    from utilities import handlers
+
+    comments = []
+    award_calls = []
+
+    monkeypatch.setattr(
+        "utilities.handlers.add_award_to_note",
+        lambda event, award: award_calls.append((event, award))
+    )
+    monkeypatch.setattr(
+        "utilities.handlers.get_all_files_from_s3_directory",
+        lambda _bucket_name, _path_to_files: [
+            ('demo/broken/main.tf', 'main content'),
+            ('demo/broken/validate.tf', 'validate content')
+        ]
+    )
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda event, body: comments.append(body))
+
+    handlers.handle_show_command(webhook_event_command_bot_list_github, [])
+
+    assert comments == [(
+        ':information_source: AI Bot message\n\n'
+        '---\n\n'
+        'Content of files corrected by AI bot\n\n'
+        '---\n\n'
+        '<details>\n'
+        '<summary>Show content of files corrected by AI bot</summary>\n\n'
+        '<br>\n\n'
+        'Corrected file `demo/broken/main.tf`\n```hcl\nmain content\n```\n\n'
+        'Corrected file `demo/broken/validate.tf`\n```hcl\nvalidate content\n```\n\n\n'
+        '</details>\n\n'
+        '---\n'
+    )]
+    assert award_calls == [(webhook_event_command_bot_list_github, handlers.SUCCESS)]
+
+
+def test_handle_show_command_reports_no_files(patched_environment, webhook_event_command_bot_list_github, monkeypatch):
+    from utilities import handlers
+
+    comments = []
+    award_calls = []
+
+    monkeypatch.setattr(
+        "utilities.handlers.add_award_to_note",
+        lambda event, award: award_calls.append((event, award))
+    )
+    monkeypatch.setattr(
+        "utilities.handlers.get_all_files_from_s3_directory",
+        lambda _bucket_name, _path_to_files: []
+    )
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda event, body: comments.append(body))
+
+    handlers.handle_show_command(webhook_event_command_bot_list_github, [])
+
+    assert comments == [(
+        ':information_source: AI Bot message\n\n'
+        '---\n'
+        '> :no_entry: Not available\\\n'
+        '> There are no corrected files available for approval.\\\n'
+        '> Comment `bot list` to check available files.'
+    )]
+    assert award_calls == [(webhook_event_command_bot_list_github, handlers.SUCCESS)]
+
+
+def test_handle_comment_commands_webhook_bot_approve_context_missing(patched_environment,
         webhook_event_command_bot_approve_context_missing_all_github, caplog,
         monkeypatch):
     from utilities import handlers
-    monkeypatch.setattr("utilities.handlers.post_comment", lambda x, y: {})
-
-    def mock_add_award_to_note(note_id, award_name):
-        return f"Mocked award '{award_name}' added to note {note_id}"
-
-    def mock_get_file_names_from_s3_directory(bucket_name: str, path_to_files: str) -> list[str]:
-        return []
-
-    monkeypatch.setattr("utilities.handlers.add_award_to_note", mock_add_award_to_note)
-    monkeypatch.setattr("utilities.handlers.get_file_names_from_s3_directory", mock_get_file_names_from_s3_directory)
+    monkeypatch.setattr("utilities.handlers.post_comment", _mock_post_comment)
+    monkeypatch.setattr("utilities.handlers.add_award_to_note", _mock_add_award_to_note)
+    monkeypatch.setattr("utilities.handlers.get_file_names_from_s3_directory", _mock_empty_file_names)
     handlers.handle_comment_commands(webhook_event_command_bot_approve_context_missing_all_github)
     assert 'Bot context found in the comment.' in caplog.text
     assert 'Unknown bot command: approve' in caplog.text
@@ -98,16 +320,9 @@ def test_handle_comment_commands_webhook_bot_approve_all_context(patched_environ
         webhook_event_command_bot_approve_all_context_github, caplog,
         monkeypatch):
     from utilities import handlers
-    monkeypatch.setattr("utilities.handlers.post_comment", lambda x, y: {})
-
-    def mock_add_award_to_note(note_id, award_name):
-        return f"Mocked award '{award_name}' added to note {note_id}"
-
-    def mock_get_file_names_from_s3_directory(bucket_name: str, path_to_files: str) -> list[str]:
-        return []
-
-    monkeypatch.setattr("utilities.handlers.add_award_to_note", mock_add_award_to_note)
-    monkeypatch.setattr("utilities.handlers.get_all_files_from_s3_directory", mock_get_file_names_from_s3_directory)
+    monkeypatch.setattr("utilities.handlers.post_comment", _mock_post_comment)
+    monkeypatch.setattr("utilities.handlers.add_award_to_note", _mock_add_award_to_note)
+    monkeypatch.setattr("utilities.handlers.get_all_files_from_s3_directory", _mock_empty_file_names)
     handlers.handle_comment_commands(webhook_event_command_bot_approve_all_context_github)
     assert 'Bot context found in the comment.' in caplog.text
     assert 'Approve context found in the comment.' in caplog.text
@@ -167,10 +382,10 @@ def test_handle_prompt_command_persists_metadata_when_missing(monkeypatch):
 
     event = {}
 
-    monkeypatch.setattr("utilities.handlers.get_context_memory_window", lambda event: [])
+    monkeypatch.setattr("utilities.handlers.get_context_memory_window", lambda _event: [])
     monkeypatch.setattr(
         "utilities.handlers.generate_response_ai",
-        lambda messages: {
+        lambda _messages: {
             "message": "done",
             "tokens": {
                 "prompt_tokens": 1,
@@ -179,9 +394,9 @@ def test_handle_prompt_command_persists_metadata_when_missing(monkeypatch):
             },
         },
     )
-    monkeypatch.setattr("utilities.handlers.post_comment", lambda event, message: {})
-    monkeypatch.setattr("utilities.handlers.handle_ai_response_message", lambda event: None)
-    monkeypatch.setattr("utilities.handlers.create_context_memory_window", lambda event: None)
+    monkeypatch.setattr("utilities.handlers.post_comment", lambda _event, _message: {})
+    monkeypatch.setattr("utilities.handlers.handle_ai_response_message", lambda _event: None)
+    monkeypatch.setattr("utilities.handlers.create_context_memory_window", lambda _event: None)
 
     handlers.handle_prompt_command(event, ["fix", "this"])
 
@@ -205,9 +420,9 @@ def test_handle_approve_command_all_uses_generated_commit_message(patched_enviro
     )
     monkeypatch.setattr(
         "utilities.handlers.get_all_files_from_s3_directory",
-        lambda bucket_name, path_to_files: [('demo/broken/main.tf', 'content')]
+        lambda _bucket_name, _path_to_files: [('demo/broken/main.tf', 'content')]
     )
-    monkeypatch.setattr("utilities.handlers.check_files_exist_in_repo", lambda event, files: True)
+    monkeypatch.setattr("utilities.handlers.check_files_exist_in_repo", lambda _event, _files: True)
     monkeypatch.setattr(
         "utilities.handlers.commit_files_to_branch",
         lambda event, files, commit_message: commit_calls.append((files, commit_message))
@@ -244,9 +459,9 @@ def test_handle_approve_command_all_stops_when_repo_check_fails(patched_environm
     )
     monkeypatch.setattr(
         "utilities.handlers.get_all_files_from_s3_directory",
-        lambda bucket_name, path_to_files: [('demo/broken/main.tf', 'content')]
+        lambda _bucket_name, _path_to_files: [('demo/broken/main.tf', 'content')]
     )
-    monkeypatch.setattr("utilities.handlers.check_files_exist_in_repo", lambda event, files: False)
+    monkeypatch.setattr("utilities.handlers.check_files_exist_in_repo", lambda _event, _files: False)
     monkeypatch.setattr(
         "utilities.handlers.commit_files_to_branch",
         lambda event, files, commit_message: commit_calls.append((files, commit_message))
@@ -256,13 +471,13 @@ def test_handle_approve_command_all_stops_when_repo_check_fails(patched_environm
     handlers.handle_approve_command(webhook_event_command_bot_approve_all_context_github, ['all'])
 
     assert commit_calls == []
-    assert comments == [
+    assert comments == [(
         ':information_source: AI Bot message\n\n'
         '---\n'
         '> :no_entry: Not available\\\n'
         '> The following files do not exist in the repository: **demo/broken/main.tf**.\\\n'
         '> BrainTF cannot create new files in the repository; it can only modify existing ones.'
-    ]
+    )]
     assert award_calls == [(webhook_event_command_bot_approve_all_context_github, handlers.FAILURE)]
 
 
@@ -281,7 +496,7 @@ def test_handle_approve_command_all_reports_no_available_files(patched_environme
     )
     monkeypatch.setattr(
         "utilities.handlers.get_all_files_from_s3_directory",
-        lambda bucket_name, path_to_files: []
+        lambda _bucket_name, _path_to_files: []
     )
     monkeypatch.setattr(
         "utilities.handlers.commit_files_to_branch",
@@ -292,13 +507,13 @@ def test_handle_approve_command_all_reports_no_available_files(patched_environme
     handlers.handle_approve_command(webhook_event_command_bot_approve_all_context_github, ['all'])
 
     assert commit_calls == []
-    assert comments == [
+    assert comments == [(
         ':information_source: AI Bot message\n\n'
         '---\n'
         '> :no_entry: Not available\\\n'
         '> There are no corrected files available for approval.\\\n'
         '> Comment `bot list` to check available files.'
-    ]
+    )]
     assert award_calls == [(webhook_event_command_bot_approve_all_context_github, handlers.FAILURE)]
 
 
@@ -317,12 +532,12 @@ def test_handle_approve_command_specific_checks_repo_before_commit(patched_envir
     )
     monkeypatch.setattr(
         "utilities.handlers.get_file_names_from_s3_directory",
-        lambda bucket_name, path_to_files: ['demo/broken/main.tf']
+        lambda _bucket_name, _path_to_files: ['demo/broken/main.tf']
     )
-    monkeypatch.setattr("utilities.handlers.check_files_exist_in_repo", lambda event, files: False)
+    monkeypatch.setattr("utilities.handlers.check_files_exist_in_repo", lambda _event, _files: False)
     monkeypatch.setattr(
         "utilities.handlers.get_particular_files_from_s3_directory",
-        lambda bucket_name, path_to_files, file_names: [('demo/broken/main.tf', 'content')]
+        lambda _bucket_name, _path_to_files, _file_names: [('demo/broken/main.tf', 'content')]
     )
     monkeypatch.setattr(
         "utilities.handlers.commit_files_to_branch",
@@ -333,13 +548,13 @@ def test_handle_approve_command_specific_checks_repo_before_commit(patched_envir
     handlers.handle_approve_command(webhook_event_command_bot_approve_all_context_github, ['demo/broken/main.tf'])
 
     assert commit_calls == []
-    assert comments == [
+    assert comments == [(
         ':information_source: AI Bot message\n\n'
         '---\n'
         '> :no_entry: Not available\\\n'
         '> The following files do not exist in the repository: **demo/broken/main.tf**.\\\n'
         '> BrainTF cannot create new files in the repository; it can only modify existing ones.'
-    ]
+    )]
     assert award_calls == [(webhook_event_command_bot_approve_all_context_github, handlers.FAILURE)]
 
 
@@ -351,18 +566,10 @@ def test_handle_approve_command_specific_reports_single_unavailable_file(
     commit_calls = []
     award_calls = []
 
-    monkeypatch.setattr(
-        "utilities.handlers.add_award_to_note",
-        lambda event, award: award_calls.append((event, award))
-    )
+    _patch_specific_approval_dependencies(monkeypatch, comments, commit_calls, award_calls)
     monkeypatch.setattr(
         "utilities.handlers.get_file_names_from_s3_directory",
-        lambda bucket_name, path_to_files: ['demo/broken/main.tf']
-    )
-    monkeypatch.setattr("utilities.handlers.post_comment", lambda event, body: comments.append(body))
-    monkeypatch.setattr(
-        "utilities.handlers.commit_files_to_branch",
-        lambda event, files, commit_message: commit_calls.append((files, commit_message))
+        lambda _bucket_name, _path_to_files: ['demo/broken/main.tf']
     )
 
     handlers.handle_approve_command(
@@ -370,13 +577,13 @@ def test_handle_approve_command_specific_reports_single_unavailable_file(
         ['demo/broken/missing.tf']
     )
 
-    assert comments == [
+    assert comments == [(
         ':information_source: AI Bot message\n\n'
         '---\n'
         '> :no_entry: Not available\\\n'
         '> The following files are not available for approval: **demo/broken/missing.tf**.\\\n'
         '> Comment `bot list` to see corrected files currently available for approval.'
-    ]
+    )]
     assert commit_calls == []
     assert award_calls == [(webhook_event_command_bot_approve_all_context_github, handlers.FAILURE)]
 
@@ -389,18 +596,10 @@ def test_handle_approve_command_specific_reports_all_unavailable_files(
     commit_calls = []
     award_calls = []
 
-    monkeypatch.setattr(
-        "utilities.handlers.add_award_to_note",
-        lambda event, award: award_calls.append((event, award))
-    )
+    _patch_specific_approval_dependencies(monkeypatch, comments, commit_calls, award_calls)
     monkeypatch.setattr(
         "utilities.handlers.get_file_names_from_s3_directory",
-        lambda bucket_name, path_to_files: ['demo/broken/main.tf']
-    )
-    monkeypatch.setattr("utilities.handlers.post_comment", lambda event, body: comments.append(body))
-    monkeypatch.setattr(
-        "utilities.handlers.commit_files_to_branch",
-        lambda event, files, commit_message: commit_calls.append((files, commit_message))
+        lambda _bucket_name, _path_to_files: ['demo/broken/main.tf']
     )
 
     handlers.handle_approve_command(
@@ -408,14 +607,14 @@ def test_handle_approve_command_specific_reports_all_unavailable_files(
         ['demo/broken/main.tf', 'demo/broken/first.tf', 'demo/broken/second.tf']
     )
 
-    assert comments == [
+    assert comments == [(
         ':information_source: AI Bot message\n\n'
         '---\n'
         '> :no_entry: Not available\\\n'
         '> The following files are not available for approval: '
         '**demo/broken/first.tf, demo/broken/second.tf**.\\\n'
         '> Comment `bot list` to see corrected files currently available for approval.'
-    ]
+    )]
     assert commit_calls == []
     assert award_calls == [(webhook_event_command_bot_approve_all_context_github, handlers.FAILURE)]
 
@@ -435,12 +634,12 @@ def test_handle_approve_command_specific_deletes_artifacts_after_commit(patched_
     )
     monkeypatch.setattr(
         "utilities.handlers.get_file_names_from_s3_directory",
-        lambda bucket_name, path_to_files: ['demo/broken/main.tf', 'demo/broken/validate.tf']
+        lambda _bucket_name, _path_to_files: ['demo/broken/main.tf', 'demo/broken/validate.tf']
     )
-    monkeypatch.setattr("utilities.handlers.check_files_exist_in_repo", lambda event, files: True)
+    monkeypatch.setattr("utilities.handlers.check_files_exist_in_repo", lambda _event, _files: True)
     monkeypatch.setattr(
         "utilities.handlers.get_particular_files_from_s3_directory",
-        lambda bucket_name, path_to_files, file_names: [('demo/broken/main.tf', 'content')]
+        lambda _bucket_name, _path_to_files, _file_names: [('demo/broken/main.tf', 'content')]
     )
     monkeypatch.setattr(
         "utilities.handlers.commit_files_to_branch",

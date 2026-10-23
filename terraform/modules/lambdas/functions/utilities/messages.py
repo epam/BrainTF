@@ -15,7 +15,11 @@ Below is a guide to the supported commands:
 
 `bot approve <path/to/file1> [<path/to/file2> ...]` - triggers the approval of committing a **specific file** or **files** fixed by AI bot.
 
-`bot list` - lists files corrected by AI and ready to commit.
+`bot list` - lists **all** files corrected by AI and ready to commit.
+
+`bot show` - shows the content of **all** files corrected by AI and ready to commit.
+
+`bot show <path/to/file1> [<path/to/file2> ...]` - shows the content of a **specific file** or **files** corrected by AI and ready to commit.
 
 `bot prompt <user prompt>` - sends custom prompt to AI.
 
@@ -40,6 +44,27 @@ List of files corrected by AI bot
 ---
 
 {files_list}
+
+---
+
+""".lstrip().removesuffix("\n")
+
+SHOW_FILES_MESSAGE: str = """
+:information_source: AI Bot message
+
+---
+
+Content of files corrected by AI bot
+
+---
+
+<details>
+<summary>Show content of files corrected by AI bot</summary>
+
+<br>
+
+{files_list}
+</details>
 
 ---
 
