@@ -98,6 +98,7 @@ This Bot supports next structured comment commands to trigger automation:
 * **`bot show <path/to/file1> [<path/to/file2> ...]`** - shows the content of a specific file or files corrected by AI and ready to commit.
 * **`bot diff`** - shows colored diffs between all files corrected by AI and their current versions in the branch.
 * **`bot diff <path/to/file1> [<path/to/file2> ...]`** - shows colored diffs for a specific file or files corrected by AI.
+
 * **`bot prompt <user prompt>`** - sends custom prompt to AI.
 * **`help`** - shows this help information in the MR/PR notes.
 
