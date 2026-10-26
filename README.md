@@ -91,11 +91,14 @@ The project represents an automated process for code verification and correction
 
 ## Bot usage guidance
 This Bot supports next structured comment commands to trigger automation:
-* **"bot approve"** or **"bot approve all"** - triggers the approval of committing all files fixed by AI bot.
-* **"bot approve <path/to/file1> [<path/to/file2> ...]"** - triggers the approval of committing a specific file or files fixed by AI bot.
-* **"bot list"** - lists files correted by AI and ready to commit.
-* **"bot prompt <user prompt>"** - sends custom prompt to AI.
-* **"help"** - shows this help information in the MR/PR notes.
+* **`bot approve`** or **`bot approve all`** - triggers the approval of committing all files fixed by AI bot.
+* **`bot approve <path/to/file1> [<path/to/file2> ...]`** - triggers the approval of committing a specific file or files fixed by AI bot.
+* **`bot list`** - lists files corrected by AI and ready to commit.
+* **`bot show`** - shows the content of all files corrected by AI and ready to commit.
+* **`bot show <path/to/file1> [<path/to/file2> ...]`** - shows the content of a specific file or files corrected by AI and ready to commit.
+
+* **`bot prompt <user prompt>`** - sends custom prompt to AI.
+* **`help`** - shows this help information in the MR/PR notes.
 
 ## Guides and Instructions
 
