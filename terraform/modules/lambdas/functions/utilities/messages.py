@@ -21,6 +21,10 @@ Below is a guide to the supported commands:
 
 `bot show <path/to/file1> [<path/to/file2> ...]` - shows the content of a **specific file** or **files** corrected by AI and ready to commit.
 
+`bot diff` - shows colored diffs between **all** files corrected by AI and their current versions in the branch.
+
+`bot diff <path/to/file1> [<path/to/file2> ...]` - shows colored diffs for a **specific file** or **files** corrected by AI.
+
 `bot prompt <user prompt>` - sends custom prompt to AI.
 
 `help` - shows this help information in the {spec_provider}.
@@ -60,6 +64,27 @@ Content of files corrected by AI bot
 
 <details>
 <summary>Show content of files corrected by AI bot</summary>
+
+<br>
+
+{files_list}
+</details>
+
+---
+
+""".lstrip().removesuffix("\n")
+
+DIFF_FILES_MESSAGE: str = """
+:information_source: AI Bot message
+
+---
+
+Diff between files corrected by AI bot and files in the branch
+
+---
+
+<details>
+<summary>Show diffs of files corrected by AI bot</summary>
 
 <br>
 

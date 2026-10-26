@@ -9,6 +9,7 @@ match config.vcs_provider:
         from utilities.vcs.gitlab_functions import commit_files_to_branch_gitlab as commit_files_to_branch
         from utilities.vcs.gitlab_functions import \
             get_all_tf_files_from_paths_list_gitlab as get_all_tf_files_from_paths_list
+        from utilities.vcs.gitlab_functions import get_files_content_from_repo_gitlab as get_files_content_from_repo
 
         SUCCESS = 'white_check_mark'
         FAILURE = 'rotating_light'
@@ -20,6 +21,7 @@ match config.vcs_provider:
         from utilities.vcs.github_functions import check_files_exist_in_repo_github as check_files_exist_in_repo
         from utilities.vcs.github_functions import commit_files_to_branch_github as commit_files_to_branch
         from utilities.vcs.github_functions import get_all_tf_files_from_paths_list_github as get_all_tf_files_from_paths_list
+        from utilities.vcs.github_functions import get_files_content_from_repo_github as get_files_content_from_repo
 
         SUCCESS = '+1'
         FAILURE = 'confused'
@@ -31,5 +33,5 @@ match config.vcs_provider:
         raise ValueError(f"Unsupported VCS provider: {config.vcs_provider}")
 
 __all__ = ["post_comment", "post_help_message", "add_award_to_note", "check_files_exist_in_repo", "commit_files_to_branch",
-           "get_all_tf_files_from_paths_list", "SUCCESS",
+           "get_all_tf_files_from_paths_list", "get_files_content_from_repo", "SUCCESS",
            "FAILURE"]

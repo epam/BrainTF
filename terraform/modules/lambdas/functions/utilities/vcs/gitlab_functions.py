@@ -478,3 +478,36 @@ def get_all_tf_files_from_paths_list_gitlab(
                 tf_files.append((item['path'], content_text))
 
     return tf_files
+
+
+def get_files_content_from_repo_gitlab(
+        event: dict[str, Any],
+        file_paths: list[str]
+) -> dict[str, str | None]:
+    """Fetch the current content of files from the merge request source branch in GitLab.
+
+    Args:
+        event (dict[str, Any]): A dictionary containing metadata about the GitLab repository.
+            Mandatory keys include:
+            - 'metadata':
+                - 'repo_id_or_name' (str): The ID or name of the GitLab repository.
+                - 'source_branch' (str): The name of the repository branch to fetch files from.
+        file_paths (list[str]): Paths to files relative to the repository root.
+
+    Returns:
+        dict[str, str | None]: Mapping of each path to its decoded UTF-8 content, or
+            ``None`` when the file does not exist on the branch.
+    """
+    gl = _get_gitlab_client(config.vcs_api_token)
+    project = gl.projects.get(event['metadata']['repo_id_or_name'])
+    branch = event['metadata']['source_branch']
+
+    contents: dict[str, str | None] = {}
+    for path in file_paths:
+        try:
+            file = project.files.get(file_path=path, ref=branch)
+            contents[path] = base64.b64decode(file.content).decode('utf-8')
+        except GitlabGetError:
+            logger.warning(f"File does not exist in repo on branch '{branch}': {path}")
+            contents[path] = None
+    return contents
