@@ -3,7 +3,7 @@ Please do not report security vulnerabilities through public GitHub issues, pull
 
 Instead, please report vulnerabilities privately:
 
-Email: Send details of the vulnerability to [INSERT SECURITY EMAIL ADDRESS].
+Email: Send details of the vulnerability to SupportEPMC-ACMBrainTF@epam.com.
 What to Include in Your Report
 To help us triage and investigate the issue efficiently, please include as much of the following information as possible:
 - Type of vulnerability (e.g., remote code execution, SQL injection, privilege escalation).
