@@ -6,9 +6,11 @@ from copy import deepcopy
 import boto3
 import pytest
 from moto import mock_aws
-
-from tests.data.events import (WEBHOOK_EVENT_GITHUB, WEBHOOK_EVENT_GITLAB,
-                               WEBHOOK_EVENT_METADATA_GITHUB)
+from tests.data.events import (
+    WEBHOOK_EVENT_GITHUB,
+    WEBHOOK_EVENT_GITLAB,
+    WEBHOOK_EVENT_METADATA_GITHUB,
+)
 from tests.data.expected import EXPECTED_TOKEN_GITHUB, EXPECTED_TOKEN_GITLAB
 
 GITHUB_SIGNATURE_HEADER = "x-hub-signature-256"
@@ -29,6 +31,23 @@ def _set_github_signature_header(event: dict, secret: str) -> dict:
     headers[GITHUB_SIGNATURE_HEADER] = generate_github_signature(secret, event.get("body", ""))
     event["headers"] = headers
     return event
+
+
+@pytest.fixture
+def mock_boto_config():
+    class MockBoto3Config:
+        def __init__(self, connect_timeout, read_timeout):
+            self.connect_timeout = connect_timeout
+            self.read_timeout = read_timeout
+
+    return MockBoto3Config
+
+
+@pytest.fixture
+def config_lambda_class(patched_environment):
+    from config import _ConfigLambda
+
+    return _ConfigLambda
 
 
 @pytest.fixture
