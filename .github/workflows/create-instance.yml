@@ -1,0 +1,109 @@
+name: Create BrainTF Instance
+
+# Self-service "factory" that provisions a new per-developer BrainTF instance repository
+# from this template repo. Run manually from the Actions tab (Run workflow) and enter an
+# instance_id. The AWS resources are NOT created here — after the repo is created, deploy
+# from the new repo following docs/installation.md (terraform/shared is applied once per
+# account, then bootstrap and main_module with this instance_id).
+#
+# NOTE: workflow_dispatch only becomes available once this file is on the DEFAULT branch
+#   (GitHub rule). Use the dry_run input to validate and preview without side effects.
+#
+# Requirements for real (non-dry-run) execution (configured once, on epmc-poc/BrainTF):
+#   - A GitHub App installed on the epmc-poc org with:
+#       * Repository administration: Read & write  (to create repositories)
+#       * Variables: Read & write                  (to set the INSTANCE_ID repo variable)
+#   - Secrets on this repo:
+#       * FACTORY_APP_ID          — the GitHub App's App ID
+#       * FACTORY_APP_PRIVATE_KEY — the GitHub App's private key (PEM)
+#   - This repository (epmc-poc/BrainTF) must be marked as a template repository
+#     (Settings -> Template repository).
+
+on:
+  workflow_dispatch:
+    inputs:
+      instance_id:
+        description: "Instance id — lowercase, 1-30 chars, e.g. 'vasjr'. Namespaces all AWS resources for this instance."
+        required: true
+        type: string
+      dry_run:
+        description: "Validate and print the plan without creating the repository."
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  create-instance:
+    name: Create instance repository
+    runs-on: ubuntu-latest
+    # Only meaningful in the upstream template repo; skip in instance repos that inherit this workflow.
+    if: github.repository == 'epmc-poc/BrainTF'
+    env:
+      INSTANCE_ID: ${{ inputs.instance_id }}
+      DRY_RUN: ${{ inputs.dry_run }}
+      TEMPLATE_REPO: ${{ github.repository }}
+      TARGET_OWNER: epmc-poc
+    steps:
+      - name: Validate instance_id
+        run: |
+          if [[ ! "${INSTANCE_ID}" =~ ^[a-z0-9]([a-z0-9-]{0,28}[a-z0-9])?$ ]]; then
+            echo "::error::instance_id must be lowercase alphanumeric with hyphens, 1-30 chars, and may not start or end with a hyphen."
+            exit 1
+          fi
+          echo "instance_id '${INSTANCE_ID}' is valid. DRY_RUN=${DRY_RUN}"
+
+      - name: Generate GitHub App token
+        id: app-token
+        if: env.DRY_RUN != 'true'
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.FACTORY_APP_ID }}
+          private-key: ${{ secrets.FACTORY_APP_PRIVATE_KEY }}
+          owner: ${{ env.TARGET_OWNER }}
+
+      - name: Create repository from template
+        if: env.DRY_RUN != 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          REPO="braintf-${INSTANCE_ID}"
+          FULL="${TARGET_OWNER}/${REPO}"
+          # The set of existing braintf-* repositories is the instance registry: fail fast on duplicates.
+          if gh repo view "${FULL}" >/dev/null 2>&1; then
+            echo "::error::Repository ${FULL} already exists. Pick a unique instance_id."
+            exit 1
+          fi
+          echo "Creating ${FULL} from template ${TEMPLATE_REPO}..."
+          gh repo create "${FULL}" --template "${TEMPLATE_REPO}" --private
+
+      - name: Set INSTANCE_ID repository variable
+        if: env.DRY_RUN != 'true'
+        env:
+          GH_TOKEN: ${{ steps.app-token.outputs.token }}
+        run: |
+          gh variable set INSTANCE_ID \
+            --repo "${TARGET_OWNER}/braintf-${INSTANCE_ID}" \
+            --body "${INSTANCE_ID}"
+
+      - name: Dry-run plan
+        if: env.DRY_RUN == 'true'
+        run: |
+          echo "DRY RUN — no changes made."
+          echo "Would create repository: ${TARGET_OWNER}/braintf-${INSTANCE_ID} from template ${TEMPLATE_REPO}"
+          echo "Would set repository variable INSTANCE_ID=${INSTANCE_ID}"
+
+      - name: Summary
+        run: |
+          {
+            echo "### BrainTF instance factory"
+            echo ""
+            if [[ "${DRY_RUN}" == "true" ]]; then
+              echo "**Dry run** — nothing was created."
+            fi
+            echo "- Target repository: \`${TARGET_OWNER}/braintf-${INSTANCE_ID}\`"
+            echo "- Instance id: \`${INSTANCE_ID}\`"
+            echo ""
+            echo "For a real run: use **Run workflow** (workflow_dispatch) from the default branch with dry_run unchecked."
+          } >> "$GITHUB_STEP_SUMMARY"
