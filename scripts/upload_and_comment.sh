@@ -36,19 +36,6 @@ else
   exit 1
 fi
 
-# Upload log file to S3 using AWS credentials already present in the environment
-if [ "$ACTION" != "post" ] && [ -n "$AWS_S3_BUCKET" ]; then
-  echo -e "\033[34mUploading $LOG_NAME to S3 bucket $AWS_S3_BUCKET in folder $MR_OR_PR_NUMBER...\033[0m"
-  aws s3 cp "$LOG_FILE_PATH" "s3://$AWS_S3_BUCKET/$MR_OR_PR_NUMBER/$LOG_NAME" \
-    --metadata "PULL_NUM=$MR_OR_PR_NUMBER,BASE_REPO_NAME=$BASE_REPO_NAME,BASE_REPO_OWNER=$BASE_REPO_OWNER,HEAD_BRANCH_NAME=$HEAD_BRANCH_NAME,TOOL_NAME=$TOOL_NAME,COMMIT_SHA=${COMMIT_SHA}" || {
-    echo -e "\033[31mError: Failed to upload log to S3.\033[0m"
-    exit 1
-  }
-  echo -e "\033[34mLog uploaded to S3 successfully.\033[0m"
-else
-  echo -e "\033[34mSkipping S3 upload (ACTION='$ACTION').\033[0m"
-fi
-
 # Ensure VCS API endpoint is configured before attempting to comment
 if [ -z "${VCS_API_ENDPOINT:-}" ]; then
   echo -e "\033[31mError: VCS_API_ENDPOINT is not set.\033[0m"
@@ -111,6 +98,19 @@ elif [ "$VCS_PROVIDER" = "github" ]; then
 else
   echo -e "\033[31mError: Unsupported VCS_PROVIDER value: $VCS_PROVIDER. Must be 'gitlab' or 'github'.\033[0m"
   exit 1
+fi
+
+# Upload log file to S3 using AWS credentials already present in the environment
+if [ "$ACTION" != "post" ] && [ -n "$AWS_S3_BUCKET" ]; then
+  echo -e "\033[34mUploading $LOG_NAME to S3 bucket $AWS_S3_BUCKET in folder $MR_OR_PR_NUMBER...\033[0m"
+  aws s3 cp "$LOG_FILE_PATH" "s3://$AWS_S3_BUCKET/$MR_OR_PR_NUMBER/$LOG_NAME" \
+    --metadata "PULL_NUM=$MR_OR_PR_NUMBER,BASE_REPO_NAME=$BASE_REPO_NAME,BASE_REPO_OWNER=$BASE_REPO_OWNER,HEAD_BRANCH_NAME=$HEAD_BRANCH_NAME,TOOL_NAME=$TOOL_NAME,COMMIT_SHA=${COMMIT_SHA}" || {
+    echo -e "\033[31mError: Failed to upload log to S3.\033[0m"
+    exit 1
+  }
+  echo -e "\033[34mLog uploaded to S3 successfully.\033[0m"
+else
+  echo -e "\033[34mSkipping S3 upload (ACTION='$ACTION').\033[0m"
 fi
 
 # S3 link is only relevant when the log was actually uploaded
