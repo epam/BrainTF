@@ -88,12 +88,22 @@ elif [ "$VCS_PROVIDER" = "github" ]; then
     PR_LOOKUP_URL="${VCS_API_ENDPOINT}/repos/${BASE_REPO_NAME}/commits/${COMMIT_SHA}/pulls"
     PR_LOOKUP_RESPONSE=$(curl -L -s -H "Accept: application/vnd.github+json" -H "$AUTH_HEADER" "$PR_LOOKUP_URL" || true)
     MR_OR_PR_NUMBER=$(printf '%s' "$PR_LOOKUP_RESPONSE" \
-      | jq -r '[.[] | select(.merged_at != null)] | sort_by(.merged_at) | last | .number // empty' 2>/dev/null || true)
+      | jq -r '[.[] | select(.state == "open" or .merged_at != null)] | sort_by(.merged_at // .updated_at) | last | .number // empty' 2>/dev/null || true)
   fi
 
   # Skip commenting gracefully if PR still cannot be determined
   if [ -z "$MR_OR_PR_NUMBER" ]; then
     echo -e "\033[33mNo associated PR found for this commit. Skipping comment publication.\033[0m"
+    exit 0
+  fi
+
+  # Skip commenting on a PR that was closed without merge
+  PR_STATE_RESPONSE=$(curl -L -s -H "Accept: application/vnd.github+json" -H "$AUTH_HEADER" \
+    "${VCS_API_ENDPOINT}/repos/${BASE_REPO_NAME}/pulls/${MR_OR_PR_NUMBER}" || true)
+  PR_STATE=$(printf '%s' "$PR_STATE_RESPONSE" \
+    | jq -r 'if .state == "closed" and (.merged_at == null) then "closed" else empty end' 2>/dev/null || true)
+  if [ "$PR_STATE" = "closed" ]; then
+    echo -e "\033[33mPR ${MR_OR_PR_NUMBER} is closed without merge. Skipping comment publication.\033[0m"
     exit 0
   fi
 
