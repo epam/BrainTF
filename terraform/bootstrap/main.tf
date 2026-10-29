@@ -121,7 +121,7 @@ module "s3_state_bucket" {
   source                  = "git::https://github.com/terraform-aws-modules/terraform-aws-s3-bucket.git?ref=6c5e082b5d2fde77cb59c387a7f553dd2ed5da29"
   create_bucket           = true
   bucket                  = local.state_bucket
-  force_destroy           = true
+  force_destroy           = var.state_bucket_force_destroy
   attach_policy           = false
   block_public_acls       = true
   block_public_policy     = true

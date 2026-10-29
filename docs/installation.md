@@ -27,6 +27,7 @@ Workflow/pipeline described in this section can work independently and also be a
 ## Terraform backend configuration
 1. Choose an option to store Terraform state file for the `bootstrap` module using the guide [here](../docs/state_management.md).
 2. Copy the [docs/config_files/bootstrap/terraform.tfvars](./config_files/bootstrap/terraform.tfvars) file into the [bootstrap/](../terraform/bootstrap) directory and replace `<placeholders>` with values for your environment.
+   > The state bucket is protected from accidental deletion by default (`state_bucket_force_destroy = false`). The template sets it to `true` for demo/dev teardown; set it to `false` (or remove it) for environments with real state. See [State Bucket Deletion Protection](./state_management.md#state-bucket-deletion-protection).
 3. Copy the [docs/config_files/main_module/terraform.tfvars](./config_files/main_module/terraform.tfvars) and [docs/config_files/main_module/secrets.auto.tfvars](../docs/config_files/main_module/secrets.auto.tfvars) files into the [main_module/](../terraform/main_module) directory. Some variables will be filled in automatically in the next steps.
 4. Run `terraform init` command in `terraform/bootstrap` directory.
 5. Run `terraform plan/apply` commands in `terraform/bootstrap` directory.
