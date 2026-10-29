@@ -75,7 +75,10 @@ elif [ "$VCS_PROVIDER" = "github" ]; then
     PR_LOOKUP_URL="${VCS_API_ENDPOINT}/repos/${BASE_REPO_NAME}/commits/${COMMIT_SHA}/pulls"
     PR_LOOKUP_RESPONSE=$(curl -L -s -H "Accept: application/vnd.github+json" -H "$AUTH_HEADER" "$PR_LOOKUP_URL" || true)
     MR_OR_PR_NUMBER=$(printf '%s' "$PR_LOOKUP_RESPONSE" \
-      | jq -r '[.[] | select(.state == "open" or .merged_at != null)] | sort_by(.merged_at // .updated_at) | last | .number // empty' 2>/dev/null || true)
+      | jq -r '[.[] | select(.merged_at != null)] | sort_by(.merged_at) | last | .number // empty' 2>/dev/null || true)
+    if ! printf '%s' "$PR_LOOKUP_RESPONSE" | jq -e 'type == "array"' >/dev/null 2>&1; then
+      echo -e "\033[33mWarning: unexpected GitHub API response while looking up the PR by commit. Check the token permissions (pull requests: read).\033[0m"
+    fi
   fi
 
   # Skip commenting gracefully if PR still cannot be determined
