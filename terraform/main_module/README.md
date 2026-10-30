@@ -71,6 +71,7 @@
 | <a name="input_run_tfsec_analysis"></a> [run\_tfsec\_analysis](#input\_run\_tfsec\_analysis) | Enable or disable the TFSec analysis stage. Default is false. | `bool` | `false` | no |
 | <a name="input_run_trivy_analysis"></a> [run\_trivy\_analysis](#input\_run\_trivy\_analysis) | Enable or disable the Trivy analysis stage. Default is false. | `bool` | `false` | no |
 | <a name="input_security_groups"></a> [security\_groups](#input\_security\_groups) | Security Groups for Lambda-Git Connection | `list(string)` | n/a | yes |
+| <a name="input_state_bucket_force_destroy"></a> [state\_bucket\_force\_destroy](#input\_state\_bucket\_force\_destroy) | Bootstrap-only setting, not used by main\_module. Allows Terraform to delete the state bucket with all its objects and versions (demo/dev teardown). | `bool` | `false` | no |
 | <a name="input_team"></a> [team](#input\_team) | The owner team | `string` | n/a | yes |
 | <a name="input_vcs_hostname"></a> [vcs\_hostname](#input\_vcs\_hostname) | The VCS hostname for the project | `string` | n/a | yes |
 | <a name="input_vcs_project_path"></a> [vcs\_project\_path](#input\_vcs\_project\_path) | The path to the VCS project | `string` | n/a | yes |

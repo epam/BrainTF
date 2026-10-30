@@ -323,7 +323,7 @@ Existing deployments were created with `force_destroy = true`. After pulling thi
 `force_destroy` is stored in the Terraform state, so the flag must be applied before the destroy:
 
 1. Destroy `main_module` and any workload resources first.
-2. Set `state_bucket_force_destroy = true` in `terraform/bootstrap/terraform.tfvars` and run `terraform apply` in `terraform/bootstrap`.
+2. Uncomment `state_bucket_force_destroy = true` in `terraform/bootstrap/terraform.tfvars` and run `terraform apply` in `terraform/bootstrap`.
 3. If the state bucket is used as the backend for bootstrap (Option 2), migrate the bootstrap state back to local first (`terraform init -migrate-state` after removing the `backend "s3"` block). Otherwise Terraform would delete the bucket that holds its own state.
 4. Run `terraform destroy` in `terraform/bootstrap`.
 
