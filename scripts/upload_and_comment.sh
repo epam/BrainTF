@@ -87,9 +87,21 @@ elif [ "$VCS_PROVIDER" = "github" ]; then
     exit 0
   fi
 
-  # Skip commenting on a PR that was closed without merge
-  PR_STATE_RESPONSE=$(curl -L -s -H "Accept: application/vnd.github+json" -H "$AUTH_HEADER" \
+  # Fail before the S3 upload if the PR number is not a positive integer
+  if ! [[ "$MR_OR_PR_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+    echo -e "\033[31mError: Invalid PR number: '${MR_OR_PR_NUMBER}'.\033[0m"
+    exit 1
+  fi
+
+  # Skip commenting on a PR that was closed without merge; fail on API errors
+  PR_STATE_RESPONSE=$(curl -L -s -w "\n%{http_code}" -H "Accept: application/vnd.github+json" -H "$AUTH_HEADER" \
     "${VCS_API_ENDPOINT}/repos/${BASE_REPO_NAME}/pulls/${MR_OR_PR_NUMBER}" || true)
+  PR_STATE_HTTP_CODE=$(printf '%s' "$PR_STATE_RESPONSE" | tail -n 1)
+  PR_STATE_RESPONSE=$(printf '%s' "$PR_STATE_RESPONSE" | sed '$d')
+  if [ "$PR_STATE_HTTP_CODE" != "200" ]; then
+    echo -e "\033[31mError: Failed to get PR ${MR_OR_PR_NUMBER} from GitHub. HTTP status code: ${PR_STATE_HTTP_CODE}\033[0m"
+    exit 1
+  fi
   PR_STATE=$(printf '%s' "$PR_STATE_RESPONSE" \
     | jq -r 'if .state == "closed" and (.merged_at == null) then "closed" else empty end' 2>/dev/null || true)
   if [ "$PR_STATE" = "closed" ]; then
