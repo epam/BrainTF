@@ -36,19 +36,6 @@ else
   exit 1
 fi
 
-# Upload log file to S3 using AWS credentials already present in the environment
-if [ "$ACTION" != "post" ] && [ -n "$AWS_S3_BUCKET" ]; then
-  echo -e "\033[34mUploading $LOG_NAME to S3 bucket $AWS_S3_BUCKET in folder $MR_OR_PR_NUMBER...\033[0m"
-  aws s3 cp "$LOG_FILE_PATH" "s3://$AWS_S3_BUCKET/$MR_OR_PR_NUMBER/$LOG_NAME" \
-    --metadata "PULL_NUM=$MR_OR_PR_NUMBER,BASE_REPO_NAME=$BASE_REPO_NAME,BASE_REPO_OWNER=$BASE_REPO_OWNER,HEAD_BRANCH_NAME=$HEAD_BRANCH_NAME,TOOL_NAME=$TOOL_NAME,COMMIT_SHA=${COMMIT_SHA}" || {
-    echo -e "\033[31mError: Failed to upload log to S3.\033[0m"
-    exit 1
-  }
-  echo -e "\033[34mLog uploaded to S3 successfully.\033[0m"
-else
-  echo -e "\033[34mSkipping S3 upload (ACTION='$ACTION').\033[0m"
-fi
-
 # Ensure VCS API endpoint is configured before attempting to comment
 if [ -z "${VCS_API_ENDPOINT:-}" ]; then
   echo -e "\033[31mError: VCS_API_ENDPOINT is not set.\033[0m"
@@ -79,13 +66,66 @@ if [ "$VCS_PROVIDER" = "gitlab" ]; then
   COMMENTS_URL="${VCS_API_ENDPOINT}/projects/${PROJECT_ID_OR_REPOSITORY}/merge_requests/${MR_OR_PR_NUMBER}/notes"
 
 elif [ "$VCS_PROVIDER" = "github" ]; then
-  MR_OR_PR_NUMBER=$(echo "$PROJECT_ID_OR_REPOSITORY" | cut -d'/' -f3)
-  COMMENTS_URL="${VCS_API_ENDPOINT}/repos/${BASE_REPO_NAME}/issues/${MR_OR_PR_NUMBER}/comments"
   AUTH_HEADER="Authorization: Bearer $JOB_TOKEN"
   COMMIT_AUTHOR="${GITHUB_ACTOR:-}"
+
+  # Resolve PR number from commit SHA when PR context is absent (post-merge push pipeline)
+  if [ -z "$MR_OR_PR_NUMBER" ] && [ -n "$COMMIT_SHA" ]; then
+    echo -e "\033[34mNo PR number in context. Resolving PR from commit ${COMMIT_SHA}...\033[0m"
+    PR_LOOKUP_URL="${VCS_API_ENDPOINT}/repos/${BASE_REPO_NAME}/commits/${COMMIT_SHA}/pulls"
+    PR_LOOKUP_RESPONSE=$(curl -L -s -H "Accept: application/vnd.github+json" -H "$AUTH_HEADER" "$PR_LOOKUP_URL" || true)
+    MR_OR_PR_NUMBER=$(printf '%s' "$PR_LOOKUP_RESPONSE" \
+      | jq -r '[.[] | select(.merged_at != null)] | sort_by(.merged_at) | last | .number // empty' 2>/dev/null || true)
+    if ! printf '%s' "$PR_LOOKUP_RESPONSE" | jq -e 'type == "array"' >/dev/null 2>&1; then
+      echo -e "\033[33mWarning: unexpected GitHub API response while looking up the PR by commit. Check the token permissions (pull requests: read).\033[0m"
+    fi
+  fi
+
+  # Skip commenting gracefully if PR still cannot be determined
+  if [ -z "$MR_OR_PR_NUMBER" ]; then
+    echo -e "\033[33mNo associated PR found for this commit. Skipping comment publication.\033[0m"
+    exit 0
+  fi
+
+  # Fail before the S3 upload if the PR number is not a positive integer
+  if ! [[ "$MR_OR_PR_NUMBER" =~ ^[1-9][0-9]*$ ]]; then
+    echo -e "\033[31mError: Invalid PR number: '${MR_OR_PR_NUMBER}'.\033[0m"
+    exit 1
+  fi
+
+  # Skip commenting on a PR that was closed without merge; fail on API errors
+  PR_STATE_RESPONSE=$(curl -L -s -w "\n%{http_code}" -H "Accept: application/vnd.github+json" -H "$AUTH_HEADER" \
+    "${VCS_API_ENDPOINT}/repos/${BASE_REPO_NAME}/pulls/${MR_OR_PR_NUMBER}" || true)
+  PR_STATE_HTTP_CODE=$(printf '%s' "$PR_STATE_RESPONSE" | tail -n 1)
+  PR_STATE_RESPONSE=$(printf '%s' "$PR_STATE_RESPONSE" | sed '$d')
+  if [ "$PR_STATE_HTTP_CODE" != "200" ]; then
+    echo -e "\033[31mError: Failed to get PR ${MR_OR_PR_NUMBER} from GitHub. HTTP status code: ${PR_STATE_HTTP_CODE}\033[0m"
+    exit 1
+  fi
+  PR_STATE=$(printf '%s' "$PR_STATE_RESPONSE" \
+    | jq -r 'if .state == "closed" and (.merged_at == null) then "closed" else empty end' 2>/dev/null || true)
+  if [ "$PR_STATE" = "closed" ]; then
+    echo -e "\033[33mPR ${MR_OR_PR_NUMBER} is closed without merge. Skipping comment publication.\033[0m"
+    exit 0
+  fi
+
+  COMMENTS_URL="${VCS_API_ENDPOINT}/repos/${BASE_REPO_NAME}/issues/${MR_OR_PR_NUMBER}/comments"
 else
   echo -e "\033[31mError: Unsupported VCS_PROVIDER value: $VCS_PROVIDER. Must be 'gitlab' or 'github'.\033[0m"
   exit 1
+fi
+
+# Upload log file to S3 using AWS credentials already present in the environment
+if [ "$ACTION" != "post" ] && [ -n "$AWS_S3_BUCKET" ]; then
+  echo -e "\033[34mUploading $LOG_NAME to S3 bucket $AWS_S3_BUCKET in folder $MR_OR_PR_NUMBER...\033[0m"
+  aws s3 cp "$LOG_FILE_PATH" "s3://$AWS_S3_BUCKET/$MR_OR_PR_NUMBER/$LOG_NAME" \
+    --metadata "PULL_NUM=$MR_OR_PR_NUMBER,BASE_REPO_NAME=$BASE_REPO_NAME,BASE_REPO_OWNER=$BASE_REPO_OWNER,HEAD_BRANCH_NAME=$HEAD_BRANCH_NAME,TOOL_NAME=$TOOL_NAME,COMMIT_SHA=${COMMIT_SHA}" || {
+    echo -e "\033[31mError: Failed to upload log to S3.\033[0m"
+    exit 1
+  }
+  echo -e "\033[34mLog uploaded to S3 successfully.\033[0m"
+else
+  echo -e "\033[34mSkipping S3 upload (ACTION='$ACTION').\033[0m"
 fi
 
 # S3 link is only relevant when the log was actually uploaded
