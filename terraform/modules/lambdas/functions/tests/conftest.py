@@ -174,7 +174,7 @@ def patched_config_wrong_vcs(patched_environment, ssm_setup, expected_token_gith
         Overwrite=True,
     )
 
-    patched_environment.setattr(config, "vcs_provider", "bitbucket")
+    patched_environment.setattr(config, "vcs_provider", "gitlab")
     patched_environment.setattr(config, "vcs_token_name", "x-github-token")
     return patched_environment
 
