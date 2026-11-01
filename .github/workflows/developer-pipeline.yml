@@ -36,6 +36,7 @@ jobs:
 
   python-test:
     name: Python Unit Tests
+    needs: quality
     runs-on: ubuntu-latest
     env:
       PYTHONPATH: ${{ github.workspace }}/terraform/modules/lambdas/functions
