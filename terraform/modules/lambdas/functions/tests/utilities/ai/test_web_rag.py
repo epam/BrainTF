@@ -16,8 +16,7 @@ def test_extract_checkov_guide_urls_preserves_order_and_deduplicates(
 
     urls = extract_checkov_guide_urls(log_file_text_checkov)
 
-    assert urls[:2] == expected_checkov_guide_urls
-    assert len(urls) == len(set(urls))
+    assert urls == expected_checkov_guide_urls
 
 
 def test_extract_tfsec_guide_urls_preserves_order_and_deduplicates(
@@ -26,8 +25,7 @@ def test_extract_tfsec_guide_urls_preserves_order_and_deduplicates(
 
     urls = extract_tfsec_guide_urls(log_file_text_tfsec)
 
-    assert urls[:2] == expected_tfsec_guide_urls
-    assert len(urls) == len(set(urls))
+    assert urls == expected_tfsec_guide_urls
 
 
 def test_extract_tflint_guide_urls_preserves_order_and_deduplicates(
@@ -46,6 +44,27 @@ def test_extract_tflint_guide_urls_rejects_untrusted_urls(
     assert extract_tflint_guide_urls(tflint_untrusted_errors) == []
 
 
+@pytest.mark.parametrize(
+    ('validator_name', 'url'), [
+        ('is_trivy_guide_url', 'http://avd.aquasec.com/misconfig/aws-0104'),
+        ('is_trivy_guide_url', 'https://avd.aquasec.com:8080/misconfig/aws-0104'),
+        ('is_trivy_guide_url', 'https://avd.aquasec.com:not-a-port/misconfig/aws-0104'),
+        ('is_checkov_guide_url', 'http://docs.prismacloud.io/checkov-guide'),
+        ('is_checkov_guide_url', 'https://docs.prismacloud.io.evil.example/checkov-guide'),
+        ('is_checkov_guide_url', 'https://docs.prismacloud.io:not-a-port/checkov-guide'),
+        ('is_tflint_guide_url', 'https://github.com:8080/terraform-linters/tflint-ruleset-terraform/blob/v0.13.0/docs/rules/rule.md'),
+        ('is_tflint_guide_url', 'https://github.com:not-a-port/terraform-linters/tflint-ruleset-terraform/blob/v0.13.0/docs/rules/rule.md'),
+        ('is_tflint_guide_url', 'https://github.com/other/project/blob/v0.13.0/docs/rules/rule.md'),
+        ('is_tflint_guide_url', 'https://github.com/terraform-linters/tflint-ruleset-terraform/blob/v0.13.0/docs/rules/rule.md?download=1')
+    ]
+)
+def test_guide_url_validators_reject_untrusted_or_malformed_urls(
+        patched_environment, validator_name, url):
+    from utilities.ai import web_rag
+
+    assert not getattr(web_rag, validator_name)(url)
+
+
 def test_parse_tflint_guide_extracts_focused_remediation(
         patched_environment, tflint_required_version_url, tflint_guide_markdown):
     from utilities.ai.web_rag import parse_tflint_guide
@@ -59,6 +78,17 @@ def test_parse_tflint_guide_extracts_focused_remediation(
     assert '```hcl\nterraform {' in result
     assert 'rule "terraform_required_version"' not in result
     assert '$ tflint' not in result
+    assert result == '\n'.join([
+        tflint_required_version_url,
+        'terraform_required_version',
+        'Disallow `terraform` declarations without `required_version`.',
+        'This rule is enabled by the recommended preset.',
+        'The required version constrains which Terraform CLI versions can be used.',
+        'Add the `required_version` attribute to the Terraform configuration block.',
+        '```hcl',
+        'terraform {\n  required_version = ">= 1.0"\n}',
+        '```'
+    ])
 
 
 def test_fetch_tflint_guide_uses_raw_github_url(
@@ -107,6 +137,18 @@ def test_parse_trivy_guide_preserves_hcl_formatting(patched_environment, web_rag
     assert 'resource "aws_security_group" "good_example" {' in result
     assert '    cidr_blocks = ["1.2.3.4/32"]' in result
     assert 'resource\n"aws_security_group"' not in result
+    assert result == '\n'.join([
+        'https://avd.aquasec.com/misconfig/aws/ec2/aws-0104/',
+        'No Public Egress SGR',
+        'Set a more restrictive cidr range.',
+        '```hcl',
+        'resource "aws_security_group" "good_example" {\n'
+        '  egress {\n'
+        '    cidr_blocks = ["1.2.3.4/32"]\n'
+        '  }\n'
+        '}',
+        '```'
+    ])
 
 
 def test_extract_trivy_guides_parses_terraform_remediation(
@@ -190,8 +232,107 @@ def test_fetch_trivy_guide_refuses_refresh_to_other_host(
 
     monkeypatch.setattr(web_rag, '_request_page', request_page)
 
-    assert web_rag._fetch_trivy_guide('https://avd.aquasec.com/misconfig/aws-0104') == ''
+    result = web_rag._fetch_trivy_guide('https://avd.aquasec.com/misconfig/aws-0104')
+
+    assert 'Keep the already-fetched guide.' in result
+    assert 'resource "aws_security_group" "good_example" {}' in result
     assert requested_urls == ['https://avd.aquasec.com/misconfig/aws-0104']
+
+
+def test_fetch_trivy_guide_follows_relative_canonical_link(
+        patched_environment, monkeypatch, web_rag_documents):
+    from types import SimpleNamespace
+
+    from utilities.ai import web_rag
+
+    initial_url = 'https://avd.aquasec.com/misconfig/aws-0104'
+    canonical_url = 'https://avd.aquasec.com/misconfig/aws/ec2/aws-0104/'
+    responses = {
+        initial_url: SimpleNamespace(
+            text='<html><link rel="canonical" href="/misconfig/aws/ec2/aws-0104/"></html>',
+            raise_for_status=lambda: None
+        ),
+        canonical_url: SimpleNamespace(
+            text=web_rag_documents['trivy_refresh_guide'],
+            raise_for_status=lambda: None
+        )
+    }
+    requested_urls = []
+
+    def request_page(url):
+        requested_urls.append(url)
+        return responses[url]
+
+    monkeypatch.setattr(web_rag, '_request_page', request_page)
+
+    result = web_rag._fetch_trivy_guide(initial_url)
+
+    assert requested_urls == [initial_url, canonical_url]
+    assert result.startswith(f'{canonical_url}\nNo Public Egress SGR')
+
+
+def test_fetch_trivy_guide_stops_refresh_loop_and_parses_current_page(
+        patched_environment, monkeypatch):
+    from types import SimpleNamespace
+
+    from utilities.ai import web_rag
+
+    first_url = 'https://avd.aquasec.com/misconfig/aws-0104'
+    second_url = 'https://avd.aquasec.com/misconfig/aws/ec2/aws-0104/'
+    responses = {
+        first_url: SimpleNamespace(
+            text=f'<meta http-equiv="refresh" content="0; url={second_url}">',
+            raise_for_status=lambda: None
+        ),
+        second_url: SimpleNamespace(
+            text=(
+                f'<meta http-equiv="refresh" content="0; url={first_url}">'
+                '<h1>Looped guide</h1><h3>Recommended Actions</h3>'
+                '<p>Use the already-fetched page.</p>'
+            ),
+            raise_for_status=lambda: None
+        )
+    }
+    requested_urls = []
+
+    def request_page(url):
+        requested_urls.append(url)
+        return responses[url]
+
+    monkeypatch.setattr(web_rag, '_request_page', request_page)
+
+    result = web_rag._fetch_trivy_guide(first_url)
+
+    assert requested_urls == [first_url, second_url]
+    assert result == f'{second_url}\nLooped guide\nUse the already-fetched page.'
+
+
+def test_fetch_trivy_guide_stops_after_maximum_refresh_hops(patched_environment, monkeypatch):
+    from types import SimpleNamespace
+
+    from utilities.ai import web_rag
+
+    urls = [
+        f'https://avd.aquasec.com/misconfig/hop-{index}'
+        for index in range(web_rag.TRIVY_MAX_REFRESH_HOPS + 2)
+    ]
+    responses = {
+        url: SimpleNamespace(
+            text=f'<meta http-equiv="refresh" content="0; url={urls[index + 1]}">',
+            raise_for_status=lambda: None
+        )
+        for index, url in enumerate(urls[:-1])
+    }
+    requested_urls = []
+
+    def request_page(url):
+        requested_urls.append(url)
+        return responses[url]
+
+    monkeypatch.setattr(web_rag, '_request_page', request_page)
+
+    assert web_rag._fetch_trivy_guide(urls[0]) == ''
+    assert requested_urls == urls[:web_rag.TRIVY_MAX_REFRESH_HOPS + 1]
 
 
 def test_fetch_trivy_guide_accepts_unquoted_same_domain_stub(
@@ -233,6 +374,26 @@ def test_parse_tfsec_guide_preserves_hcl_formatting(
     assert 'resource "aws_s3_bucket" "bad_example" {' in result
     assert '  block_public_acls = true' in result
     assert 'resource\n"aws_s3_bucket"' not in result
+    assert result == '\n'.join([
+        tfsec_guide_urls[0],
+        'S3 Access block should block public ACL',
+        'S3 buckets should block public ACLs.',
+        'PUT calls with public ACLs specified can make objects public',
+        'Enable blocking any PUT calls with a public ACL specified',
+        'Insecure Example',
+        '```hcl',
+        'resource "aws_s3_bucket" "bad_example" {\n'
+        '  bucket = "mybucket"\n'
+        '}',
+        '```',
+        'Secure Example',
+        '```hcl',
+        'resource "aws_s3_bucket_public_access_block" "good_example" {\n'
+        '  bucket = aws_s3_bucket.good_example.id\n'
+        '  block_public_acls = true\n'
+        '}',
+        '```'
+    ])
 
 
 def test_parse_checkov_guide_includes_impact_fix_and_terraform_example(
@@ -272,6 +433,44 @@ def test_parse_checkov_guide_keeps_prose_without_terraform_example(
 
     assert 'Objects can be overwritten without recovery.' in result
     assert 'Enable bucket versioning.' in result
+
+
+def test_parse_checkov_guide_extracts_rendered_terraform_lines(
+        patched_environment, web_rag_documents):
+    from utilities.ai.web_rag import parse_checkov_guide
+
+    result = parse_checkov_guide(
+        'https://docs.prismacloud.io/checkov-rendered-guide',
+        web_rag_documents['checkov_rendered_examples']
+    )
+
+    assert result == '\n'.join([
+        'https://docs.prismacloud.io/checkov-rendered-guide',
+        'Rendered Terraform remediation',
+        '```hcl',
+        'resource "aws_s3_bucket" "fixed" {\n'
+        '  versioning {\n'
+        '    enabled = true\n'
+        '  }\n'
+        '}\n'
+        'data "aws_caller_identity" "current" {\n'
+        '}',
+        '```'
+    ])
+
+
+@pytest.mark.parametrize('parser_name', [
+    'parse_trivy_guide',
+    'parse_tfsec_guide',
+    'parse_checkov_guide',
+    'parse_tflint_guide'
+])
+def test_guide_parsers_return_empty_for_empty_documents(patched_environment, parser_name):
+    from utilities.ai import web_rag
+
+    parser = getattr(web_rag, parser_name)
+
+    assert parser('https://example.com/guide', '') == ''
 
 
 def test_extract_checkov_guides_fetches_all_sources(
@@ -346,6 +545,24 @@ def test_fetch_tfsec_guide_retries_latest_after_404(
     assert 'Suggested Resolution' not in result
 
 
+def test_extract_tfsec_guide_skips_failed_requests(patched_environment, monkeypatch, caplog):
+    import requests
+
+    from utilities.ai import web_rag
+
+    def raise_request_error(_url):
+        raise requests.RequestException('connection failed')
+
+    monkeypatch.setattr(web_rag, '_fetch_tfsec_guide', raise_request_error)
+
+    result = web_rag.extract_tfsec_guide(
+        'https://aquasecurity.github.io/tfsec/v1.28.14/checks/aws/s3/block-public-acls/'
+    )
+
+    assert result == ''
+    assert 'Unable to retrieve TFSec guide' in caplog.text
+
+
 def test_extract_tfsec_guide_fetches_all_aquasecurity_sources(
         patched_environment, monkeypatch, tfsec_guide_urls):
     from utilities.ai import web_rag
@@ -365,6 +582,28 @@ def test_extract_tfsec_guide_fetches_all_aquasecurity_sources(
 
     assert fetched_urls == tfsec_guide_urls
     assert result == '\n---\n'.join(f"Guide: {url}" for url in tfsec_guide_urls)
+
+
+def test_extract_tflint_guides_fetches_all_sources(
+        patched_environment, monkeypatch, expected_tflint_guide_urls):
+    from utilities.ai import web_rag
+
+    fetched_urls = []
+
+    def fetch_guide(url):
+        fetched_urls.append(url)
+        return f'Guide content for {url}'
+
+    monkeypatch.setattr(web_rag, '_fetch_tflint_guide', fetch_guide)
+
+    result = web_rag.extract_tflint_guides(
+        '\n'.join(f'Reference: {url}' for url in expected_tflint_guide_urls)
+    )
+
+    assert fetched_urls == expected_tflint_guide_urls
+    assert result == '\n---\n'.join(
+        f'Guide content for {url}' for url in expected_tflint_guide_urls
+    )
 
 
 def test_parse_tfsec_guide_labels_insecure_and_secure_examples(
@@ -408,6 +647,26 @@ def test_parse_trivy_guide_includes_rule_description(
     assert '\nA security group rule should not allow unrestricted egress.\n' in result
     assert 'Opening up ports to the public internet is generally to be avoided.' in result
     assert result.index('A security group rule') < result.index('Set a more restrictive cidr range')
+
+
+def test_parse_trivy_guide_removes_remediation_links(patched_environment):
+    from utilities.ai.web_rag import parse_trivy_guide
+
+    result = parse_trivy_guide(
+        'https://avd.aquasec.com/misconfig/aws-0104/',
+        '''
+<h1>No Public Egress SGR</h1>
+<h3>Recommended Actions</h3><p>Set a restrictive egress range.</p>
+<h4>Remediation Links</h4><ul><li>https://example.com/remediation</li></ul>
+<h3>Links</h3><p>Do not include this section.</p>
+'''
+    )
+
+    assert result == '\n'.join([
+        'https://avd.aquasec.com/misconfig/aws-0104/',
+        'No Public Egress SGR',
+        'Set a restrictive egress range.'
+    ])
 
 
 def test_section_text_does_not_duplicate_nested_text_blocks(

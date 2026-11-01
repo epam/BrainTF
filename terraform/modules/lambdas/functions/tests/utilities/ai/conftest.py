@@ -47,7 +47,22 @@ def expected_trivy_guide_urls():
 def expected_checkov_guide_urls():
     return [
         'https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-6',
-        'https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-52'
+        'https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-52',
+        'https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-buckets-are-encrypted-with-kms-by-default',
+        'https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-62',
+        'https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/s3-bucket-should-have-public-access-blocks-defaults-to-false-if-the-public-access-block-is-not-attached',
+        'https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-13-enable-logging',
+        'https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/bc-aws-2-61',
+        'https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/s3-policies/s3-16-enable-versioning',
+        'https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-s3-bucket-has-cross-region-replication-enabled',
+        'https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/bc-aws-general-31',
+        'https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/ensure-that-ec2-is-ebs-optimized',
+        'https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-logging-policies/ensure-that-detailed-monitoring-is-enabled-for-ec2-instances',
+        'https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-general-policies/general-13',
+        'https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/networking-31',
+        'https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/bc-aws-382',
+        'https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-iam-policies/ensure-an-iam-role-is-attached-to-ec2-instance',
+        'https://docs.prismacloud.io/en/enterprise-edition/policy-reference/aws-policies/aws-networking-policies/ensure-that-security-groups-are-attached-to-ec2-instances-or-elastic-network-interfaces-enis'
     ]
 
 
@@ -55,7 +70,20 @@ def expected_checkov_guide_urls():
 def expected_tfsec_guide_urls():
     return [
         'https://aquasecurity.github.io/tfsec/v1.28.12/checks/aws/dynamodb/enable-at-rest-encryption/',
-        'https://aquasecurity.github.io/tfsec/v1.28.12/checks/aws/dynamodb/enable-recovery/'
+        'https://aquasecurity.github.io/tfsec/v1.28.12/checks/aws/dynamodb/enable-recovery/',
+        'https://aquasecurity.github.io/tfsec/v1.28.12/checks/aws/dynamodb/table-customer-key/',
+        'https://aquasecurity.github.io/tfsec/v1.28.12/checks/aws/s3/block-public-acls/',
+        'https://aquasecurity.github.io/tfsec/v1.28.12/checks/aws/s3/block-public-policy/',
+        'https://aquasecurity.github.io/tfsec/v1.28.12/checks/aws/s3/ignore-public-acls/',
+        'https://aquasecurity.github.io/tfsec/v1.28.12/checks/aws/s3/no-public-buckets/',
+        'https://aquasecurity.github.io/tfsec/v1.28.12/checks/aws/s3/encryption-customer-key/',
+        'https://aquasecurity.github.io/tfsec/v1.28.12/checks/aws/s3/enable-bucket-logging/',
+        'https://aquasecurity.github.io/tfsec/v1.28.12/checks/aws/s3/enable-versioning/',
+        'https://aquasecurity.github.io/tfsec/v1.28.12/checks/aws/s3/specify-public-access-block/',
+        'https://aquasecurity.github.io/tfsec/v1.28.12/checks/aws/ec2/no-public-egress-sgr/',
+        'https://aquasecurity.github.io/tfsec/v1.28.12/checks/aws/ec2/enforce-http-token-imds/',
+        'https://aquasecurity.github.io/tfsec/v1.28.12/checks/aws/ec2/enable-at-rest-encryption/',
+        'https://aquasecurity.github.io/tfsec/v1.28.12/checks/aws/ec2/add-description-to-security-group-rule/'
     ]
 
 
@@ -219,7 +247,11 @@ def web_rag_documents():
 ''',
         'trivy_untrusted_refresh': (
             '<html><head><meta http-equiv="refresh" '
-            'content="0; url=http://169.254.169.254/latest/meta-data/"></head></html>'
+            'content="0; url=http://169.254.169.254/latest/meta-data/"></head>'
+            '<body><h1>No Public Egress SGR</h1>'
+            '<h3>Recommended Actions</h3><p>Keep the already-fetched guide.</p>'
+            '<pre><code>resource "aws_security_group" "good_example" {}</code></pre>'
+            '</body></html>'
         ),
         'trivy_stub': '''<!doctype html>
 <html lang=en-us>
@@ -329,6 +361,20 @@ def web_rag_documents():
         'section_container': '''
 <article><h2>Suggested Resolution</h2><p>Enable it.</p></article>
 <footer><p>Copyright footer</p></footer>
+''',
+        'checkov_rendered_examples': '''
+<html>
+  <h1>Rendered Terraform remediation</h1>
+  <h2>How to Fix</h2>
+  <ul>
+    <li><p>resource "aws_s3_bucket" "fixed" {</p></li>
+    <li>  versioning {</li>
+    <li>    enabled = true</li>
+    <li>  }</li>
+    <li>}</li>
+    <li>data "aws_caller_identity" "current" {}</li>
+  </ul>
+</html>
 ''',
         'section_heading': '<h2>Explanation</h2><div><p>Important explanation text.</p><h3>Details</h3><p>More.</p></div>',
         'section_wrapped': '<div><h2>Explanation</h2></div><div><p>Explanation text.</p></div><h2>Next</h2><p>Other.</p>',
