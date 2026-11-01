@@ -58,18 +58,18 @@ def test_extract_tflint_guide_urls_rejects_untrusted_urls(patched_environment, t
         ("is_checkov_guide_url", "https://docs.prismacloud.io:not-a-port/checkov-guide"),
         (
                 "is_tflint_guide_url",
-                "https://github.com:8080/terraform-linters/tflint-ruleset-terraform/blob/v0.13.0/docs/rules/rule.md",
+                "https://github.com:8080/terraform-linters/tflint-ruleset-terraform/blob/v0.13.0/docs/rules/rule.md"
         ),
         (
                 "is_tflint_guide_url",
-                "https://github.com:not-a-port/terraform-linters/tflint-ruleset-terraform/blob/v0.13.0/docs/rules/rule.md",
+                "https://github.com:not-a-port/terraform-linters/tflint-ruleset-terraform/blob/v0.13.0/docs/rules/rule.md"
         ),
         ("is_tflint_guide_url", "https://github.com/other/project/blob/v0.13.0/docs/rules/rule.md"),
         (
                 "is_tflint_guide_url",
-                "https://github.com/terraform-linters/tflint-ruleset-terraform/blob/v0.13.0/docs/rules/rule.md?download=1",
-        ),
-    ],
+                "https://github.com/terraform-linters/tflint-ruleset-terraform/blob/v0.13.0/docs/rules/rule.md?download=1"
+        )
+    ]
 )
 def test_guide_url_validators_reject_untrusted_or_malformed_urls(patched_environment, validator_name, url):
     from utilities.ai import web_rag
@@ -156,7 +156,7 @@ def test_extract_trivy_guides_parses_terraform_remediation(patched_environment, 
     monkeypatch.setattr(
         web_rag,
         "_fetch_trivy_guide",
-        lambda url: web_rag.parse_trivy_guide(url, web_rag_documents["trivy_remediation"]),
+        lambda url: web_rag.parse_trivy_guide(url, web_rag_documents["trivy_remediation"])
     )
 
     result = web_rag.extract_trivy_guides("See https://avd.aquasec.com/misconfig/aws/ec2/aws-0104")
@@ -198,7 +198,7 @@ def test_fetch_trivy_guide_follows_html_refresh(patched_environment, monkeypatch
 
     assert requested_urls == [
         "https://avd.aquasec.com/misconfig/aws-0104",
-        "https://avd.aquasec.com/misconfig/aws/ec2/aws-0104/",
+        "https://avd.aquasec.com/misconfig/aws/ec2/aws-0104/"
     ]
     assert "```hcl" in result
     assert 'resource "aws_security_group" "good_example"' in result
@@ -238,9 +238,9 @@ def test_fetch_trivy_guide_follows_relative_canonical_link(patched_environment, 
     responses = {
         initial_url: SimpleNamespace(
             text='<html><link rel="canonical" href="/misconfig/aws/ec2/aws-0104/"></html>',
-            raise_for_status=lambda: None,
+            raise_for_status=lambda: None
         ),
-        canonical_url: SimpleNamespace(text=web_rag_documents["trivy_refresh_guide"], raise_for_status=lambda: None),
+        canonical_url: SimpleNamespace(text=web_rag_documents["trivy_refresh_guide"], raise_for_status=lambda: None)
     }
     requested_urls = []
 
@@ -273,8 +273,8 @@ def test_fetch_trivy_guide_stops_refresh_loop_and_parses_current_page(patched_en
                 "<h1>Looped guide</h1><h3>Recommended Actions</h3>"
                 "<p>Use the already-fetched page.</p>"
             ),
-            raise_for_status=lambda: None,
-        ),
+            raise_for_status=lambda: None
+        )
     }
     requested_urls = []
 
@@ -368,7 +368,7 @@ def test_parse_tfsec_guide_preserves_hcl_formatting(patched_environment, tfsec_g
                 "  block_public_acls = true\n"
                 "}"
             ),
-            "```",
+            "```"
         ]
     )
 
@@ -378,7 +378,7 @@ def test_parse_checkov_guide_includes_impact_fix_and_terraform_example(patched_e
 
     result = parse_checkov_guide(
         "https://docs.prismacloud.io/en/enterprise-edition/policy-reference/checkov-guide",
-        web_rag_documents["checkov_formatting"],
+        web_rag_documents["checkov_formatting"]
     )
 
     assert "AWS security group allows unrestricted SSH" in result
@@ -496,7 +496,7 @@ def test_fetch_tfsec_guide_retries_latest_after_404(
 
     assert requested_urls == [
         tfsec_guide_urls[0],
-        "https://aquasecurity.github.io/tfsec/latest/checks/aws/s3/block-public-acls/",
+        "https://aquasecurity.github.io/tfsec/latest/checks/aws/s3/block-public-acls/"
     ]
     assert "Enable blocking public ACLs." in result
     assert "Suggested Resolution" not in result
@@ -601,7 +601,7 @@ def test_parse_trivy_guide_removes_remediation_links(patched_environment):
 <h3>Recommended Actions</h3><p>Set a restrictive egress range.</p>
 <h4>Remediation Links</h4><ul><li>https://example.com/remediation</li></ul>
 <h3>Links</h3><p>Do not include this section.</p>
-""",
+"""
     )
 
     assert (
@@ -670,7 +670,7 @@ def test_terraform_examples_keep_heading_inside_scope(patched_environment, web_r
 
     assert _terraform_examples(soup) == [
         ("Insecure Example", 'resource "aws_s3_bucket" "bad" {}'),
-        ("Secure Example", 'resource "aws_s3_bucket" "good" {}'),
+        ("Secure Example", 'resource "aws_s3_bucket" "good" {}')
     ]
 
 
@@ -685,8 +685,8 @@ def test_terraform_examples_keep_heading_inside_scope(patched_environment, web_r
         'import {\n  to = a.b\n  id = "x"\n}',
         'check "health" {\n}',
         '  resource "aws_s3_bucket" "example" {}',
-        '# comment\ndata "aws_caller_identity" "current" {}',
-    ],
+        '# comment\ndata "aws_caller_identity" "current" {}'
+    ]
 )
 def test_terraform_code_pattern_matches_valid_blocks(patched_environment, code):
     from utilities.ai.web_rag import TERRAFORM_CODE_PATTERN
@@ -700,8 +700,8 @@ def test_terraform_code_pattern_matches_valid_blocks(patched_environment, code):
         "terraform init",
         "import os\ncheck = 1",
         'import "fmt"\nfunc main() {}',
-        "Resources:\n  Bucket:\n    Type: AWS::S3::Bucket",
-    ],
+        "Resources:\n  Bucket:\n    Type: AWS::S3::Bucket"
+    ]
 )
 def test_terraform_code_pattern_ignores_other_languages(patched_environment, code):
     from utilities.ai.web_rag import TERRAFORM_CODE_PATTERN
