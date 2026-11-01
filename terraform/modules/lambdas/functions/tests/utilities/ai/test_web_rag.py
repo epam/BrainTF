@@ -2,7 +2,7 @@ import pytest
 
 
 def test_extract_trivy_guide_urls_preserves_order_and_deduplicates(
-    patched_environment, log_file_text_trivy, expected_trivy_guide_urls
+        patched_environment, log_file_text_trivy, expected_trivy_guide_urls
 ):
     from utilities.ai.web_rag import extract_trivy_guide_urls
 
@@ -12,7 +12,7 @@ def test_extract_trivy_guide_urls_preserves_order_and_deduplicates(
 
 
 def test_extract_checkov_guide_urls_preserves_order_and_deduplicates(
-    patched_environment, log_file_text_checkov, expected_checkov_guide_urls
+        patched_environment, log_file_text_checkov, expected_checkov_guide_urls
 ):
     from utilities.ai.web_rag import extract_checkov_guide_urls
 
@@ -22,7 +22,7 @@ def test_extract_checkov_guide_urls_preserves_order_and_deduplicates(
 
 
 def test_extract_tfsec_guide_urls_preserves_order_and_deduplicates(
-    patched_environment, log_file_text_tfsec, expected_tfsec_guide_urls
+        patched_environment, log_file_text_tfsec, expected_tfsec_guide_urls
 ):
     from utilities.ai.web_rag import extract_tfsec_guide_urls
 
@@ -32,7 +32,7 @@ def test_extract_tfsec_guide_urls_preserves_order_and_deduplicates(
 
 
 def test_extract_tflint_guide_urls_preserves_order_and_deduplicates(
-    patched_environment, log_file_text_tflint, expected_tflint_guide_urls
+        patched_environment, log_file_text_tflint, expected_tflint_guide_urls
 ):
     from utilities.ai.web_rag import extract_tflint_guide_urls
 
@@ -57,17 +57,17 @@ def test_extract_tflint_guide_urls_rejects_untrusted_urls(patched_environment, t
         ("is_checkov_guide_url", "https://docs.prismacloud.io.evil.example/checkov-guide"),
         ("is_checkov_guide_url", "https://docs.prismacloud.io:not-a-port/checkov-guide"),
         (
-            "is_tflint_guide_url",
-            "https://github.com:8080/terraform-linters/tflint-ruleset-terraform/blob/v0.13.0/docs/rules/rule.md",
+                "is_tflint_guide_url",
+                "https://github.com:8080/terraform-linters/tflint-ruleset-terraform/blob/v0.13.0/docs/rules/rule.md",
         ),
         (
-            "is_tflint_guide_url",
-            "https://github.com:not-a-port/terraform-linters/tflint-ruleset-terraform/blob/v0.13.0/docs/rules/rule.md",
+                "is_tflint_guide_url",
+                "https://github.com:not-a-port/terraform-linters/tflint-ruleset-terraform/blob/v0.13.0/docs/rules/rule.md",
         ),
         ("is_tflint_guide_url", "https://github.com/other/project/blob/v0.13.0/docs/rules/rule.md"),
         (
-            "is_tflint_guide_url",
-            "https://github.com/terraform-linters/tflint-ruleset-terraform/blob/v0.13.0/docs/rules/rule.md?download=1",
+                "is_tflint_guide_url",
+                "https://github.com/terraform-linters/tflint-ruleset-terraform/blob/v0.13.0/docs/rules/rule.md?download=1",
         ),
     ],
 )
@@ -78,7 +78,7 @@ def test_guide_url_validators_reject_untrusted_or_malformed_urls(patched_environ
 
 
 def test_parse_tflint_guide_extracts_focused_remediation(
-    patched_environment, tflint_required_version_url, tflint_guide_markdown
+        patched_environment, tflint_required_version_url, tflint_guide_markdown
 ):
     from utilities.ai.web_rag import parse_tflint_guide
 
@@ -92,13 +92,13 @@ def test_parse_tflint_guide_extracts_focused_remediation(
     assert 'rule "terraform_required_version"' not in result
     assert "$ tflint" not in result
     assert (
-        result
-        == f'{tflint_required_version_url}\nterraform_required_version\nDisallow `terraform` declarations without `required_version`.\nThis rule is enabled by the recommended preset.\nThe required version constrains which Terraform CLI versions can be used.\nAdd the `required_version` attribute to the Terraform configuration block.\n```hcl\nterraform {{\n  required_version = ">= 1.0"\n}}\n```'
+            result
+            == f'{tflint_required_version_url}\nterraform_required_version\nDisallow `terraform` declarations without `required_version`.\nThis rule is enabled by the recommended preset.\nThe required version constrains which Terraform CLI versions can be used.\nAdd the `required_version` attribute to the Terraform configuration block.\n```hcl\nterraform {{\n  required_version = ">= 1.0"\n}}\n```'
     )
 
 
 def test_fetch_tflint_guide_uses_raw_github_url(
-    patched_environment, monkeypatch, tflint_required_version_url, tflint_fetch_response
+        patched_environment, monkeypatch, tflint_required_version_url, tflint_fetch_response
 ):
     from utilities.ai import web_rag
 
@@ -119,7 +119,7 @@ def test_fetch_tflint_guide_uses_raw_github_url(
 
 
 def test_extract_tflint_guides_skips_failed_requests(
-    patched_environment, monkeypatch, caplog, tflint_required_version_url
+        patched_environment, monkeypatch, caplog, tflint_required_version_url
 ):
     import requests
 
@@ -145,8 +145,8 @@ def test_parse_trivy_guide_preserves_hcl_formatting(patched_environment, web_rag
     assert '    cidr_blocks = ["1.2.3.4/32"]' in result
     assert 'resource\n"aws_security_group"' not in result
     assert (
-        result
-        == 'https://avd.aquasec.com/misconfig/aws/ec2/aws-0104/\nNo Public Egress SGR\nSet a more restrictive cidr range.\n```hcl\nresource "aws_security_group" "good_example" {\n  egress {\n    cidr_blocks = ["1.2.3.4/32"]\n  }\n}\n```'
+            result
+            == 'https://avd.aquasec.com/misconfig/aws/ec2/aws-0104/\nNo Public Egress SGR\nSet a more restrictive cidr range.\n```hcl\nresource "aws_security_group" "good_example" {\n  egress {\n    cidr_blocks = ["1.2.3.4/32"]\n  }\n}\n```'
     )
 
 
@@ -332,7 +332,7 @@ def test_fetch_trivy_guide_accepts_unquoted_same_domain_stub(patched_environment
 
 
 def test_extract_tfsec_guide_url_uses_only_first_aquasecurity_source(
-    patched_environment, tfsec_untrusted_first_source, tfsec_dynamodb_guide_url
+        patched_environment, tfsec_untrusted_first_source, tfsec_dynamodb_guide_url
 ):
     from utilities.ai.web_rag import extract_tfsec_guide_url
 
@@ -399,7 +399,7 @@ def test_parse_checkov_guide_includes_impact_fix_and_terraform_example(patched_e
 
 
 def test_parse_checkov_guide_keeps_prose_without_terraform_example(
-    patched_environment, checkov_guide_url, web_rag_documents
+        patched_environment, checkov_guide_url, web_rag_documents
 ):
     from utilities.ai.web_rag import parse_checkov_guide
 
@@ -417,8 +417,8 @@ def test_parse_checkov_guide_extracts_rendered_terraform_lines(patched_environme
     )
 
     assert (
-        result
-        == 'https://docs.prismacloud.io/checkov-rendered-guide\nRendered Terraform remediation\n```hcl\nresource "aws_s3_bucket" "fixed" {\n  versioning {\n    enabled = true\n  }\n}\ndata "aws_caller_identity" "current" {\n}\n```'
+            result
+            == 'https://docs.prismacloud.io/checkov-rendered-guide\nRendered Terraform remediation\n```hcl\nresource "aws_s3_bucket" "fixed" {\n  versioning {\n    enabled = true\n  }\n}\ndata "aws_caller_identity" "current" {\n}\n```'
     )
 
 
@@ -467,7 +467,7 @@ def test_extract_checkov_guides_skips_failed_requests(patched_environment, monke
 
 
 def test_fetch_checkov_guide_preserves_original_url_after_redirect(
-    patched_environment, monkeypatch, checkov_guide_url, checkov_redirect_response
+        patched_environment, monkeypatch, checkov_guide_url, checkov_redirect_response
 ):
     from utilities.ai import web_rag
 
@@ -480,7 +480,7 @@ def test_fetch_checkov_guide_preserves_original_url_after_redirect(
 
 
 def test_fetch_tfsec_guide_retries_latest_after_404(
-    patched_environment, monkeypatch, tfsec_guide_urls, tfsec_retry_response_iterator
+        patched_environment, monkeypatch, tfsec_guide_urls, tfsec_retry_response_iterator
 ):
     from utilities.ai import web_rag
 
@@ -605,7 +605,7 @@ def test_parse_trivy_guide_removes_remediation_links(patched_environment):
     )
 
     assert (
-        result == "https://avd.aquasec.com/misconfig/aws-0104/\nNo Public Egress SGR\nSet a restrictive egress range."
+            result == "https://avd.aquasec.com/misconfig/aws-0104/\nNo Public Egress SGR\nSet a restrictive egress range."
     )
 
 
