@@ -1,8 +1,14 @@
 import pytest
 
-from tests.data.logs_s3 import (LOG_TEXT_CHECKOV, LOG_TEXT_TERRAFORM,
-                                LOG_TEXT_TFLINT, LOG_TEXT_TFSEC, LOG_TEXT_SINGLE_DIR_TFLINT,
-                                LOG_TEXT_NO_ISSUES_DIR_TFSEC, LOG_TEXT_TRIVY)
+from tests.data.logs_s3 import (
+    LOG_TEXT_CHECKOV,
+    LOG_TEXT_NO_ISSUES_DIR_TFSEC,
+    LOG_TEXT_SINGLE_DIR_TFLINT,
+    LOG_TEXT_TERRAFORM,
+    LOG_TEXT_TFLINT,
+    LOG_TEXT_TFSEC,
+    LOG_TEXT_TRIVY,
+)
 
 EXTRACTED_BLOCKS_TFLINT = [('test_code/modules/dynamodb',
                             '2 issue(s) found:\n\nWarning: Missing version constraint for provider "aws" in '
@@ -2253,5 +2259,5 @@ def ai_response_with_corrected_files_hcl_blocks():
 
 
 @pytest.fixture
-def parsed_corrected_filenames_and_content_from_hcl_blocks():
+def parsed_corrected_filenames_and_content_hcl_blocks():
     return PARSED_CORRECTED_FILENAMES_AND_CONTENT

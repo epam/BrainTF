@@ -194,8 +194,8 @@ def test_get_paths_from_errors_trivy(log_file_text_trivy, extracted_paths_to_tf_
 
 
 def test_parse_hcl_blocks_ai_response_to_filenames_content(ai_response_with_corrected_files_hcl_blocks,
-                                                           parsed_corrected_filenames_and_content_from_hcl_blocks):
+                                                           parsed_corrected_filenames_and_content_hcl_blocks):
     from utilities.parsers import parse_hcl_blocks
     result = parse_hcl_blocks(ai_response_with_corrected_files_hcl_blocks)
     assert isinstance(result, dict), "Result should be a dictionary"
-    assert result == parsed_corrected_filenames_and_content_from_hcl_blocks
+    assert result == parsed_corrected_filenames_and_content_hcl_blocks
