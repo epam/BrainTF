@@ -13,8 +13,7 @@ permissions:
   pull-requests: write
 
 jobs:
-
-  quality:
+  linter:
     name: Ruff linter check
     runs-on: ubuntu-latest
 
