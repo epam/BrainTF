@@ -15,20 +15,20 @@ permissions:
 jobs:
 
   quality:
-    name: Ruff Quality Gate
+    name: Ruff linter check
     runs-on: ubuntu-latest
 
     steps:
       - name: Repository Checkout
-        uses: actions/checkout@v4
+        uses: actions/checkout@v6
 
       - name: Python Setup
-        uses: actions/setup-python@v5
+        uses: actions/setup-python@v6
         with:
           python-version: '3.11'
 
       - name: Ruff Installation
-        run: pip install ruff
+        run: pip install ruff==0.17.1
 
       - name: Ruff Quality Gate
         run: ruff check .
@@ -95,7 +95,7 @@ jobs:
     name: Publish Test Report
     runs-on: ubuntu-latest
     needs: python-test
-    if: always()
+    if: ${{ always() && needs.python-test.result == 'success' }}
 
     steps:
       - name: Checkout repository
