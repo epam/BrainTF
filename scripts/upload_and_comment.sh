@@ -69,13 +69,15 @@ elif [ "$VCS_PROVIDER" = "github" ]; then
   AUTH_HEADER="Authorization: Bearer $JOB_TOKEN"
   COMMIT_AUTHOR="${GITHUB_ACTOR:-}"
 
-  # Resolve PR number from commit SHA when PR context is absent (post-merge push pipeline)
+  # Resolve PR number from commit SHA when PR context is absent (post-merge push pipeline).
+  # Only PRs of this repository count: in a fork the lookup also returns upstream PRs (e.g. after Sync fork).
   if [ -z "$MR_OR_PR_NUMBER" ] && [ -n "$COMMIT_SHA" ]; then
     echo -e "\033[34mNo PR number in context. Resolving PR from commit ${COMMIT_SHA}...\033[0m"
     PR_LOOKUP_URL="${VCS_API_ENDPOINT}/repos/${BASE_REPO_NAME}/commits/${COMMIT_SHA}/pulls"
     PR_LOOKUP_RESPONSE=$(curl -L -s -H "Accept: application/vnd.github+json" -H "$AUTH_HEADER" "$PR_LOOKUP_URL" || true)
     MR_OR_PR_NUMBER=$(printf '%s' "$PR_LOOKUP_RESPONSE" \
-      | jq -r '[.[] | select(.merged_at != null)] | sort_by(.merged_at) | last | .number // empty' 2>/dev/null || true)
+      | jq -r --arg repo "$BASE_REPO_NAME" \
+        '[.[] | select(.merged_at != null and .base.repo.full_name == $repo)] | sort_by(.merged_at) | last | .number // empty' 2>/dev/null || true)
     if ! printf '%s' "$PR_LOOKUP_RESPONSE" | jq -e 'type == "array"' >/dev/null 2>&1; then
       echo -e "\033[33mWarning: unexpected GitHub API response while looking up the PR by commit. Check the token permissions (pull requests: read).\033[0m"
     fi
