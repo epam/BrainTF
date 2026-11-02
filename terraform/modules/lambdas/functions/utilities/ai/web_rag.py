@@ -44,7 +44,15 @@ CHECKOV_METADATA_LABEL_PATTERN = re.compile(r"^(?:Resource|Arguments):\s*", re.I
 
 
 def is_trivy_guide_url(url: str) -> bool:
-    """Return True only for https URLs on the Trivy guide host (no userinfo or custom port)."""
+    """Return whether a URL is an allowed Trivy guide URL.
+
+    Args:
+        url (str): URL to validate.
+
+    Returns:
+        bool: True for an HTTPS URL on the Trivy guide host without userinfo or
+            a custom port; otherwise False.
+    """
     try:
         parsed = urlparse(url)
         return (
@@ -58,7 +66,15 @@ def is_trivy_guide_url(url: str) -> bool:
 
 
 def is_checkov_guide_url(url: str) -> bool:
-    """Return True only for HTTPS URLs on the Checkov guide host."""
+    """Return whether a URL is an allowed Checkov guide URL.
+
+    Args:
+        url (str): URL to validate.
+
+    Returns:
+        bool: True for an HTTPS URL on the Checkov guide host without userinfo
+            or a custom port; otherwise False.
+    """
     try:
         parsed = urlparse(url)
         return (
@@ -72,7 +88,14 @@ def is_checkov_guide_url(url: str) -> bool:
 
 
 def extract_trivy_guide_urls(errors: str) -> list[str]:
-    """Return unique Trivy guide URLs in the order they occur in the output."""
+    """Extract unique Trivy guide URLs in their order of appearance.
+
+    Args:
+        errors (str): Trivy output containing ``See`` guide references.
+
+    Returns:
+        list[str]: Unique Trivy guide URLs in occurrence order.
+    """
     urls: list[str] = []
     seen: set[str] = set()
 
@@ -86,7 +109,14 @@ def extract_trivy_guide_urls(errors: str) -> list[str]:
 
 
 def extract_checkov_guide_urls(errors: str) -> list[str]:
-    """Return unique Checkov guide URLs in the order they occur in the output."""
+    """Extract unique, validated Checkov guide URLs in occurrence order.
+
+    Args:
+        errors (str): Checkov output containing ``Guide:`` references.
+
+    Returns:
+        list[str]: Unique HTTPS URLs on the configured Checkov guide host.
+    """
     urls: list[str] = []
     seen: set[str] = set()
 
@@ -100,7 +130,14 @@ def extract_checkov_guide_urls(errors: str) -> list[str]:
 
 
 def extract_tfsec_guide_urls(errors: str) -> list[str]:
-    """Return unique AquaSecurity TFSec guide URLs in occurrence order."""
+    """Extract unique AquaSecurity TFSec guide URLs in occurrence order.
+
+    Args:
+        errors (str): TFSec output containing guide URLs.
+
+    Returns:
+        list[str]: Unique TFSec guide URLs in occurrence order.
+    """
     urls: list[str] = []
     seen: set[str] = set()
 
@@ -114,12 +151,28 @@ def extract_tfsec_guide_urls(errors: str) -> list[str]:
 
 
 def extract_tfsec_guide_url(errors: str) -> str | None:
-    """Return the first AquaSecurity TFSec guide URL in the output."""
+    """Return the first AquaSecurity TFSec guide URL in the output.
+
+    Args:
+        errors (str): TFSec output containing guide URLs.
+
+    Returns:
+        str | None: The first referenced guide URL, or None when no URL is
+            present.
+    """
     return next(iter(extract_tfsec_guide_urls(errors)), None)
 
 
 def is_tflint_guide_url(url: str) -> bool:
-    """Return True only for official TFLint Terraform ruleset Markdown URLs."""
+    """Return whether a URL is an official TFLint ruleset Markdown URL.
+
+    Args:
+        url (str): URL to validate.
+
+    Returns:
+        bool: True for an HTTPS URL addressing a Markdown rule in the official
+            TFLint Terraform ruleset repository; otherwise False.
+    """
     try:
         parsed = urlparse(url)
         path_parts = parsed.path.strip('/').split('/')
@@ -141,7 +194,14 @@ def is_tflint_guide_url(url: str) -> bool:
 
 
 def extract_tflint_guide_urls(errors: str) -> list[str]:
-    """Return unique official TFLint guide URLs in the order they occur in the output."""
+    """Extract unique official TFLint guide URLs in occurrence order.
+
+    Args:
+        errors (str): TFLint output containing ``Reference:`` URLs.
+
+    Returns:
+        list[str]: Unique validated TFLint rule URLs in occurrence order.
+    """
     urls: list[str] = []
     seen: set[str] = set()
 
@@ -155,12 +215,29 @@ def extract_tflint_guide_urls(errors: str) -> list[str]:
 
 
 def _join_unique(texts: Iterable[str]) -> str:
-    """Join non-empty texts with newlines, dropping repeats while keeping order."""
+    """Join non-empty texts with newlines while preserving first occurrence order.
+
+    Args:
+        texts (Iterable[str]): Text values to filter and join.
+
+    Returns:
+        str: Joined text with duplicate and empty values removed.
+    """
     return '\n'.join(dict.fromkeys(text for text in texts if text))
 
 
 def _text_blocks(node: Tag) -> list[str]:
-    """Return the text of the outermost text blocks under node, never a block and its descendants."""
+    """Return outermost text blocks under a BeautifulSoup node.
+
+    A block and its descendants are never returned together, and ``pre`` nodes
+    are skipped while traversing child elements.
+
+    Args:
+        node (Tag): BeautifulSoup node to inspect.
+
+    Returns:
+        list[str]: Visible text from the outermost supported text blocks.
+    """
     if node.name in TEXT_TAGS:
         return [node.get_text(' ', strip=True)]
     texts: list[str] = []
@@ -175,6 +252,12 @@ def _text_after(heading: Tag) -> str:
 
     Only the outermost text blocks are taken, so a block is never repeated through its
     descendants, and code inside ``pre`` and page chrome (footer, nav, aside) are skipped.
+
+    Args:
+        heading (Tag): Heading whose following content should be collected.
+
+    Returns:
+        str: Unique readable text until the next supported heading.
     """
     texts: list[str] = []
     for tag in heading.find_all_next():
@@ -186,7 +269,15 @@ def _text_after(heading: Tag) -> str:
 
 
 def _find_heading(soup: BeautifulSoup, title: str) -> Tag | None:
-    """Find a section heading by its visible title."""
+    """Find a section heading by its visible title.
+
+    Args:
+        soup (BeautifulSoup): Parsed guide document.
+        title (str): Heading text to find, compared case-insensitively.
+
+    Returns:
+        Tag | None: Matching h2 or h3 element, or None when absent.
+    """
     normalized_title = title.casefold()
     return soup.find(
         lambda element: element.name in HEADING_TAGS
@@ -195,7 +286,15 @@ def _find_heading(soup: BeautifulSoup, title: str) -> Tag | None:
 
 
 def _section_elements(heading: Tag) -> Iterable[Tag]:
-    """Yield elements in a section without crossing its next heading or container."""
+    """Yield elements in a section without crossing its boundary.
+
+    Args:
+        heading (Tag): Section heading that defines the traversal start.
+
+    Yields:
+        Tag: Elements following the heading until the next heading or parent
+            container boundary.
+    """
     for element in heading.find_all_next():
         if element.name in HEADING_TAGS:
             break
@@ -205,13 +304,31 @@ def _section_elements(heading: Tag) -> Iterable[Tag]:
 
 
 def _section_text(soup: BeautifulSoup, title: str) -> str:
-    """Return readable text under the named h2/h3 heading, up to the next one."""
+    """Return readable text under a named h2 or h3 heading.
+
+    Args:
+        soup (BeautifulSoup): Parsed guide document.
+        title (str): Heading text to locate.
+
+    Returns:
+        str: Section text up to the next supported heading, or an empty string
+            when the heading is absent.
+    """
     heading = _find_heading(soup, title)
     return _text_after(heading) if heading else ''
 
 
 def _section_text_in_container(soup: BeautifulSoup, title: str) -> str:
-    """Return section text while staying inside the guide's main content container."""
+    """Return section text while staying inside its content container.
+
+    Args:
+        soup (BeautifulSoup): Parsed guide document.
+        title (str): Heading text to locate.
+
+    Returns:
+        str: Unique readable text from the section, or an empty string when
+            the heading is absent.
+    """
     heading = _find_heading(soup, title)
     if not heading:
         return ''
@@ -228,14 +345,30 @@ def _section_text_in_container(soup: BeautifulSoup, title: str) -> str:
 
 
 def _terraform_text_line(tag: Tag) -> str:
-    """Return one visible Terraform line from a paragraph or list item."""
+    """Return one visible Terraform line from a paragraph or list item.
+
+    Args:
+        tag (Tag): Paragraph or list item to read.
+
+    Returns:
+        str: Visible text for a supported tag, or an empty string otherwise.
+    """
     if tag.name == 'li' or (tag.name == 'p' and not tag.find_parent('li')):
         return tag.get_text(' ', strip=True)
     return ''
 
 
 def _section_terraform_examples(soup: BeautifulSoup, title: str) -> list[str]:
-    """Return Terraform examples under the named section heading."""
+    """Extract Terraform examples under a named section heading.
+
+    Args:
+        soup (BeautifulSoup): Parsed guide document.
+        title (str): Heading text whose examples should be collected.
+
+    Returns:
+        list[str]: Terraform code blocks and reconstructed examples from the
+            selected section.
+    """
     heading = _find_heading(soup, title)
     if not heading:
         return []
@@ -257,7 +390,14 @@ def _section_terraform_examples(soup: BeautifulSoup, title: str) -> list[str]:
 
 
 def _terraform_examples_from_lines(lines: list[str]) -> list[str]:
-    """Group Terraform lines from rendered Checkov list items into code examples."""
+    """Group rendered Checkov list-item lines into Terraform examples.
+
+    Args:
+        lines (list[str]): Visible lines extracted from a rendered guide.
+
+    Returns:
+        list[str]: Reconstructed Terraform examples grouped by brace balance.
+    """
     examples: list[str] = []
     current_lines: list[str] = []
     brace_balance = 0
@@ -285,7 +425,15 @@ def _terraform_examples_from_lines(lines: list[str]) -> list[str]:
 
 
 def _extract_code_block(pre: Tag) -> str:
-    """Extract a code block while preserving its source whitespace, leaving the HTML tree untouched."""
+    """Extract a code block while preserving source whitespace.
+
+    Args:
+        pre (Tag): BeautifulSoup ``pre`` element containing the code.
+
+    Returns:
+        str: Code text with ``br`` elements converted to line breaks. The
+            original HTML tree is not modified.
+    """
     pre_copy = copy(pre)
     for line_break in pre_copy.find_all('br'):
         line_break.replace_with('\n')
@@ -294,7 +442,15 @@ def _extract_code_block(pre: Tag) -> str:
 
 
 def _terraform_line_segments(line: str) -> list[str]:
-    """Split a Terraform line around braces while keeping braces inside strings intact."""
+    """Split a Terraform line around structural braces.
+
+    Args:
+        line (str): Terraform source line to split.
+
+    Returns:
+        list[str]: Text and brace segments, preserving braces inside quoted
+            strings as part of the surrounding text.
+    """
     segments: list[str] = []
     current: list[str] = []
     in_string = False
@@ -324,7 +480,14 @@ def _terraform_line_segments(line: str) -> list[str]:
 
 
 def _format_terraform_code(code: str) -> str:
-    """Format Terraform code whose source page discarded indentation and line breaks."""
+    """Format Terraform code whose source page discarded indentation or line breaks.
+
+    Args:
+        code (str): Terraform source text to format.
+
+    Returns:
+        str: Terraform text reconstructed with indentation based on braces.
+    """
     formatted: list[str] = []
     indentation = 0
     for source_line in code.splitlines():
@@ -348,7 +511,15 @@ def _format_terraform_code(code: str) -> str:
 
 
 def _remove_checkov_metadata_labels(section: str) -> str:
-    """Keep Checkov metadata values while removing labels that add prompt noise."""
+    """Keep Checkov metadata values while removing noisy labels.
+
+    Args:
+        section (str): Checkov section text containing metadata labels.
+
+    Returns:
+        str: Section text with ``Resource:`` and ``Arguments:`` labels and
+            source suffixes removed.
+    """
     lines: list[str] = []
     for line in section.splitlines():
         line = CHECKOV_METADATA_LABEL_PATTERN.sub('', line)
@@ -361,10 +532,18 @@ def _remove_checkov_metadata_labels(section: str) -> str:
 
 
 def _terraform_examples(scope: Tag | BeautifulSoup) -> list[tuple[str, str]]:
-    """Return (preceding heading, code) for every Terraform block under scope.
+    """Return each Terraform block and its preceding heading under ``scope``.
 
     The heading must sit inside scope; a heading outside it may belong to unrelated
     content, so the label is left empty rather than misleading.
+
+    Args:
+        scope (Tag | BeautifulSoup): Parsed HTML node whose descendants should
+            be searched.
+
+    Returns:
+        list[tuple[str, str]]: Pairs containing the nearest heading label and
+            Terraform code for each matching block.
     """
     examples: list[tuple[str, str]] = []
     for pre in scope.find_all('pre'):
@@ -379,7 +558,15 @@ def _terraform_examples(scope: Tag | BeautifulSoup) -> list[tuple[str, str]]:
 
 
 def _terraform_tab(soup: BeautifulSoup) -> Tag | None:
-    """Return the Terraform tab of a tabbed Trivy remediation, if the page has one."""
+    """Return the Terraform tab from a tabbed Trivy remediation.
+
+    Args:
+        soup (BeautifulSoup): Parsed Trivy guide document.
+
+    Returns:
+        Tag | None: Terraform tab content when a valid tab mapping exists, or
+            None when the page has no Terraform tab.
+    """
     for panel in soup.select('div.tab-panel'):
         labels = [button.get_text(strip=True).casefold() for button in panel.select('.tab-nav button')]
         items = panel.select('.tab-content > .tab-item')
@@ -389,7 +576,16 @@ def _terraform_tab(soup: BeautifulSoup) -> Tag | None:
 
 
 def _guide_header(url: str, soup: BeautifulSoup) -> list[str]:
-    """Start a formatted guide with its URL and the page's h1 finding."""
+    """Start a formatted guide with its URL and page title.
+
+    Args:
+        url (str): Source URL for the guide.
+        soup (BeautifulSoup): Parsed guide document.
+
+    Returns:
+        list[str]: Guide parts containing the source URL and, when available,
+            the page's h1 text.
+    """
     parts = [url]
     title = soup.find('h1')
     if title:
@@ -398,7 +594,17 @@ def _guide_header(url: str, soup: BeautifulSoup) -> list[str]:
 
 
 def parse_trivy_guide(url: str, html: str) -> str:
-    """Extract Terraform-oriented remediation guidance from a Trivy guide page."""
+    """Extract Terraform-oriented remediation guidance from a Trivy guide page.
+
+    Args:
+        url (str): Source URL for the guide.
+        html (str): Retrieved Trivy guide HTML.
+
+    Returns:
+        str: Compact guide text containing the finding description, remediation
+            guidance, and Terraform examples, or an empty string when no useful
+            remediation content is present.
+    """
     soup = BeautifulSoup(html, HTML_PARSER)
 
     for heading in soup.find_all('h4', string=re.compile(r"^\s*Remediation Links\s*$", re.IGNORECASE)):
@@ -436,7 +642,17 @@ def parse_trivy_guide(url: str, html: str) -> str:
 
 
 def parse_tfsec_guide(url: str, html: str) -> str:
-    """Extract remediation guidance and Terraform examples from a TFSec page."""
+    """Extract remediation guidance and Terraform examples from a TFSec page.
+
+    Args:
+        url (str): Source URL for the guide.
+        html (str): Retrieved TFSec guide HTML.
+
+    Returns:
+        str: Compact guide text containing selected remediation sections and
+            labeled Terraform examples, or an empty string when no useful
+            content is present.
+    """
     soup = BeautifulSoup(html, HTML_PARSER)
     sections = {
         title: _section_text(soup, title)
@@ -460,7 +676,17 @@ def parse_tfsec_guide(url: str, html: str) -> str:
 
 
 def parse_checkov_guide(url: str, html: str) -> str:
-    """Extract Checkov rule context and Terraform-oriented remediation guidance."""
+    """Extract Checkov rule context and Terraform remediation guidance.
+
+    Args:
+        url (str): Source URL for the guide.
+        html (str): Retrieved Checkov guide HTML.
+
+    Returns:
+        str: Compact guide text containing relevant impact, description, fix
+            guidance, and Terraform examples, or an empty string when no useful
+            content is present.
+    """
     soup = BeautifulSoup(html, HTML_PARSER)
     guide_parts = _guide_header(url, soup)
 
@@ -506,7 +732,16 @@ def parse_checkov_guide(url: str, html: str) -> str:
 
 
 def _parse_markdown_sections(markdown: str) -> tuple[str, list[str], dict[str, list[str]]]:
-    """Return a Markdown document's title, header lines, and named sections."""
+    """Split a Markdown document into its title, header, and named sections.
+
+    Args:
+        markdown (str): Markdown document to parse.
+
+    Returns:
+        tuple[str, list[str], dict[str, list[str]]]: The first h1 title, lines
+            before the first section, and section contents keyed by normalized
+            heading title.
+    """
     title = ''
     header: list[str] = []
     sections: dict[str, list[str]] = {}
@@ -537,7 +772,17 @@ def _parse_markdown_sections(markdown: str) -> tuple[str, list[str], dict[str, l
 
 
 def _clean_markdown_text(lines: Iterable[str]) -> str:
-    """Return readable prose from Markdown lines, excluding fenced code blocks."""
+    """Return readable prose from Markdown lines.
+
+    Fenced code blocks, separators, empty lines, and Markdown link destinations
+    are removed while preserving the visible prose.
+
+    Args:
+        lines (Iterable[str]): Markdown lines to clean.
+
+    Returns:
+        str: Deduplicated readable prose joined by newlines.
+    """
     cleaned: list[str] = []
     in_code_block = False
 
@@ -558,7 +803,15 @@ def _clean_markdown_text(lines: Iterable[str]) -> str:
 
 
 def _markdown_fence_language(line: str) -> str | None:
-    """Return a fenced block's language, or None when the line is not a fence."""
+    """Return a fenced block's language.
+
+    Args:
+        line (str): Markdown line to inspect.
+
+    Returns:
+        str | None: Fence language, including an empty string for an unlabeled
+            fence, or None when the line is not a valid fence.
+    """
     stripped_line = line.strip()
     if not stripped_line.startswith('```'):
         return None
@@ -576,13 +829,26 @@ def _append_markdown_terraform_example(
         language: str,
         current_lines: list[str],
 ) -> None:
-    """Append a completed Terraform/HCL code block when its content is useful."""
+    """Append a completed Terraform/HCL block when its content is useful.
+
+    Args:
+        examples (list[str]): Collection receiving accepted examples.
+        language (str): Fence language for the completed block.
+        current_lines (list[str]): Source lines from the completed block.
+    """
     if language.casefold() in {'hcl', 'tf', 'terraform'} and current_lines:
         examples.append('\n'.join(current_lines).strip())
 
 
 def _markdown_section_terraform_examples(section_lines: list[str]) -> list[str]:
-    """Return Terraform/HCL fenced code blocks from one Markdown section."""
+    """Extract Terraform/HCL fenced code blocks from one Markdown section.
+
+    Args:
+        section_lines (list[str]): Lines belonging to one Markdown section.
+
+    Returns:
+        list[str]: Terraform/HCL code blocks from the section.
+    """
     examples: list[str] = []
     in_code_block = False
     language = ''
@@ -608,7 +874,15 @@ def _markdown_section_terraform_examples(section_lines: list[str]) -> list[str]:
 
 
 def _markdown_terraform_examples(sections: Iterable[list[str]]) -> list[str]:
-    """Return Terraform/HCL fenced code blocks from the selected Markdown sections."""
+    """Extract unique Terraform/HCL blocks from selected Markdown sections.
+
+    Args:
+        sections (Iterable[list[str]]): Markdown section line collections to
+            inspect.
+
+    Returns:
+        list[str]: Unique Terraform/HCL examples in occurrence order.
+    """
     examples = [
         example
         for section_lines in sections
@@ -619,7 +893,17 @@ def _markdown_terraform_examples(sections: Iterable[list[str]]) -> list[str]:
 
 
 def parse_tflint_guide(url: str, markdown: str) -> str:
-    """Extract focused Terraform remediation guidance from a TFLint Markdown rule."""
+    """Extract focused Terraform remediation guidance from a TFLint rule.
+
+    Args:
+        url (str): Original GitHub source URL for the rule document.
+        markdown (str): Retrieved TFLint rule Markdown.
+
+    Returns:
+        str: Compact guide text containing the rule summary, Why and How To Fix
+            prose, and Terraform examples, or an empty string when no useful
+            content is present.
+    """
     title, header, sections = _parse_markdown_sections(markdown)
     summary = _clean_markdown_text(header)
     why = _clean_markdown_text(sections.get('why', []))
@@ -644,12 +928,32 @@ def parse_tflint_guide(url: str, markdown: str) -> str:
 
 
 def _request_page(url: str) -> requests.Response:
-    """Fetch a guide page with the configured timeout; status codes are left to the caller."""
+    """Fetch a guide page with the configured timeout.
+
+    Args:
+        url (str): Page URL to request.
+
+    Returns:
+        requests.Response: Response returned by ``requests``. The response
+            status is left for the caller to validate.
+
+    Raises:
+        requests.RequestException: If the request cannot be completed.
+    """
     return requests.get(url, timeout=config.default_timeout)
 
 
 def _get_refresh_target(url: str, html: str) -> str | None:
-    """Return a page's HTML refresh or canonical target, if it has one."""
+    """Return a page's HTML refresh or canonical target, when present.
+
+    Args:
+        url (str): URL of the fetched page, used to resolve relative targets.
+        html (str): Retrieved page HTML.
+
+    Returns:
+        str | None: Absolute refresh or canonical target URL, or None when the
+            page does not declare one.
+    """
     soup = BeautifulSoup(html, HTML_PARSER)
 
     refresh_tag = soup.find(
@@ -683,6 +987,18 @@ def _fetch_trivy_guide(url: str) -> str:
 
     At most TRIVY_MAX_REFRESH_HOPS hops are followed. A refused hop (other host or scheme,
     or a loop) parses the page already fetched instead of dropping the guide.
+
+    Args:
+        url (str): Initial Trivy guide URL.
+
+    Returns:
+        str: Parsed Trivy guide text, or an empty string when the refresh limit
+            is exceeded.
+
+    Raises:
+        requests.RequestException: If a guide request fails.
+        ValueError: If a refresh URL cannot be parsed.
+        ParserRejectedMarkup: If BeautifulSoup rejects the retrieved markup.
     """
     current_url = url
     seen = {url.rstrip('/')}
@@ -712,12 +1028,31 @@ def _fetch_trivy_guide(url: str) -> str:
 
 
 def _tfsec_latest_url(url: str) -> str:
-    """Replace a version segment in a TFSec guide URL with latest."""
+    """Replace a version segment in a TFSec guide URL with ``latest``.
+
+    Args:
+        url (str): Versioned TFSec guide URL.
+
+    Returns:
+        str: URL with the first TFSec version segment replaced by ``latest``.
+    """
     return re.sub(r"(/tfsec/)[^/]+(/)", r"\1latest\2", url, count=1)
 
 
 def _fetch_tfsec_guide(url: str) -> str:
-    """Fetch a TFSec guide, retrying once with the `latest` version when a versioned URL is a 404."""
+    """Fetch a TFSec guide, retrying with ``latest`` after a versioned 404.
+
+    Args:
+        url (str): Initial versioned TFSec guide URL.
+
+    Returns:
+        str: Parsed TFSec guide text.
+
+    Raises:
+        requests.RequestException: If the initial or retry request fails.
+        ValueError: If a derived URL cannot be parsed.
+        ParserRejectedMarkup: If BeautifulSoup rejects the retrieved markup.
+    """
     response = _request_page(url)
     if response.status_code == 404:
         latest_url = _tfsec_latest_url(url)
@@ -731,14 +1066,33 @@ def _fetch_tfsec_guide(url: str) -> str:
 
 
 def _fetch_checkov_guide(url: str) -> str:
-    """Fetch and parse a Checkov guide while preserving its source URL in the output."""
+    """Fetch and parse a Checkov guide while preserving its source URL.
+
+    Args:
+        url (str): Checkov guide URL to fetch.
+
+    Returns:
+        str: Parsed Checkov guide text using the original source URL.
+
+    Raises:
+        requests.RequestException: If the request fails or returns an error
+            status.
+        ParserRejectedMarkup: If BeautifulSoup rejects the retrieved markup.
+    """
     response = _request_page(url)
     response.raise_for_status()
     return parse_checkov_guide(url, response.text)
 
 
 def _tflint_raw_url(url: str) -> str:
-    """Convert an approved TFLint GitHub blob URL to its raw Markdown URL."""
+    """Convert an approved TFLint GitHub blob URL to a raw Markdown URL.
+
+    Args:
+        url (str): Validated GitHub blob URL for a TFLint rule document.
+
+    Returns:
+        str: Corresponding ``raw.githubusercontent.com`` URL.
+    """
     path_parts = urlparse(url).path.strip('/').split('/')
     repository = '/'.join(path_parts[:2])
     ref = path_parts[3]
@@ -747,14 +1101,35 @@ def _tflint_raw_url(url: str) -> str:
 
 
 def _fetch_tflint_guide(url: str) -> str:
-    """Fetch and parse a TFLint rule document while preserving its GitHub source URL."""
+    """Fetch and parse a TFLint rule while preserving its GitHub source URL.
+
+    Args:
+        url (str): Validated GitHub blob URL for the TFLint rule.
+
+    Returns:
+        str: Parsed TFLint guide text using the original GitHub URL.
+
+    Raises:
+        requests.RequestException: If the raw Markdown request fails or returns
+            an error status.
+    """
     response = _request_page(_tflint_raw_url(url))
     response.raise_for_status()
     return parse_tflint_guide(url, response.text)
 
 
 def extract_trivy_guides(errors: str) -> str:
-    """Fetch and format Terraform remediation guides referenced by Trivy errors."""
+    """Fetch and format Terraform remediation guides referenced by Trivy errors.
+
+    Failed guide requests are logged and skipped so one unavailable page does
+    not prevent other guides from reaching the prompt.
+
+    Args:
+        errors (str): Trivy output containing guide references.
+
+    Returns:
+        str: Guides joined with ``GUIDE_SEPARATOR``.
+    """
     guides: list[str] = []
 
     for url in extract_trivy_guide_urls(errors):
@@ -771,7 +1146,17 @@ def extract_trivy_guides(errors: str) -> str:
 
 
 def extract_tfsec_guide(errors: str) -> str:
-    """Fetch and format Terraform remediation guides referenced by TFSec."""
+    """Fetch and format Terraform remediation guides referenced by TFSec.
+
+    Failed guide requests are logged and skipped so one unavailable page does
+    not prevent other guides from reaching the prompt.
+
+    Args:
+        errors (str): TFSec output containing guide references.
+
+    Returns:
+        str: Guides joined with ``GUIDE_SEPARATOR``.
+    """
     guides: list[str] = []
 
     for url in extract_tfsec_guide_urls(errors):
@@ -788,7 +1173,17 @@ def extract_tfsec_guide(errors: str) -> str:
 
 
 def extract_checkov_guides(errors: str) -> str:
-    """Fetch and format remediation guides referenced by Checkov errors."""
+    """Fetch and format remediation guides referenced by Checkov errors.
+
+    Failed guide requests are logged and skipped so one unavailable page does
+    not prevent other guides from reaching the prompt.
+
+    Args:
+        errors (str): Checkov output containing guide references.
+
+    Returns:
+        str: Guides joined with ``GUIDE_SEPARATOR``.
+    """
     guides: list[str] = []
 
     for url in extract_checkov_guide_urls(errors):
@@ -805,7 +1200,17 @@ def extract_checkov_guides(errors: str) -> str:
 
 
 def extract_tflint_guides(errors: str) -> str:
-    """Fetch and format Terraform remediation guides referenced by TFLint errors."""
+    """Fetch and format Terraform remediation guides referenced by TFLint errors.
+
+    Failed guide requests are logged and skipped so one unavailable page does
+    not prevent other guides from reaching the prompt.
+
+    Args:
+        errors (str): TFLint output containing guide references.
+
+    Returns:
+        str: Guides joined with ``GUIDE_SEPARATOR``.
+    """
     guides: list[str] = []
 
     for url in extract_tflint_guide_urls(errors):
