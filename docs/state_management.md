@@ -301,7 +301,7 @@ The bucket is protected from accidental deletion by default. The `state_bucket_f
 | `false` (default) | `terraform destroy` or a resource replacement fails if the bucket contains any objects, object versions or delete markers. The state stays intact. |
 | `true` | Terraform deletes the bucket together with **all** objects and versions. S3 versioning does not help. Use for demo/dev environments only. |
 
-Set the value in `terraform/bootstrap/terraform.tfvars`:
+The [bootstrap `terraform.tfvars` template](./config_files/bootstrap/terraform.tfvars) sets it to `false`. Set the value in `terraform/bootstrap/terraform.tfvars`:
 
 ```hcl
 state_bucket_force_destroy = false # default; set true only for demo/dev teardown
@@ -315,7 +315,7 @@ state_bucket_force_destroy = false # default; set true only for demo/dev teardow
 
 Existing deployments were created with `force_destroy = true`. After pulling this change, `terraform apply` in `terraform/bootstrap` performs an in-place update of `force_destroy` only (no replacement of the bucket, KMS key or policy):
 
-- With the default (`false`) the bucket becomes protected.
+- With `state_bucket_force_destroy = false` (the template value and the variable default) the bucket becomes protected. Add the line to your `terraform/bootstrap/terraform.tfvars` or rely on the default.
 - To keep the previous behavior, set `state_bucket_force_destroy = true` before applying.
 
 ### Teardown
@@ -323,7 +323,7 @@ Existing deployments were created with `force_destroy = true`. After pulling thi
 `force_destroy` is stored in the Terraform state, so the flag must be applied before the destroy:
 
 1. Destroy `main_module` and any workload resources first.
-2. Uncomment `state_bucket_force_destroy = true` in `terraform/bootstrap/terraform.tfvars` and run `terraform apply` in `terraform/bootstrap`.
+2. Set `state_bucket_force_destroy = true` in `terraform/bootstrap/terraform.tfvars` and run `terraform apply` in `terraform/bootstrap`.
 3. If the state bucket is used as the backend for bootstrap (Option 2), migrate the bootstrap state back to local first (`terraform init -migrate-state` after removing the `backend "s3"` block). Otherwise Terraform would delete the bucket that holds its own state.
 4. Run `terraform destroy` in `terraform/bootstrap`.
 

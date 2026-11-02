@@ -9,4 +9,4 @@ owner_mail  = "<my_mail@example.com>" # Email address of the infrastructure owne
 vcs_repo_name = "<my_project>" # Name of the project (gitlab or github)
 
 # State bucket protection
-# state_bucket_force_destroy = true # Demo/dev only: uncomment to allow destroying the state bucket with all its state files. Protected by default (false).
+state_bucket_force_destroy = false # Keep false to protect the state bucket from deletion. Set true only for demo/dev teardown (deletes the bucket with all its state files).

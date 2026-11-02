@@ -101,8 +101,6 @@ variable "platform_state_bucket" {
   }
 }
 
-# Bootstrap-only: declared so the shared terraform.auto.tfvars synced from bootstrap does not warn about an undeclared variable.
-# tflint-ignore: terraform_unused_declarations
 variable "state_bucket_force_destroy" {
   description = "Bootstrap-only setting, not used by main_module. Allows Terraform to delete the state bucket with all its objects and versions (demo/dev teardown)."
   type        = bool
