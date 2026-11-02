@@ -35,7 +35,7 @@ jobs:
 
   python-test:
     name: Python Unit Tests
-    needs: quality
+    needs: linter
     runs-on: ubuntu-latest
     env:
       PYTHONPATH: ${{ github.workspace }}/terraform/modules/lambdas/functions
