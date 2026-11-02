@@ -1,16 +1,26 @@
-from typing import Any, Dict
+from typing import Any
 
 from config import config
+from utilities.ai.web_rag import (
+    extract_checkov_guides,
+    extract_tflint_guides,
+    extract_tfsec_guide,
+    extract_trivy_guides,
+)
 from utilities.logger import logger
 from utilities.parsers import (
-    clean_text_for_tfsec, clean_text_for_trivy,
-    extract_blocks_working_directory, get_paths_from_errors_checkov,
-    get_paths_from_errors_tflint, get_paths_from_errors_tfsec,
+    clean_text_for_tfsec,
+    clean_text_for_trivy,
+    extract_blocks_working_directory,
+    get_paths_from_errors_checkov,
+    get_paths_from_errors_tflint,
+    get_paths_from_errors_tfsec,
     get_paths_from_errors_trivy,
     replace_relative_paths_to_absolute_in_errors_checkov,
     replace_relative_paths_to_absolute_in_errors_terraform,
     replace_relative_paths_to_absolute_in_errors_tfsec,
-    replace_relative_paths_to_absolute_in_errors_trivy)
+    replace_relative_paths_to_absolute_in_errors_trivy,
+)
 from utilities.vcs import get_all_tf_files_from_paths_list
 
 
@@ -66,7 +76,7 @@ def process_utilities_error_blocks(
     return '', []
 
 
-def make_prompt_block_with_errors_and_files(event: Dict[str, Any],
+def make_prompt_block_with_errors_and_files(event: dict[str, Any],
                                             errors_data: str) -> str:
     """
     Generates a formatted prompt block with errors, guides, and file contents, based on
@@ -82,13 +92,7 @@ def make_prompt_block_with_errors_and_files(event: Dict[str, Any],
         and file contents.
     """
     prompt_block = """"""
-    guide_block = """"""
     tool_name_lower = event.get('metadata', {}).get('tool_name', '').lower()
-
-    if config.rag_enabled:
-        pass
-
-        # guide_block = extract_all_guides_secutils(errors_data, tool_name)
 
     extracted_blocks: list[tuple[str, str]] = extract_blocks_working_directory(errors_data)
 
@@ -96,7 +100,19 @@ def make_prompt_block_with_errors_and_files(event: Dict[str, Any],
         logger.debug(f"Parsed working directory: {working_directory}.")
         logger.debug(f"Extracted error block >\n{errors}")
         files_block = """"""
+        guide_block = """"""
+
         errors, paths_to_files = process_utilities_error_blocks(working_directory, errors, tool_name_lower)
+
+        if config.rag_enabled:
+            if tool_name_lower == 'trivy':
+                guide_block = extract_trivy_guides(errors)
+            elif tool_name_lower == 'checkov':
+                guide_block = extract_checkov_guides(errors)
+            elif tool_name_lower == 'tfsec':
+                guide_block = extract_tfsec_guide(errors)
+            elif tool_name_lower == 'tflint':
+                guide_block = extract_tflint_guides(errors)
 
         files_and_content = get_all_tf_files_from_paths_list(event, paths_to_files)
 
@@ -110,7 +126,7 @@ def make_prompt_block_with_errors_and_files(event: Dict[str, Any],
     return prompt_block
 
 
-def prepare_user_prompt_message(event: Dict[str, Any]) -> Dict[str, str]:
+def prepare_user_prompt_message(event: dict[str, Any]) -> dict[str, str]:
     """
     Prepares a user prompt message based on the provided event data. This includes processing
     errors and generating the formatted prompt content to be used in subsequent operations.
