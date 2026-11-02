@@ -1,6 +1,6 @@
 import re
 from collections import Counter
-from typing import Callable
+from collections.abc import Callable
 
 from utilities.parsers import extract_blocks_working_directory
 
@@ -31,7 +31,7 @@ def validate_extracted_paths(result, expected_paths):
     assert isinstance(result, list), "Result should be a list"
     assert len(result) == len(expected_paths), "Extracted paths should have the same length as expected paths"
     for path in result:
-        assert bool(re.compile(r"^(\/?[\w\-\.]+\/?)+$").match(path)), "Path should be a valid Linux path"
+        assert bool(re.compile(r"^(/?[\w\-.]+/?)+$").match(path)), "Path should be a valid Linux path"
     result_counter = Counter(result)
     expected_counter = Counter(expected_paths)
 
@@ -81,8 +81,7 @@ def test_replace_relative_paths_to_absolute_in_errors_terraform(
         expected_workdir_errors_blocks_terraform,
         replaced_workdir_errors_blocks_terraform
 ):
-    from utilities.parsers import \
-        replace_relative_paths_to_absolute_in_errors_terraform
+    from utilities.parsers import replace_relative_paths_to_absolute_in_errors_terraform
     validate_replaced_relative_paths(replace_relative_paths_to_absolute_in_errors_terraform,
                                      expected_workdir_errors_blocks_terraform,
                                      replaced_workdir_errors_blocks_terraform)
@@ -92,8 +91,7 @@ def test_replace_relative_paths_to_absolute_in_errors_tfsec(
         expected_workdir_errors_blocks_tfsec,
         replaced_workdir_errors_blocks_tfsec
 ):
-    from utilities.parsers import \
-        replace_relative_paths_to_absolute_in_errors_tfsec
+    from utilities.parsers import replace_relative_paths_to_absolute_in_errors_tfsec
 
     validate_replaced_relative_paths(replace_relative_paths_to_absolute_in_errors_tfsec,
                                      expected_workdir_errors_blocks_tfsec,
@@ -104,25 +102,17 @@ def test_replace_relative_paths_to_absolute_in_errors_checkov(
         expected_workdir_errors_blocks_checkov,
         replaced_workdir_errors_blocks_checkov
 ):
-    from utilities.parsers import \
-        replace_relative_paths_to_absolute_in_errors_checkov
+    from utilities.parsers import replace_relative_paths_to_absolute_in_errors_checkov
 
     validate_replaced_relative_paths(replace_relative_paths_to_absolute_in_errors_checkov,
                                      expected_workdir_errors_blocks_checkov,
                                      replaced_workdir_errors_blocks_checkov)
 
 
-def test_replace_relative_paths_to_absolute_in_errors_trivy():
+def test_replace_relative_paths_to_absolute_in_errors_trivy(log_file_text_trivy):
     from utilities.parsers import replace_relative_paths_to_absolute_in_errors_trivy
 
-    errors_data = (
-        "storage/s3_trivy.tf (terraform)\n"
-        " storage/s3_trivy.tf:1-8\n"
-        "validate.tf (terraform)\n"
-        " validate.tf:1-4\n"
-    )
-
-    result = replace_relative_paths_to_absolute_in_errors_trivy("demo/broken", errors_data)
+    result = replace_relative_paths_to_absolute_in_errors_trivy("demo/broken", log_file_text_trivy)
 
     assert "demo/broken/storage/s3_trivy.tf (terraform)" in result
     assert " demo/broken/storage/s3_trivy.tf:1-8" in result
@@ -131,13 +121,12 @@ def test_replace_relative_paths_to_absolute_in_errors_trivy():
 
 
 def test_clean_text_for_tfsec(expected_workdir_errors_blocks_tfsec, cleaned_errors_blocks_tfsec):
-    import re
     from utilities.parsers import clean_text_for_tfsec
     for index, item in enumerate(expected_workdir_errors_blocks_tfsec):
         result = clean_text_for_tfsec(item[1])
         assert isinstance(result, str), "Result should be a string"
         result_without_sources = re.sub(
-            r"^[ ]{2}-[ ]https://aquasecurity\.github\.io/tfsec/\S+(?:\n|$)",
+            r"^ {2}- https://aquasecurity\.github\.io/tfsec/\S+(?:\n|$)",
             "",
             result,
             flags=re.MULTILINE,
@@ -145,31 +134,14 @@ def test_clean_text_for_tfsec(expected_workdir_errors_blocks_tfsec, cleaned_erro
         assert result_without_sources == cleaned_errors_blocks_tfsec[index]
         assert "More Information" not in result
         assert "https://aquasecurity.github.io/tfsec/" in result
-        assert result.startswith('') and result.endswith(''), "Result should not start or end with newlines"
+        assert result.startswith(''), "Result should not start with newlines"
+        assert result.endswith(''), "Result should not end with newlines"
 
 
-def test_clean_text_for_trivy_removes_target_summary_blocks():
+def test_clean_text_for_trivy_removes_target_summary_blocks(log_file_text_trivy):
     from utilities.parsers import clean_text_for_trivy
 
-    errors_data = (
-        "network/ec2.tf (terraform)\n"
-        "==========================\n"
-        "Tests: 2 (SUCCESSES: 0, FAILURES: 2)\n"
-        "Failures: 2 (HIGH: 1, CRITICAL: 1)\n\n"
-        "AWS-0104 (CRITICAL): Security group rule allows unrestricted egress to any IP address.\n"
-        "────────────────────────────────────────\n"
-        " network/ec2.tf:16\n"
-        "────────────────────────────────────────\n\n"
-        "storage/s3.tf (terraform)\n"
-        "=========================\n"
-        "Tests: 5 (SUCCESSES: 0, FAILURES: 5)\n"
-        "Failures: 5 (HIGH: 5, CRITICAL: 0)\n\n"
-        "AWS-0086 (HIGH): No public access block so not blocking public acls\n"
-        "────────────────────────────────────────\n"
-        " storage/s3.tf:1-8\n"
-    )
-
-    result = clean_text_for_trivy(errors_data)
+    result = clean_text_for_trivy(log_file_text_trivy)
 
     assert "network/ec2.tf (terraform)" not in result
     assert "Tests: 2 (SUCCESSES: 0, FAILURES: 2)" not in result
@@ -180,31 +152,10 @@ def test_clean_text_for_trivy_removes_target_summary_blocks():
     assert " storage/s3.tf:1-8" in result
 
 
-def test_clean_text_for_trivy_removes_report_summary_table_block():
+def test_clean_text_for_trivy_removes_report_summary_table_block(log_file_text_trivy):
     from utilities.parsers import clean_text_for_trivy
 
-    errors_data = (
-        "Report Summary\n\n"
-        "┌───────────────────────┬───────────┬───────────────────┐\n"
-        "│        Target         │   Type    │ Misconfigurations │\n"
-        "├───────────────────────┼───────────┼───────────────────┤\n"
-        "│ .                     │ terraform │         0         │\n"
-        "├───────────────────────┼───────────┼───────────────────┤\n"
-        "│ network/ec2.tf        │ terraform │         2         │\n"
-        "└───────────────────────┴───────────┴───────────────────┘\n"
-        "Legend:\n"
-        "- '-': Not scanned\n"
-        "- '0': Clean (no security findings detected)\n\n"
-        "network/ec2.tf (terraform)\n"
-        "==========================\n"
-        "Tests: 2 (SUCCESSES: 0, FAILURES: 2)\n"
-        "Failures: 2 (HIGH: 1, CRITICAL: 1)\n\n"
-        "AWS-0104 (CRITICAL): Security group rule allows unrestricted egress to any IP address.\n"
-        "────────────────────────────────────────\n"
-        " network/ec2.tf:16\n"
-    )
-
-    result = clean_text_for_trivy(errors_data)
+    result = clean_text_for_trivy(log_file_text_trivy)
 
     assert "Report Summary" not in result
     assert "Target" not in result
