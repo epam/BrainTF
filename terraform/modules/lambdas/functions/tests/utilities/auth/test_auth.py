@@ -38,7 +38,7 @@ def test_webhook_authenticator_success_github(patched_config_github, webhook_eve
 
 def test_webhook_authenticator_wrong_vcs_provider(patched_config_github, webhook_event_github, caplog):
     patched_config_github.setattr("utilities.auth.config.vcs_provider",
-                                  "bitbucket")
+                                  "provider")
     from utilities.auth import webhook_authenticator
     from utilities.exceptions import HTTPException
 

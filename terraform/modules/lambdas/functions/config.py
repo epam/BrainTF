@@ -18,7 +18,7 @@ class _ConfigLambda:
             boto3 operations.
         boto3_config (Config): boto3 configuration instance initialized with shared
             timeout values.
-        vcs_provider (str): Name of the VCS vendor (GitHub, GitLab, Bitbucket).
+        vcs_provider (str): Name of the VCS vendor (GitHub, GitLab).
         vcs_token_name (str): SSM parameter name holding the VCS API token.
         vcs_api_endpoint (str): Fully qualified base URL for VCS REST requests.
         webhook_secret_name (str): SSM parameter name containing the webhook secret.
@@ -102,10 +102,10 @@ class _ConfigLambda:
 
     def _validate_vcs_config(self) -> None:
         """Validates VCS-related configuration."""
-        if self.vcs_provider not in ("github", "gitlab", "bitbucket"):
+        if self.vcs_provider not in ("github", "gitlab"):
             raise ValueError(
                 f"Invalid VCS_PROVIDER: {self.vcs_provider}. "
-                f"Must be one of: github, gitlab, bitbucket"
+                f"Must be one of: github, gitlab"
             )
 
         if not self.vcs_token_name:
