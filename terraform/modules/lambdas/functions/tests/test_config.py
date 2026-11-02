@@ -19,7 +19,7 @@ def test_config_loads_defaults(config_lambda_class, patched_environment, monkeyp
     assert config.boto3_config.read_timeout == 361
 
 
-@pytest.mark.parametrize("provider", ["github", "gitlab", "bitbucket"])
+@pytest.mark.parametrize("provider", ["github", "gitlab"])
 def test_config_accepts_supported_vcs_providers(config_lambda_class, patched_environment, provider):
     patched_environment.setenv("VCS_PROVIDER", provider)
 
@@ -29,7 +29,7 @@ def test_config_accepts_supported_vcs_providers(config_lambda_class, patched_env
 @pytest.mark.parametrize(
     ("variable", "value", "message"),
     [
-        ("VCS_PROVIDER", "bitbucket-server", "Invalid VCS_PROVIDER"),
+        ("VCS_PROVIDER", "provider", "Invalid VCS_PROVIDER"),
         ("VCS_TOKEN_NAME", "", "VCS_TOKEN_NAME environment variable is required"),
         ("VCS_API_ENDPOINT", "", "VCS_API_ENDPOINT environment variable is required"),
         ("VCS_API_ENDPOINT", "http://gitlab.example", "must start with https://"),

@@ -26,9 +26,6 @@ match config.vcs_provider:
         SUCCESS = '+1'
         FAILURE = 'confused'
 
-    case "bitbucket":
-        ...
-
     case _:
         raise ValueError(f"Unsupported VCS provider: {config.vcs_provider}")
 
