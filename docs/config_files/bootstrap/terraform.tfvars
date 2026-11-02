@@ -1,3 +1,4 @@
+# Do not edit: change the bootstrap inputs and re-run terraform apply in terraform/bootstrap.
 # Tag block
 environment = "<my_environment>"      # Environment name (e.g., Production, Staging, Development)
 team        = "<my_team>"             # Team responsible for the infrastructure

@@ -43,7 +43,7 @@
 | <a name="input_deployed_by"></a> [deployed\_by](#input\_deployed\_by) | The deployment method | `string` | n/a | yes |
 | <a name="input_environment"></a> [environment](#input\_environment) | The Project environment | `string` | n/a | yes |
 | <a name="input_owner_mail"></a> [owner\_mail](#input\_owner\_mail) | The owner e-mail | `string` | n/a | yes |
-| <a name="input_platform_state_bucket_prefix"></a> [platform\_state\_bucket\_prefix](#input\_platform\_state\_bucket\_prefix) | Custom prefix for the platform state S3 bucket name (stores state of bootstrap + main\_module) | `string` | `"backend-state-bucket"` | no |
+| <a name="input_platform_state_bucket_prefix"></a> [platform\_state\_bucket\_prefix](#input\_platform\_state\_bucket\_prefix) | Custom prefix for the platform state S3 bucket name (stores state of bootstrap + main\_module). Set it here only: main\_module receives the full bucket name from bootstrap | `string` | `"backend-state-bucket"` | no |
 | <a name="input_team"></a> [team](#input\_team) | The owner team | `string` | n/a | yes |
 | <a name="input_vcs_repo_name"></a> [vcs\_repo\_name](#input\_vcs\_repo\_name) | The Project name | `string` | n/a | yes |
 
@@ -53,5 +53,5 @@
 | ---- | ----------- |
 | <a name="output_kms_key_arn"></a> [kms\_key\_arn](#output\_kms\_key\_arn) | ARN of the KMS key used for bucket encryption |
 | <a name="output_state_bucket_arn"></a> [state\_bucket\_arn](#output\_state\_bucket\_arn) | ARN of the S3 state bucket created by bootstrap |
-| <a name="output_state_bucket_name"></a> [state\_bucket\_name](#output\_state\_bucket\_name) | Name of the S3 state bucket created by bootstrap (can be reused as managed\_state\_bucket in main\_module) |
+| <a name="output_state_bucket_name"></a> [state\_bucket\_name](#output\_state\_bucket\_name) | Name of the S3 state bucket created by bootstrap (passed to main\_module as platform\_state\_bucket in terraform.auto.tfvars) |
 <!-- END_TF_DOCS -->

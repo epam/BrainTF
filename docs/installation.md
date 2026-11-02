@@ -30,18 +30,11 @@ Workflow/pipeline described in this section can work independently and also be a
 3. Copy the [docs/config_files/main_module/terraform.tfvars](./config_files/main_module/terraform.tfvars) and [docs/config_files/main_module/secrets.auto.tfvars](../docs/config_files/main_module/secrets.auto.tfvars) files into the [main_module/](../terraform/main_module) directory. Some variables will be filled in automatically in the next steps.
 4. Run `terraform init` command in `terraform/bootstrap` directory.
 5. Run `terraform plan/apply` commands in `terraform/bootstrap` directory.
-6. `bootstrap` deployment automatically updates [terraform/main_module/main.tf](../terraform/main_module/main.tf) and [terraform/main_module/terraform.tfvars](../terraform/main_module/terraform.tfvars) with common variables.
+6. `bootstrap` deployment generates two files in `terraform/main_module/` (both ignored by git; do not edit them, re-run `terraform apply` in `terraform/bootstrap` instead):
+   - `backend.generated.tf`: the S3 backend for the `main_module` state;
+   - `terraform.auto.tfvars`: a copy of `bootstrap/terraform.tfvars` (common variables) plus the state bucket name (`platform_state_bucket`).
 
-   <details>
-      <summary><b> - main_module/main.tf;</b></summary>
-      <img src="../docs/pic/main_module.png" alt="main_module.tf">
-   </details>
-
-   <details>
-      <summary><b> - main_module/terraform.tfvars</b></summary>
-      <img src="../docs/pic/tfvars.png" alt="terraform.tfvars">
-   </details>
-
+   See [State Management](./state_management.md#what-bootstrap-creates) for examples.
 
 ## Bot deployment
 1. Fill in other `<placeholders>` in [terraform/main_module/terraform.tfvars](config_files/main_module/terraform.tfvars) and [terraform/main_module/secrets.auto.tfvars](config_files/main_module/secrets.auto.tfvars) with values.
