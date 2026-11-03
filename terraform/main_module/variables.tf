@@ -101,12 +101,6 @@ variable "platform_state_bucket" {
   }
 }
 
-variable "state_bucket_force_destroy" {
-  description = "Bootstrap-only setting, not used by main_module. Allows Terraform to delete the state bucket with all its objects and versions (demo/dev teardown)."
-  type        = bool
-  default     = false
-}
-
 variable "managed_state_bucket" {
   description = "Name of an existing S3 bucket to store Terraform state for the code under WORK_DIRS (the workload managed by this pipeline). If empty, the bootstrap platform state bucket will be used with a separate prefix directory."
   type        = string

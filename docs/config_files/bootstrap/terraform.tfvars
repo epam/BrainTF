@@ -8,5 +8,6 @@ owner_mail  = "<my_mail@example.com>" # Email address of the infrastructure owne
 # Block of common variables
 vcs_repo_name = "<my_project>" # Name of the project (gitlab or github)
 
-# State bucket protection
-state_bucket_force_destroy = false # Keep false to protect the state bucket from deletion. Set true only for demo/dev teardown (deletes the bucket with all its state files).
+# State backend configuration
+platform_state_bucket_prefix = "<my_platform_state_bucket_prefix>" # Prefix for the platform state S3 bucket name (stores bootstrap + main_module state). Synced to main_module via terraform.auto.tfvars.
+state_bucket_force_destroy   = "<false>"                           # Allow Terraform to delete the state bucket together with all its objects and versions. Keep false to protect the state; set true only for demo/dev teardown.
