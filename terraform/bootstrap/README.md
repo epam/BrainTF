@@ -44,6 +44,7 @@
 | <a name="input_environment"></a> [environment](#input\_environment) | The Project environment | `string` | n/a | yes |
 | <a name="input_owner_mail"></a> [owner\_mail](#input\_owner\_mail) | The owner e-mail | `string` | n/a | yes |
 | <a name="input_platform_state_bucket_prefix"></a> [platform\_state\_bucket\_prefix](#input\_platform\_state\_bucket\_prefix) | Custom prefix for the platform state S3 bucket name (stores state of bootstrap + main\_module). Set it here only: main\_module receives the full bucket name from bootstrap | `string` | `"backend-state-bucket"` | no |
+| <a name="input_state_bucket_force_destroy"></a> [state\_bucket\_force\_destroy](#input\_state\_bucket\_force\_destroy) | Allow Terraform to delete the state bucket together with all its objects and versions. Keep false to protect the state; set true only for demo/dev teardown. | `bool` | `false` | no |
 | <a name="input_team"></a> [team](#input\_team) | The owner team | `string` | n/a | yes |
 | <a name="input_vcs_repo_name"></a> [vcs\_repo\_name](#input\_vcs\_repo\_name) | The Project name | `string` | n/a | yes |
 

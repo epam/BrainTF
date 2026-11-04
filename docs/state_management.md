@@ -6,6 +6,7 @@ The BrainTF project uses multiple Terraform state files stored in S3. This docum
 
 1. [Bootstrap state management](#bootstrap-state-management) — where the bootstrap module stores its own state.
 2. [Managed workload state management](#managed-workload-state-management) — where the CI/CD pipeline stores the Terraform state for the code under `WORK_DIRS`.
+3. [State bucket deletion protection](#state-bucket-deletion-protection) — how the state bucket is protected from accidental deletion and how to tear it down.
 
 ---
 
@@ -15,7 +16,7 @@ The BrainTF project uses multiple Terraform state files stored in S3. This docum
 
 The `bootstrap` module creates the AWS infrastructure required to store Terraform state remotely:
 
-- **S3 bucket** — `backend-state-bucket-{vcs_repo_name}-{region}` (stores `main_module` state)
+- **S3 bucket** — `backend-state-bucket-{vcs_repo_name}-{region}` (stores `main_module` state; protected from accidental deletion, see [State Bucket Deletion Protection](#state-bucket-deletion-protection))
 - **KMS key** — `alias/kms_key_{vcs_repo_name}_{region}` (encrypts state files)
 - **IAM role** — `Terraform-role-{vcs_repo_name}-{region}`
 
@@ -284,3 +285,48 @@ For `managed_state_key = "pipeline/terraform.tfstate"`, this creates the object 
 For `managed_state_key = "envs/dev/terraform.tfstate"`, this creates the object with key `envs/dev/` in the target bucket.
 
 > **Note:** The actual state file (`terraform.tfstate`) is written by Terraform during `terraform init` in the pipeline. The `aws_s3_object` resource only ensures the parent folder exists beforehand. The `precondition` block enforces that `managed_state_key` includes a directory prefix — a bare `terraform.tfstate` (with no directory) will fail `terraform plan`.
+
+---
+
+## State Bucket Deletion Protection
+
+The platform state bucket (`backend-state-bucket-{vcs_repo_name}-{region}`) holds the `main_module` state, the bootstrap state (if Option 2 was used) and, when `managed_state_bucket` is empty, the managed workload state. Losing it means losing the ability to manage the deployed infrastructure.
+
+### Decision
+
+The bucket is protected from accidental deletion by default. The `state_bucket_force_destroy` bootstrap variable controls the S3 `force_destroy` behavior:
+
+| `state_bucket_force_destroy` | Behavior |
+|------------------------------|----------|
+| `false` (default) | `terraform destroy` or a resource replacement fails if the bucket contains any objects, object versions or delete markers. The state stays intact. |
+| `true` | Terraform deletes the bucket together with **all** objects and versions. S3 versioning does not help. Use for demo/dev environments only. |
+
+The [bootstrap `terraform.tfvars` template](./config_files/bootstrap/terraform.tfvars) sets it to `false`. Set the value in `terraform/bootstrap/terraform.tfvars`:
+
+```hcl
+state_bucket_force_destroy = false # default; set true only for demo/dev teardown
+```
+
+> **Limits.** The protection works only while the bucket is not empty. An empty bucket can still be destroyed. It also covers Terraform operations only; deleting the bucket directly with the AWS CLI or console is not blocked by this setting.
+
+> **Future consideration.** A bucket policy statement denying `s3:DeleteBucket` could protect against deletes made outside Terraform. It is not part of the current change, because a full `terraform destroy` removes the policy before the bucket.
+
+### Upgrading an existing deployment
+
+Existing deployments were created with `force_destroy = true`. After pulling this change, `terraform apply` in `terraform/bootstrap` performs an in-place update of `force_destroy` only (no replacement of the bucket, KMS key or policy):
+
+- With `state_bucket_force_destroy = false` (the template value and the variable default) the bucket becomes protected. Add the line to your `terraform/bootstrap/terraform.tfvars` or rely on the default.
+- To keep the previous behavior, set `state_bucket_force_destroy = true` before applying.
+
+### Teardown
+
+`force_destroy` is stored in the Terraform state, so the flag must be applied before the destroy:
+
+1. Destroy `main_module` and any workload resources first.
+2. Set `state_bucket_force_destroy = true` in `terraform/bootstrap/terraform.tfvars` and run `terraform apply` in `terraform/bootstrap`.
+3. If the state bucket is used as the backend for bootstrap (Option 2), migrate the bootstrap state back to local first (`terraform init -migrate-state` after removing the `backend "s3"` block). Otherwise Terraform would delete the bucket that holds its own state.
+4. Run `terraform destroy` in `terraform/bootstrap`.
+
+To remove the bucket manually, empty **all** object versions and delete markers first. A plain `aws s3 rm --recursive` removes only the current versions and leaves the bucket non-empty.
+
+> The KMS key is scheduled for deletion (7-day window) on destroy. State files cannot be read after the key is deleted.

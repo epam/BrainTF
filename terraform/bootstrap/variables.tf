@@ -28,3 +28,9 @@ variable "platform_state_bucket_prefix" {
   type        = string
   default     = "backend-state-bucket"
 }
+
+variable "state_bucket_force_destroy" {
+  description = "Allow Terraform to delete the state bucket together with all its objects and versions. Keep false to protect the state; set true only for demo/dev teardown."
+  type        = bool
+  default     = false
+}
