@@ -229,8 +229,7 @@ def test_get_gitlab_client_caching(patched_config_gitlab, mock_gitlab, expected_
 
 
 def test_post_gitlab_comment_success(patched_config_gitlab, ssm_setup, mock_gitlab):
-    from utilities.vcs.gitlab_functions import (_get_gitlab_client,
-                                                post_gitlab_comment)
+    from utilities.vcs.gitlab_functions import _get_gitlab_client, post_gitlab_comment
     _get_gitlab_client.cache_clear()
 
     event = {
@@ -258,8 +257,7 @@ def test_post_gitlab_comment_success(patched_config_gitlab, ssm_setup, mock_gitl
     (Exception, "Unexpected error")
 ])
 def test_post_gitlab_comment_failures(patched_config_gitlab, mock_gitlab, monkeypatch, exception_class, match_msg):
-    from utilities.vcs.gitlab_functions import (_get_gitlab_client,
-                                                post_gitlab_comment)
+    from utilities.vcs.gitlab_functions import _get_gitlab_client, post_gitlab_comment
     _get_gitlab_client.cache_clear()
 
     # Setup failure at notes.create
@@ -288,8 +286,10 @@ def test_post_gitlab_comment_failures(patched_config_gitlab, mock_gitlab, monkey
 
 def test_post_help_message_gitlab_success(patched_config_gitlab, ssm_setup, mock_gitlab):
     from utilities.messages import HELP_MESSAGE
-    from utilities.vcs.gitlab_functions import (_get_gitlab_client,
-                                                post_help_message_gitlab)
+    from utilities.vcs.gitlab_functions import (
+        _get_gitlab_client,
+        post_help_message_gitlab,
+    )
     _get_gitlab_client.cache_clear()
 
     event = {
@@ -347,8 +347,10 @@ class MockNotesWithAwards(MockNotes):
         return self.note
 
 def test_add_award_to_note_gitlab_success(patched_config_gitlab, mock_gitlab, monkeypatch):
-    from utilities.vcs.gitlab_functions import (_get_gitlab_client,
-                                                add_award_to_note_gitlab)
+    from utilities.vcs.gitlab_functions import (
+        _get_gitlab_client,
+        add_award_to_note_gitlab,
+    )
     _get_gitlab_client.cache_clear()
     
     # Inject mock with awardemojis
@@ -375,8 +377,10 @@ def test_add_award_to_note_gitlab_success(patched_config_gitlab, mock_gitlab, mo
     (Exception, "Unexpected error")
 ])
 def test_add_award_to_note_gitlab_failures(patched_config_gitlab, mock_gitlab, monkeypatch, exception_class, match_msg):
-    from utilities.vcs.gitlab_functions import (_get_gitlab_client,
-                                                add_award_to_note_gitlab)
+    from utilities.vcs.gitlab_functions import (
+        _get_gitlab_client,
+        add_award_to_note_gitlab,
+    )
     _get_gitlab_client.cache_clear()
     
     mock_gitlab.instance.projects.project.mergerequests.mr.notes = MockNotesWithAwards()
@@ -407,7 +411,9 @@ def test_add_award_to_note_gitlab_failures(patched_config_gitlab, mock_gitlab, m
 
 def test_check_files_exist_in_repo_gitlab_all_exist(patched_config_gitlab, mock_gitlab):
     from utilities.vcs.gitlab_functions import (
-        _get_gitlab_client, check_files_exist_in_repo_gitlab)
+        _get_gitlab_client,
+        check_files_exist_in_repo_gitlab,
+    )
     _get_gitlab_client.cache_clear()
 
     project = mock_gitlab.instance.projects.project
@@ -438,7 +444,9 @@ def test_check_files_exist_in_repo_gitlab_all_exist(patched_config_gitlab, mock_
 
 def test_check_files_exist_in_repo_gitlab_missing_file_returns_false(patched_config_gitlab, mock_gitlab):
     from utilities.vcs.gitlab_functions import (
-        _get_gitlab_client, check_files_exist_in_repo_gitlab)
+        _get_gitlab_client,
+        check_files_exist_in_repo_gitlab,
+    )
     _get_gitlab_client.cache_clear()
 
     project = mock_gitlab.instance.projects.project
@@ -462,7 +470,9 @@ def test_check_files_exist_in_repo_gitlab_missing_file_returns_false(patched_con
 
 def test_check_files_exist_in_repo_gitlab_missing_directory_returns_false(patched_config_gitlab, mock_gitlab):
     from utilities.vcs.gitlab_functions import (
-        _get_gitlab_client, check_files_exist_in_repo_gitlab)
+        _get_gitlab_client,
+        check_files_exist_in_repo_gitlab,
+    )
     _get_gitlab_client.cache_clear()
 
     project = mock_gitlab.instance.projects.project
@@ -493,7 +503,9 @@ def test_check_files_exist_in_repo_gitlab_failures(
         patched_config_gitlab, mock_gitlab, monkeypatch, exception_class, match_msg, failure_stage
 ):
     from utilities.vcs.gitlab_functions import (
-        _get_gitlab_client, check_files_exist_in_repo_gitlab)
+        _get_gitlab_client,
+        check_files_exist_in_repo_gitlab,
+    )
     _get_gitlab_client.cache_clear()
 
     event = {
@@ -525,8 +537,10 @@ def test_check_files_exist_in_repo_gitlab_failures(
 
 
 def test_commit_files_to_branch_gitlab_success(patched_config_gitlab, mock_gitlab):
-    from utilities.vcs.gitlab_functions import (_get_gitlab_client,
-                                                commit_files_to_branch_gitlab)
+    from utilities.vcs.gitlab_functions import (
+        _get_gitlab_client,
+        commit_files_to_branch_gitlab,
+    )
     _get_gitlab_client.cache_clear()
 
     event = {
@@ -554,8 +568,10 @@ def test_commit_files_to_branch_gitlab_success(patched_config_gitlab, mock_gitla
 
 
 def test_commit_files_to_branch_gitlab_no_actions_returns_empty_dict(patched_config_gitlab, mock_gitlab):
-    from utilities.vcs.gitlab_functions import (_get_gitlab_client,
-                                                commit_files_to_branch_gitlab)
+    from utilities.vcs.gitlab_functions import (
+        _get_gitlab_client,
+        commit_files_to_branch_gitlab,
+    )
     _get_gitlab_client.cache_clear()
 
     event = {
@@ -580,8 +596,10 @@ def test_commit_files_to_branch_gitlab_no_actions_returns_empty_dict(patched_con
 def test_commit_files_to_branch_gitlab_failures(
         patched_config_gitlab, mock_gitlab, monkeypatch, exception_class, match_msg, failure_at
 ):
-    from utilities.vcs.gitlab_functions import (_get_gitlab_client,
-                                                commit_files_to_branch_gitlab)
+    from utilities.vcs.gitlab_functions import (
+        _get_gitlab_client,
+        commit_files_to_branch_gitlab,
+    )
     _get_gitlab_client.cache_clear()
 
     if exception_class in (gitlab.GitlabAuthenticationError, gitlab.GitlabGetError, gitlab.GitlabCreateError):
@@ -618,7 +636,9 @@ def test_commit_files_to_branch_gitlab_failures(
 
 def test_get_all_tf_files_from_paths_list_gitlab_success(patched_config_gitlab, mock_gitlab):
     from utilities.vcs.gitlab_functions import (
-        _get_gitlab_client, get_all_tf_files_from_paths_list_gitlab)
+        _get_gitlab_client,
+        get_all_tf_files_from_paths_list_gitlab,
+    )
     _get_gitlab_client.cache_clear()
 
     project = mock_gitlab.instance.projects.project
@@ -658,7 +678,9 @@ def test_get_all_tf_files_from_paths_list_gitlab_success(patched_config_gitlab, 
 
 def test_get_all_tf_files_from_paths_list_gitlab_no_tf_files(patched_config_gitlab, mock_gitlab):
     from utilities.vcs.gitlab_functions import (
-        _get_gitlab_client, get_all_tf_files_from_paths_list_gitlab)
+        _get_gitlab_client,
+        get_all_tf_files_from_paths_list_gitlab,
+    )
     _get_gitlab_client.cache_clear()
 
     project = mock_gitlab.instance.projects.project

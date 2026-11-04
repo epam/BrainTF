@@ -1,4 +1,4 @@
-from typing import Any, Dict, List, Tuple
+from typing import Any
 
 import boto3
 from boto3.dynamodb.conditions import Key
@@ -35,8 +35,8 @@ def _db_resource():
 def upload_files_to_s3(
         bucket_name: str,
         pull_number: int,
-        file_paths_with_content: Dict[str, str],
-) -> Dict[str, List[str]]:
+        file_paths_with_content: dict[str, str],
+) -> dict[str, list[str]]:
     """
     Uploads a collection of files to an AWS S3 bucket, categorizing them into successfully
     uploaded and failed files. This function handles the upload process for multiple files
@@ -53,8 +53,8 @@ def upload_files_to_s3(
             "uploaded": A list of file paths that were successfully uploaded.
             "failed": A list of file paths that failed to upload.
     """
-    uploaded: List[str] = []
-    failed: List[str] = []
+    uploaded: list[str] = []
+    failed: list[str] = []
 
     for file_path, file_content in file_paths_with_content.items():
 
@@ -87,7 +87,7 @@ def upload_files_to_s3(
     }
 
 
-def get_file_names_from_s3_directory(bucket_name: str, path_to_files: str) -> List[str]:
+def get_file_names_from_s3_directory(bucket_name: str, path_to_files: str) -> list[str]:
     """
     Retrieves the file names from a specified S3 directory.
 
@@ -107,11 +107,11 @@ def get_file_names_from_s3_directory(bucket_name: str, path_to_files: str) -> Li
         Any exceptions raised by the AWS SDK for Python (Boto3) while interacting
         with the S3 service.
     """
-    file_names: List[str] = []
+    file_names: list[str] = []
     continuation_token: str | None = None
     s3_client = _s3_client()
     while True:
-        list_kwargs: Dict[str, Any] = {
+        list_kwargs: dict[str, Any] = {
             "Bucket": bucket_name,
             "Prefix": path_to_files,
         }
@@ -139,7 +139,7 @@ def get_file_names_from_s3_directory(bucket_name: str, path_to_files: str) -> Li
 def get_all_files_from_s3_directory(
         bucket_name: str,
         path_to_files: str
-) -> List[Tuple[str, str]]:
+) -> list[tuple[str, str]]:
     """
     Retrieves all files from the specified S3 directory in a given bucket. A file is
     included only if it is not a directory or an empty object. The function retrieves
@@ -157,7 +157,7 @@ def get_all_files_from_s3_directory(
         Exception: Propagates AWS SDK, response-shape, or UTF-8 decoding errors if they
             occur while listing or reading objects.
     """
-    files: List[Tuple[str, str]] = []
+    files: list[tuple[str, str]] = []
     continuation_token: str | None = None
     s3_client = _s3_client()
     while True:
@@ -201,8 +201,8 @@ def get_all_files_from_s3_directory(
 def get_particular_files_from_s3_directory(
         bucket_name: str,
         path_to_files: str,
-        file_names: List[str]
-) -> List[Tuple[str, str]]:
+        file_names: list[str]
+) -> list[tuple[str, str]]:
     """
     Retrieves a list of files and their contents from a specified directory in an S3 bucket.
 
@@ -222,7 +222,7 @@ def get_particular_files_from_s3_directory(
         List[Tuple[str, str]]: A list of tuples where each tuple contains a file name and its
         corresponding file content as a string.
     """
-    files: List[Tuple[str, str]] = []
+    files: list[tuple[str, str]] = []
     s3_client = _s3_client()
     for file_name in file_names:
         # Construct the full S3 key
@@ -250,7 +250,7 @@ def get_particular_files_from_s3_directory(
     return files
 
 
-def get_file_content_with_metadata_from_s3(s3_bucket: str, s3_key: str) -> Dict:
+def get_file_content_with_metadata_from_s3(s3_bucket: str, s3_key: str) -> dict:
     """
     Retrieves the content and metadata of a specified file stored in an S3 bucket.
 
@@ -283,14 +283,14 @@ def get_file_content_with_metadata_from_s3(s3_bucket: str, s3_key: str) -> Dict:
         )
 
         # Retrieve the uploaded object from S3
-        object_response: Dict[str, Any] = s3_client.get_object(
+        object_response: dict[str, Any] = s3_client.get_object(
             Bucket=s3_bucket,
             Key=s3_key,
             ExpectedBucketOwner=config.aws_account_id
         )
 
         # Extract metadata
-        object_metadata: Dict = head_object_response.get('Metadata', {})
+        object_metadata: dict = head_object_response.get('Metadata', {})
 
         # Read and decode the file content
         content: str = object_response['Body'].read().decode('utf-8')
@@ -332,7 +332,7 @@ def get_messages_from_db(table_name: str, partition_key: str) -> list:
 
 def put_messages_to_db(
         table_name: str,
-        messages: List[Dict[str, Any]],
+        messages: list[dict[str, Any]],
 ) -> None:
     """
     Insert multiple messages into a specified DynamoDB table using a transactional

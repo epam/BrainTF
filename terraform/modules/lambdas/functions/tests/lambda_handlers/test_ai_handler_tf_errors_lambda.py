@@ -175,13 +175,17 @@ def test_check_pull_num_rejects_values_not_convertible_to_integer():
 
 
 def test_validate_s3_metadata_accepts_valid_metadata():
-    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import (
+        validate_s3_metadata,
+    )
 
     assert validate_s3_metadata(VALID_S3_METADATA) is None
 
 
 def test_validate_s3_metadata_rejects_non_dictionary():
-    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import (
+        validate_s3_metadata,
+    )
 
     with pytest.raises(TypeError, match="Invalid S3 metadata type"):
         validate_s3_metadata([])
@@ -189,7 +193,9 @@ def test_validate_s3_metadata_rejects_non_dictionary():
 
 @pytest.mark.parametrize("key", REQUIRED_S3_METADATA_KEYS)
 def test_validate_s3_metadata_rejects_missing_key(key):
-    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import (
+        validate_s3_metadata,
+    )
 
     metadata = VALID_S3_METADATA.copy()
     del metadata[key]
@@ -206,7 +212,9 @@ def test_validate_s3_metadata_rejects_missing_key(key):
     for value in (None, "")
 ])
 def test_validate_s3_metadata_rejects_empty_value(key, value):
-    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import (
+        validate_s3_metadata,
+    )
 
     metadata = VALID_S3_METADATA.copy()
     metadata[key] = value
@@ -219,7 +227,9 @@ def test_validate_s3_metadata_rejects_empty_value(key, value):
 
 @pytest.mark.parametrize("value", ("22abc", "not-a-number", "0", "-5"))
 def test_validate_s3_metadata_rejects_invalid_request_id(value):
-    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import (
+        validate_s3_metadata,
+    )
 
     metadata = VALID_S3_METADATA.copy()
     metadata["pull_num"] = value
@@ -234,7 +244,9 @@ def test_validate_s3_metadata_rejects_invalid_request_id(value):
 
 @pytest.mark.parametrize("value", ("not-a-sha", "a65f665g"))
 def test_validate_s3_metadata_rejects_invalid_commit_sha(value):
-    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import (
+        validate_s3_metadata,
+    )
 
     metadata = VALID_S3_METADATA.copy()
     metadata["commit_sha"] = value
@@ -248,7 +260,9 @@ def test_validate_s3_metadata_rejects_invalid_commit_sha(value):
 
 
 def test_validate_s3_metadata_reports_and_logs_all_errors(caplog):
-    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import validate_s3_metadata
+    from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import (
+        validate_s3_metadata,
+    )
 
     metadata = VALID_S3_METADATA.copy()
     del metadata["base_repo_owner"]
