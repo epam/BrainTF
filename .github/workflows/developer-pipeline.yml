@@ -8,7 +8,6 @@ on:
       - terraform/modules/lambdas/functions/**
       - .github/workflows/developer-pipeline.yml
 
-# Least privilege: no permissions by default, each job declares only what it needs
 permissions: {}
 
 jobs:
@@ -17,7 +16,7 @@ jobs:
     name: Python Unit Tests
     runs-on: ubuntu-latest
     permissions:
-      contents: read  # checkout; artifact upload does not use GITHUB_TOKEN
+      contents: read
     env:
       PYTHONPATH: ${{ github.workspace }}/terraform/modules/lambdas/functions
       AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }}
@@ -78,10 +77,8 @@ jobs:
     runs-on: ubuntu-latest
     needs: python-test
     if: always()
-    # dorny/test-reporter writes the report to the job summary (use-actions-summary defaults to true)
-    # and creates no check run, so checks: write is not needed
     permissions:
-      contents: read  # checkout; artifact download within the same run does not use GITHUB_TOKEN
+      contents: read
 
     steps:
       - name: Checkout repository
