@@ -121,7 +121,7 @@ def test_lambda_raises_exception_on_invalid_event(patched_config_github, monkeyp
     setup_monkeypatches(monkeypatch)
     from ai_handler_tf_errors_lambda.ai_handler_tf_errors_lambda import lambda_handler
 
-    with pytest.raises(Exception):
+    with pytest.raises((TypeError, ValueError)):
         lambda_handler({}, {})
 
 

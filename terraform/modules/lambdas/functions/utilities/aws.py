@@ -2,8 +2,10 @@ from typing import Any
 
 import boto3
 from boto3.dynamodb.conditions import Key
+from botocore.exceptions import ClientError
 
 from config import config
+from utilities.exceptions import CommonException
 from utilities.logger import logger
 
 
@@ -75,7 +77,7 @@ def upload_files_to_s3(
                 f"'{bucket_name}' with key '{s3_key}'."
             )
 
-        except Exception as e:
+        except ClientError as e:
             failed.append(file_path)
             logger.exception(
                 f"Failed to upload file '{file_path}' to bucket '{bucket_name}'. Error: {e}"
@@ -244,7 +246,7 @@ def get_particular_files_from_s3_directory(
         except s3_client.exceptions.NoSuchKey:
             logger.warning(f"File '{file_name}' not found at key '{key}' in bucket '{bucket_name}'.")
 
-        except Exception as e:
+        except ClientError as e:
             logger.exception(f"Failed to retrieve file '{file_name}' from S3. Error: {e}")
 
     return files
@@ -298,8 +300,8 @@ def get_file_content_with_metadata_from_s3(s3_bucket: str, s3_key: str) -> dict:
         logger.info(f"File metadata: {object_metadata}")
         return {"content": content, "metadata": object_metadata}
 
-    except Exception as e:
-        raise Exception(f"Error occurred while reading the object from S3: {e}")
+    except ClientError as e:
+        raise CommonException(f"Error occurred while reading the object from S3: {e}")
 
 
 def get_messages_from_db(table_name: str, partition_key: str) -> list:
@@ -415,5 +417,5 @@ def delete_files_from_s3(bucket_name: str, path_to_files: str) -> None:
         if errors:
             logger.error(f"Failed to delete {len(errors)} files. Errors: {errors}")
 
-    except Exception as e:
+    except ClientError as e:
         logger.exception(f"An error occurred while trying to delete files from S3. Error: {e}")

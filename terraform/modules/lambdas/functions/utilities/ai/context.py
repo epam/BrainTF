@@ -181,7 +181,7 @@ def get_context_memory_window(
         try:
             messages_from_db: list[dict[str, Any]] = get_messages_from_db(config.table_name, commit_short_sha)
             messages_for_ai: list[dict[str, Any]] = [
-                {key.lstrip('zipped_') if key == 'zipped_content'
+                {'content' if key == 'zipped_content'
                  else key: zlib.decompress(value.value).decode('utf-8') if key == 'zipped_content'
                 else value
                  for key, value in item.items() if key in ('role', 'zipped_content')}

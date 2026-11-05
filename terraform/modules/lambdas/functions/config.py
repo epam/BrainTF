@@ -79,7 +79,7 @@ class _ConfigLambda:
         self.table_name: str | None = os.environ.get("DYNAMODB_TABLE_NAME")
         self.log_level: str = os.environ.get("LOG_LEVEL", "INFO").upper()
         self.rag_enabled: bool = os.environ.get("RAG_ENABLED", "False").lower() in ("true", "1", "yes")
-        self.ttl_delta_days: int = int(os.environ.get("TTL_DELTA_DAYS", 30))
+        self.ttl_delta_days: str | None | int = int(os.environ.get("TTL_DELTA_DAYS", "30"))
         self.git_api_endpoint_version: str = '/api/v4'
 
         # Validate all configuration
