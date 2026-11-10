@@ -20,6 +20,8 @@ The `bootstrap` module creates the AWS infrastructure required to store Terrafor
 - **KMS key** — `alias/kms_key_{vcs_repo_name}_{region}` (encrypts state files)
 - **IAM role** — `Terraform-role-{vcs_repo_name}-{region}`
 
+`{region}` is the `region` input from `terraform/bootstrap/terraform.tfvars`; the AWS provider uses it instead of `AWS_REGION` or the AWS CLI profile.
+
 After a successful `terraform apply`, bootstrap automatically generates `terraform/main_module/backend.generated.tf` with the backend configuration:
 
 ```hcl

@@ -1,7 +1,6 @@
 # ======================= Getting account details =======================
 
 data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}
 
 # ======================= Local Variables =======================
 locals {
@@ -33,7 +32,7 @@ locals {
   cleaned_tfvars = replace(local.filtered_tfvars_lines, "/\n{3,}/", "\n\n")
 
   # Generate the backend configuration content for the main_module
-  region         = data.aws_region.current.region
+  region         = var.region
   account_id     = data.aws_caller_identity.current.account_id
   backend_config = <<EOT
 #======================= The Main module for application infrastructure =======================#

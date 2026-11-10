@@ -8,6 +8,17 @@ variable "vcs_repo_name" {
   type        = string
 }
 
+variable "region" {
+  description = "The AWS region for all BrainTF resources. Set it in bootstrap/terraform.tfvars: bootstrap copies it to terraform.auto.tfvars. AWS_REGION, AWS_DEFAULT_REGION and the AWS CLI profile region are not used"
+  type        = string
+  nullable    = false
+
+  validation {
+    condition     = can(regex("^[a-z]+(-[a-z]+)+-[0-9]+$", var.region))
+    error_message = "region must be an AWS region code such as eu-central-1. An empty value is not allowed: the AWS provider would fall back to AWS_REGION or the AWS CLI profile."
+  }
+}
+
 variable "environment" {
   description = "The Project environment"
   type        = string
