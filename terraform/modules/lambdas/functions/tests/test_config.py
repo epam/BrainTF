@@ -44,6 +44,8 @@ def test_config_accepts_supported_vcs_providers(config_lambda_class, patched_env
         ("AI_API_BASE_URL", "http://ai.example", "must start with https://"),
         ("DYNAMODB_TABLE_NAME", "", "DYNAMODB_TABLE_NAME environment variable is required"),
         ("LOG_LEVEL", "TRACE", "Invalid LOG_LEVEL"),
+        ("TTL_DELTA_DAYS", "TTL_DELTA_DAYS", "TTL_DELTA_DAYS must be an integer"),
+        ("TTL_DELTA_DAYS", "0", "TTL_DELTA_DAYS must be a positive integer")
     ],
 )
 def test_config_rejects_invalid_values(config_lambda_class, patched_environment, variable, value, message):
