@@ -1,6 +1,9 @@
 import pytest
-from github.GithubException import (BadCredentialsException, GithubException,
-                                    UnknownObjectException)
+from github.GithubException import (
+    BadCredentialsException,
+    GithubException,
+    UnknownObjectException,
+)
 
 
 class MockIssueComment:
@@ -198,8 +201,10 @@ def test_get_github_client_caching(patched_config_gitlab, mock_github, expected_
 
 
 def test_post_pr_comment_github_success(patched_config_gitlab, ssm_setup, mock_github):
-    from utilities.vcs.github_functions import (_get_github_client,
-                                                post_pr_comment_github)
+    from utilities.vcs.github_functions import (
+        _get_github_client,
+        post_pr_comment_github,
+    )
     _get_github_client.cache_clear()
     mock_gh_class, _ = mock_github
 
@@ -229,8 +234,10 @@ def test_post_pr_comment_github_success(patched_config_gitlab, ssm_setup, mock_g
     (Exception, "Unexpected error")
 ])
 def test_post_pr_comment_github_failures(patched_config_gitlab, mock_github, monkeypatch, exception_class, match_msg):
-    from utilities.vcs.github_functions import (_get_github_client,
-                                                post_pr_comment_github)
+    from utilities.vcs.github_functions import (
+        _get_github_client,
+        post_pr_comment_github,
+    )
     _get_github_client.cache_clear()
     mock_gh_class, _ = mock_github
 
@@ -256,8 +263,10 @@ def test_post_pr_comment_github_failures(patched_config_gitlab, mock_github, mon
 
 def test_post_help_message_github_success(patched_config_gitlab, ssm_setup, mock_github):
     from utilities.messages import HELP_MESSAGE
-    from utilities.vcs.github_functions import (_get_github_client,
-                                                post_help_message_github)
+    from utilities.vcs.github_functions import (
+        _get_github_client,
+        post_help_message_github,
+    )
     _get_github_client.cache_clear()
     mock_gh_class, _ = mock_github
 
@@ -277,7 +286,9 @@ def test_post_help_message_github_success(patched_config_gitlab, ssm_setup, mock
 
 def test_add_reaction_to_pr_comment_github_success(patched_config_gitlab, ssm_setup, mock_github):
     from utilities.vcs.github_functions import (
-        _get_github_client, add_reaction_to_pr_comment_github)
+        _get_github_client,
+        add_reaction_to_pr_comment_github,
+    )
     _get_github_client.cache_clear()
     mock_gh_class, _ = mock_github
 
@@ -312,7 +323,9 @@ def test_add_reaction_to_pr_comment_github_success(patched_config_gitlab, ssm_se
 def test_add_reaction_to_pr_comment_github_failures(patched_config_gitlab, mock_github, monkeypatch, exception_class,
                                                     match_msg):
     from utilities.vcs.github_functions import (
-        _get_github_client, add_reaction_to_pr_comment_github)
+        _get_github_client,
+        add_reaction_to_pr_comment_github,
+    )
     _get_github_client.cache_clear()
     mock_gh_class, _ = mock_github
 
@@ -338,8 +351,10 @@ def test_add_reaction_to_pr_comment_github_failures(patched_config_gitlab, mock_
 
 
 def test_get_last_commit_sha_github_success(patched_config_gitlab, ssm_setup, mock_github):
-    from utilities.vcs.github_functions import (_get_github_client,
-                                                get_last_commit_sha_github)
+    from utilities.vcs.github_functions import (
+        _get_github_client,
+        get_last_commit_sha_github,
+    )
     _get_github_client.cache_clear()
     mock_gh_class, _ = mock_github
     mock_gh_class.instance.repo.pr.head.sha = "latest-sha-123"
@@ -361,8 +376,10 @@ def test_get_last_commit_sha_github_success(patched_config_gitlab, ssm_setup, mo
 ])
 def test_get_last_commit_sha_github_failures(patched_config_gitlab, mock_github, monkeypatch, exception_class,
                                              match_msg):
-    from utilities.vcs.github_functions import (_get_github_client,
-                                                get_last_commit_sha_github)
+    from utilities.vcs.github_functions import (
+        _get_github_client,
+        get_last_commit_sha_github,
+    )
     _get_github_client.cache_clear()
     mock_gh_class, _ = mock_github
 
@@ -381,7 +398,9 @@ def test_get_last_commit_sha_github_failures(patched_config_gitlab, mock_github,
 
 def test_check_files_exist_in_repo_github_success(patched_config_gitlab, ssm_setup, mock_github):
     from utilities.vcs.github_functions import (
-        _get_github_client, check_files_exist_in_repo_github)
+        _get_github_client,
+        check_files_exist_in_repo_github,
+    )
     _get_github_client.cache_clear()
     mock_gh_class, _ = mock_github
 
@@ -425,7 +444,9 @@ def test_check_files_exist_in_repo_github_success(patched_config_gitlab, ssm_set
 def test_check_files_exist_in_repo_github_failures(patched_config_gitlab, mock_github, monkeypatch, exception_class,
                                                    match_msg):
     from utilities.vcs.github_functions import (
-        _get_github_client, check_files_exist_in_repo_github)
+        _get_github_client,
+        check_files_exist_in_repo_github,
+    )
     _get_github_client.cache_clear()
     mock_gh_class, _ = mock_github
 
@@ -532,8 +553,10 @@ class MockRepoWithCommit(MockRepo):
 
 
 def test_commit_files_to_branch_github_success(patched_config_gitlab, mock_github, monkeypatch):
-    from utilities.vcs.github_functions import (_get_github_client,
-                                                commit_files_to_branch_github)
+    from utilities.vcs.github_functions import (
+        _get_github_client,
+        commit_files_to_branch_github,
+    )
     _get_github_client.cache_clear()
 
     # Use the extended mock repo
@@ -562,8 +585,10 @@ def test_commit_files_to_branch_github_success(patched_config_gitlab, mock_githu
 ])
 def test_commit_files_to_branch_github_failures(patched_config_gitlab, mock_github, monkeypatch, exception_class,
                                                 match_msg):
-    from utilities.vcs.github_functions import (_get_github_client,
-                                                commit_files_to_branch_github)
+    from utilities.vcs.github_functions import (
+        _get_github_client,
+        commit_files_to_branch_github,
+    )
     _get_github_client.cache_clear()
 
     mock_gh_class, _ = mock_github
@@ -595,7 +620,9 @@ class MockContentItem:
 
 def test_get_all_tf_files_from_paths_list_github_success(patched_config_gitlab, mock_github, monkeypatch):
     from utilities.vcs.github_functions import (
-        _get_github_client, get_all_tf_files_from_paths_list_github)
+        _get_github_client,
+        get_all_tf_files_from_paths_list_github,
+    )
     _get_github_client.cache_clear()
 
     mock_gh_class, _ = mock_github
@@ -623,7 +650,9 @@ def test_get_all_tf_files_from_paths_list_github_success(patched_config_gitlab, 
 def test_get_all_tf_files_from_paths_list_github_accepts_single_content_file(
         patched_config_gitlab, mock_github):
     from utilities.vcs.github_functions import (
-        _get_github_client, get_all_tf_files_from_paths_list_github)
+        _get_github_client,
+        get_all_tf_files_from_paths_list_github,
+    )
     _get_github_client.cache_clear()
 
     mock_gh_class, _ = mock_github
@@ -640,7 +669,9 @@ def test_get_all_tf_files_from_paths_list_github_accepts_single_content_file(
 
 def test_get_all_tf_files_from_paths_list_github_exception(patched_config_gitlab, mock_github, monkeypatch):
     from utilities.vcs.github_functions import (
-        _get_github_client, get_all_tf_files_from_paths_list_github)
+        _get_github_client,
+        get_all_tf_files_from_paths_list_github,
+    )
     _get_github_client.cache_clear()
 
     mock_gh_class, _ = mock_github

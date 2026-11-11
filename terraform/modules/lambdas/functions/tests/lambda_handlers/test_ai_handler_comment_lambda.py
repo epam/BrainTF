@@ -18,7 +18,9 @@ def test_process_vcs_webhook_payload_github(patched_config_github, webhook_event
                                             expected_webhook_event_metadata_github, monkeypatch, caplog):
     monkeypatch.setattr("ai_handler_comment_lambda.ai_handler_comment_lambda.get_last_commit_sha_github",
                         lambda x, y: "1234")
-    from ai_handler_comment_lambda.ai_handler_comment_lambda import process_vcs_webhook_payload
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import (
+        process_vcs_webhook_payload,
+    )
     result = process_vcs_webhook_payload(webhook_event_github)
     assert 'Processing VCS webhook payload...' in caplog.text
     assert isinstance(result, dict)
@@ -28,7 +30,9 @@ def test_process_vcs_webhook_payload_github(patched_config_github, webhook_event
 
 def test_process_vcs_webhook_payload_gitlab(patched_config_gitlab, webhook_event_gitlab,
                                             expected_webhook_event_metadata_gitlab, caplog):
-    from ai_handler_comment_lambda.ai_handler_comment_lambda import process_vcs_webhook_payload
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import (
+        process_vcs_webhook_payload,
+    )
     result = process_vcs_webhook_payload(webhook_event_gitlab)
     assert 'Processing VCS webhook payload...' in caplog.text
     assert isinstance(result, dict)
@@ -55,7 +59,9 @@ def test_process_vcs_webhook_payload_gitlab(patched_config_gitlab, webhook_event
 ])
 def test_process_vcs_webhook_payload_gitlab_missing_data(patched_config_gitlab, webhook_event_gitlab, payload_path,
                                                          missing_value):
-    from ai_handler_comment_lambda.ai_handler_comment_lambda import process_vcs_webhook_payload
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import (
+        process_vcs_webhook_payload,
+    )
 
     set_webhook_payload_value(webhook_event_gitlab, payload_path, missing_value)
 
@@ -77,7 +83,9 @@ def test_process_vcs_webhook_payload_gitlab_missing_data(patched_config_gitlab, 
 ])
 def test_process_vcs_webhook_payload_github_missing_data(patched_config_github, webhook_event_github, payload_path,
                                                          missing_value):
-    from ai_handler_comment_lambda.ai_handler_comment_lambda import process_vcs_webhook_payload
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import (
+        process_vcs_webhook_payload,
+    )
 
     set_webhook_payload_value(webhook_event_github, payload_path, missing_value)
 
@@ -86,7 +94,9 @@ def test_process_vcs_webhook_payload_github_missing_data(patched_config_github, 
 
 
 def test_process_vcs_webhook_payload_gitlab_preserves_zero_values(patched_config_gitlab, webhook_event_gitlab):
-    from ai_handler_comment_lambda.ai_handler_comment_lambda import process_vcs_webhook_payload
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import (
+        process_vcs_webhook_payload,
+    )
 
     webhook_payload = json.loads(webhook_event_gitlab["body"])
     webhook_payload["project_id"] = 0
@@ -105,7 +115,9 @@ def test_process_vcs_webhook_payload_github_preserves_zero_values(patched_config
                                                                   monkeypatch):
     monkeypatch.setattr("ai_handler_comment_lambda.ai_handler_comment_lambda.get_last_commit_sha_github",
                         lambda x, y: "1234")
-    from ai_handler_comment_lambda.ai_handler_comment_lambda import process_vcs_webhook_payload
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import (
+        process_vcs_webhook_payload,
+    )
 
     webhook_payload = json.loads(webhook_event_github["body"])
     webhook_payload["comment"]["id"] = 0
@@ -133,7 +145,9 @@ def test_process_vcs_webhook_payload_malformed_nested_data(request, provider_fix
                                                            webhook_event_gitlab, webhook_event_github):
     request.getfixturevalue(provider_fixture)
     event = webhook_event_gitlab if provider_fixture == "patched_config_gitlab" else webhook_event_github
-    from ai_handler_comment_lambda.ai_handler_comment_lambda import process_vcs_webhook_payload
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import (
+        process_vcs_webhook_payload,
+    )
 
     webhook_payload = json.loads(event["body"])
     webhook_payload.update(payload_update)
@@ -147,14 +161,20 @@ def test_process_vcs_webhook_payload_wrong_vcs(patched_config_wrong_vcs, webhook
                                                expected_webhook_event_metadata_github, monkeypatch):
     monkeypatch.setattr("ai_handler_comment_lambda.ai_handler_comment_lambda.get_last_commit_sha_github",
                         lambda x, y: "1234")
-    from ai_handler_comment_lambda.ai_handler_comment_lambda import process_vcs_webhook_payload
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import (
+        process_vcs_webhook_payload,
+    )
 
     with pytest.raises(ValueError):
         process_vcs_webhook_payload(webhook_event_github)
 
 
 def test_lambda_handler_http_status_codes(patched_environment):
-    from ai_handler_comment_lambda.ai_handler_comment_lambda import HTTP_SUCCESS, HTTP_BAD_REQUEST, HTTP_FORBIDDEN
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import (
+        HTTP_BAD_REQUEST,
+        HTTP_FORBIDDEN,
+        HTTP_SUCCESS,
+    )
     assert HTTP_SUCCESS == 200
     assert HTTP_BAD_REQUEST == 400
     assert HTTP_FORBIDDEN == 403

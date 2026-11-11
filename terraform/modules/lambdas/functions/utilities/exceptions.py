@@ -25,3 +25,10 @@ class HTTPException(Exception):
         self.status_code = status_code
         self.detail = detail
         super().__init__(f"HTTP status {status_code}: {detail}")
+
+
+class CommonException(Exception):
+    """Common exception."""
+
+    def __init__(self, message: str):
+        super().__init__(message)

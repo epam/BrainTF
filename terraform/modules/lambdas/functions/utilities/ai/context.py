@@ -2,9 +2,10 @@ import time
 import zlib
 from datetime import datetime, timedelta
 from decimal import Decimal
-from typing import Any, Dict, List
+from typing import Any
 
 from botocore.exceptions import ClientError
+
 from config import config
 from utilities.aws import get_messages_from_db, put_messages_to_db
 from utilities.logger import logger
@@ -48,7 +49,7 @@ def cutoff_large_text(
 
 
 def create_context_memory_window(
-        event: Dict[str, Any],
+        event: dict[str, Any],
         max_retries: int = 3,
 ) -> None:
     """
@@ -66,7 +67,7 @@ def create_context_memory_window(
         ValueError: If `commit_short_sha` is missing in the `metadata` field of the event.
         ClientError: If a transient error persists after the specified retries or for non-retriable database errors.
     """
-    metadata: Dict[str, Any] = event.get("metadata", {})
+    metadata: dict[str, Any] = event.get("metadata", {})
     commit_short_sha: str | None = metadata.get("commit_short_sha")
 
     if not commit_short_sha:
@@ -74,7 +75,7 @@ def create_context_memory_window(
 
     for attempt in range(1, max_retries + 1):
         try:
-            messages_from_db: List[Dict[str, Any]] = get_messages_from_db(config.table_name, commit_short_sha) or []
+            messages_from_db: list[dict[str, Any]] = get_messages_from_db(config.table_name, commit_short_sha) or []
 
             last_sk: Decimal = (
                 messages_from_db[-1]["sk"]
@@ -93,7 +94,7 @@ def create_context_memory_window(
             future_date: datetime = datetime.now() + ttl_delta
             ttl_timestamp: int = int(future_date.timestamp())
 
-            messages_to_db: List[Dict[str, Any]] = [
+            messages_to_db: list[dict[str, Any]] = [
                 {
                     "pk": commit_short_sha,
                     "sk": last_sk + Decimal(1),
@@ -147,9 +148,9 @@ def create_context_memory_window(
 
 
 def get_context_memory_window(
-        event: Dict[str, Any],
+        event: dict[str, Any],
         max_retries: int = 3,
-) -> List[Dict[str, Any]]:
+) -> list[dict[str, Any]]:
     """
     Fetches and processes context messages associated with a specific commit SHA from a database.
 
@@ -170,7 +171,7 @@ def get_context_memory_window(
         A list of dictionaries containing processed messages, where decompressed content replaces any
         compressed message fields in the original data.
     """
-    metadata: Dict = event.get("metadata", {})
+    metadata: dict = event.get("metadata", {})
     commit_short_sha: str | None = metadata.get("commit_short_sha")
 
     if not commit_short_sha:
@@ -178,9 +179,9 @@ def get_context_memory_window(
 
     for attempt in range(1, max_retries + 1):
         try:
-            messages_from_db: List[Dict[str, Any]] = get_messages_from_db(config.table_name, commit_short_sha)
-            messages_for_ai: List[Dict[str, Any]] = [
-                {key.lstrip('zipped_') if key == 'zipped_content'
+            messages_from_db: list[dict[str, Any]] = get_messages_from_db(config.table_name, commit_short_sha)
+            messages_for_ai: list[dict[str, Any]] = [
+                {'content' if key == 'zipped_content'
                  else key: zlib.decompress(value.value).decode('utf-8') if key == 'zipped_content'
                 else value
                  for key, value in item.items() if key in ('role', 'zipped_content')}

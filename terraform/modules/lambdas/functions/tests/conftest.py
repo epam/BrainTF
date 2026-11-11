@@ -6,6 +6,7 @@ from copy import deepcopy
 import boto3
 import pytest
 from moto import mock_aws
+
 from tests.data.events import (
     WEBHOOK_EVENT_GITHUB,
     WEBHOOK_EVENT_GITLAB,

@@ -1,12 +1,15 @@
 import hashlib
 import hmac
 import json
-from typing import Any, Dict
+from typing import Any
 
 from config import config
-from utilities.exceptions import (HTTPException, InvalidTokenException,
-                                  MissingCommentContextException,
-                                  MissingTokenException)
+from utilities.exceptions import (
+    HTTPException,
+    InvalidTokenException,
+    MissingCommentContextException,
+    MissingTokenException,
+)
 from utilities.logger import logger
 
 
@@ -32,7 +35,7 @@ def verify_token(token_from_header: str, expected_token: str) -> None:
     logger.info('Webhook token verified successfully.')
 
 
-def webhook_authenticator(event: Dict[str, Any]):
+def webhook_authenticator(event: dict[str, Any]):
     """
     Authenticates incoming webhook events based on the selected VCS provider and its respective
     authentication mechanism.
@@ -95,7 +98,7 @@ def verify_signature(event, secret_token) -> None:
     logger.info('Webhook signature verified successfully.')
 
 
-def is_github_issue_comment(event: Dict[str, Any]) -> bool:
+def is_github_issue_comment(event: dict[str, Any]) -> bool:
     """
     Determines if the provided event signifies a GitHub issue comment and validates its structure.
 
