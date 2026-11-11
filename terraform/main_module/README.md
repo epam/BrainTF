@@ -39,6 +39,7 @@
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_kms_alias.kms_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/kms_alias) | data source |
 | [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
+| [aws_s3_bucket.platform_state](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/s3_bucket) | data source |
 
 ## Inputs
 
@@ -59,7 +60,7 @@
 | <a name="input_managed_state_key"></a> [managed\_state\_key](#input\_managed\_state\_key) | S3 key (path) for the Terraform state file used by the managed workload (code under WORK\_DIRS). Must include a directory prefix, e.g. 'pipeline/terraform.tfstate'. | `string` | `"pipeline/terraform.tfstate"` | no |
 | <a name="input_oidc_provider"></a> [oidc\_provider](#input\_oidc\_provider) | OIDC identity provider domain (issuer). Used to construct IAM trust policy condition keys (e.g. <provider>:aud, <provider>:sub) and the OIDC provider URL. Use 'token.actions.githubusercontent.com' for GitHub or 'gitlab.com' for GitLab. | `string` | n/a | yes |
 | <a name="input_owner_mail"></a> [owner\_mail](#input\_owner\_mail) | The owner e-mail | `string` | n/a | yes |
-| <a name="input_platform_state_bucket_prefix"></a> [platform\_state\_bucket\_prefix](#input\_platform\_state\_bucket\_prefix) | Prefix for the bootstrap (platform) state S3 bucket name. Must match the value used in the bootstrap module. | `string` | `"backend-state-bucket"` | no |
+| <a name="input_platform_state_bucket"></a> [platform\_state\_bucket](#input\_platform\_state\_bucket) | Name of the bootstrap (platform) state S3 bucket. Bootstrap writes it to terraform.auto.tfvars on apply; set it by hand only if bootstrap cannot be applied on this machine (value: terraform output state\_bucket\_name in terraform/bootstrap). | `string` | n/a | yes |
 | <a name="input_private_subnet_ids"></a> [private\_subnet\_ids](#input\_private\_subnet\_ids) | VPC Private Subnet IDs | `list(string)` | n/a | yes |
 | <a name="input_rag_enable"></a> [rag\_enable](#input\_rag\_enable) | Whether to turn on RAG for AI handler. | `bool` | `false` | no |
 | <a name="input_run_checkov_analysis"></a> [run\_checkov\_analysis](#input\_run\_checkov\_analysis) | Enable or disable the Checkov analysis stage. Default is false. | `bool` | `false` | no |

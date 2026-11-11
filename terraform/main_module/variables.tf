@@ -91,10 +91,14 @@ variable "artifacts_bucket_prefix" {
   type        = string
 }
 
-variable "platform_state_bucket_prefix" {
-  description = "Prefix for the bootstrap (platform) state S3 bucket name. Must match the value used in the bootstrap module."
+variable "platform_state_bucket" {
+  description = "Name of the bootstrap (platform) state S3 bucket. Bootstrap writes it to terraform.auto.tfvars on apply; set it by hand only if bootstrap cannot be applied on this machine (value: terraform output state_bucket_name in terraform/bootstrap)."
   type        = string
-  default     = "backend-state-bucket"
+
+  validation {
+    condition     = can(regex("^[a-z0-9][a-z0-9.-]{1,61}[a-z0-9]$", var.platform_state_bucket))
+    error_message = "platform_state_bucket must be a valid S3 bucket name. Run terraform apply in terraform/bootstrap to regenerate terraform.auto.tfvars."
+  }
 }
 
 variable "managed_state_bucket" {

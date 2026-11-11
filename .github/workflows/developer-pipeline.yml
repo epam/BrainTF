@@ -6,16 +6,16 @@ on:
       - main
     paths:
       - terraform/modules/lambdas/functions/**
+      - .github/workflows/developer-pipeline.yml
 
-permissions:
-  contents: write
-  checks: write
-  pull-requests: write
+permissions: {}
 
 jobs:
   linter:
     name: Ruff linter check
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
 
     steps:
       - name: Repository Checkout
@@ -37,6 +37,8 @@ jobs:
     name: Python Unit Tests
     needs: linter
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     env:
       PYTHONPATH: ${{ github.workspace }}/terraform/modules/lambdas/functions
       AWS_DEFAULT_REGION: ${{ vars.AWS_REGION }}
@@ -47,6 +49,8 @@ jobs:
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Set up Python 3.11
         uses: actions/setup-python@v6
@@ -95,10 +99,14 @@ jobs:
     runs-on: ubuntu-latest
     needs: python-test
     if: ${{ always() && needs.python-test.result == 'success' }}
+    permissions:
+      contents: read
 
     steps:
       - name: Checkout repository
         uses: actions/checkout@v6
+        with:
+          persist-credentials: false
 
       - name: Download pytest artifact
         uses: actions/download-artifact@v7

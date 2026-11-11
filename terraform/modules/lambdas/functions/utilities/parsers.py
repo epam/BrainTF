@@ -1,13 +1,12 @@
 import os
 import re
-from typing import Dict
 
 
 def clean_text_for_tfsec(input_text):
     """
     Cleans the input text by:
     1. Removing sections between 'timings' and 'detected'.
-    2. Removing blocks starting with 'More Information' and ending at the first empty line.
+    2. Replacing 'More Information' blocks with their first AquaSecurity source URL.
     3. Replacing long horizontal lines with '---'.
 
     Args:
@@ -24,10 +23,19 @@ def clean_text_for_tfsec(input_text):
         flags=re.MULTILINE
     )
 
-    # Step 2: Remove blocks starting with 'More Information' and ending at the first empty line
+    # Step 2: Replace each More Information block with its first AquaSecurity source URL.
+    def replace_more_information(match):
+        source_url = re.search(
+            r"https://aquasecurity\.github\.io/tfsec/\S+",
+            match.group(0),
+        )
+        if source_url is None:
+            return ""
+        return f"  - {source_url.group(0).rstrip('.,;:)]')}\n"
+
     cleaned_text = re.sub(
         r" {2}More Information[\s\S]*?─+\n",
-        "",
+        replace_more_information,
         cleaned_text,
         flags=re.MULTILINE
     )
@@ -334,7 +342,7 @@ def get_paths_from_errors_tflint(text: str) -> list:
     return list({os.path.dirname(match) for match in matches if match})
 
 
-def parse_hcl_blocks(text: str) -> Dict[str, str]:
+def parse_hcl_blocks(text: str) -> dict[str, str]:
     """
     Parses a response containing file content delimited by HCL extracted_blocks
     and returns a dictionary with filenames as keys and HCL content as values.
@@ -351,7 +359,7 @@ def parse_hcl_blocks(text: str) -> Dict[str, str]:
         re.DOTALL
     )
 
-    files: Dict[str, str] = {}
+    files: dict[str, str] = {}
 
     # Find all matches in the response
     for match in file_pattern.finditer(text):
