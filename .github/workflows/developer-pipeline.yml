@@ -11,9 +11,31 @@ on:
 permissions: {}
 
 jobs:
+  linter:
+    name: Ruff linter check
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+      - name: Repository Checkout
+        uses: actions/checkout@v6
+
+      - name: Python Setup
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.11'
+
+      - name: Ruff Installation
+        run: pip install ruff==0.17.1
+
+      - name: Ruff Quality Gate
+        run: ruff check .
+        working-directory: terraform/modules/lambdas/functions
 
   python-test:
     name: Python Unit Tests
+    needs: linter
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -76,7 +98,7 @@ jobs:
     name: Publish Test Report
     runs-on: ubuntu-latest
     needs: python-test
-    if: always()
+    if: ${{ always() && needs.python-test.result == 'success' }}
     permissions:
       contents: read
 
