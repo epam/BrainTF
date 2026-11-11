@@ -1,6 +1,6 @@
 import os
 from functools import cached_property
-from typing import Any, Dict
+from typing import Any
 
 import boto3
 from botocore.config import Config
@@ -79,7 +79,7 @@ class _ConfigLambda:
         self.table_name: str | None = os.environ.get("DYNAMODB_TABLE_NAME")
         self.log_level: str = os.environ.get("LOG_LEVEL", "INFO").upper()
         self.rag_enabled: bool = os.environ.get("RAG_ENABLED", "False").lower() in ("true", "1", "yes")
-        self.ttl_delta_days: int = int(os.environ.get("TTL_DELTA_DAYS", 30))
+        self.ttl_delta_days: str | int = os.environ.get("TTL_DELTA_DAYS", "30")
         self.git_api_endpoint_version: str = '/api/v4'
 
         # Validate all configuration
@@ -99,6 +99,7 @@ class _ConfigLambda:
         self._validate_ai_config()
         self._validate_dynamodb_config()
         self._validate_logging_config()
+        self._validate_ttl_config()
 
     def _validate_vcs_config(self) -> None:
         """Validates VCS-related configuration."""
@@ -178,6 +179,16 @@ class _ConfigLambda:
                 f"Must be one of: {', '.join(valid_log_levels)}"
             )
 
+    def _validate_ttl_config(self) -> None:
+        """Validates TTL-related configuration."""
+        try:
+            self.ttl_delta_days = int(self.ttl_delta_days)
+        except ValueError:
+            raise ValueError("TTL_DELTA_DAYS must be an integer")
+
+        if self.ttl_delta_days <= 0:
+            raise ValueError("TTL_DELTA_DAYS must be a positive integer")
+
     @property
     def vcs_api_token(self) -> str:
         """
@@ -193,7 +204,7 @@ class _ConfigLambda:
                 parameter does not exist.
         """
         ssm = boto3.client('ssm', config=self.boto3_config)
-        response: Dict[str, Any] = ssm.get_parameter(
+        response: dict[str, Any] = ssm.get_parameter(
             Name=self.vcs_token_name,
             WithDecryption=True
         )
@@ -202,7 +213,7 @@ class _ConfigLambda:
     @property
     def webhook_secret(self) -> str:
         ssm = boto3.client('ssm', config=self.boto3_config)
-        response: Dict[str, Any] = ssm.get_parameter(
+        response: dict[str, Any] = ssm.get_parameter(
             Name=self.webhook_secret_name,
             WithDecryption=True
         )
@@ -211,7 +222,7 @@ class _ConfigLambda:
     @property
     def ai_api_token(self) -> str:
         ssm = boto3.client('ssm', config=self.boto3_config)
-        response: Dict[str, Any] = ssm.get_parameter(
+        response: dict[str, Any] = ssm.get_parameter(
             Name=self.ai_api_token_name,
             WithDecryption=True
         )

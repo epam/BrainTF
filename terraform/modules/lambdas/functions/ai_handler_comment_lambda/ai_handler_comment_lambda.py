@@ -3,10 +3,13 @@ from typing import Any
 
 from config import config
 from utilities.auth import is_github_issue_comment, webhook_authenticator
-from utilities.exceptions import (HTTPException, InvalidTokenException,
-                                  MissingCommentContextException,
-                                  MissingTokenException,
-                                  MissingWebhookDataException)
+from utilities.exceptions import (
+    HTTPException,
+    InvalidTokenException,
+    MissingCommentContextException,
+    MissingTokenException,
+    MissingWebhookDataException,
+)
 from utilities.handlers import handle_comment_commands
 from utilities.logger import logger
 from utilities.vcs.github_functions import get_last_commit_sha_github
