@@ -237,7 +237,7 @@ module "artifacts_bucket" {
     {
       id                                     = "artifacts-retention"
       enabled                                = true
-      prefix                                 = "artifacts/*"
+      prefix                                 = "artifacts/"
       expiration_date                        = null # Date for expiration (RFC3339 format)
       expiration_days                        = 3    # Days for expiration
       expired_object_delete_marker           = null # Flag for delete marker expiration
