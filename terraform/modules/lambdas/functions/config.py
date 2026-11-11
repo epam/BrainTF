@@ -79,7 +79,7 @@ class _ConfigLambda:
         self.table_name: str | None = os.environ.get("DYNAMODB_TABLE_NAME")
         self.log_level: str = os.environ.get("LOG_LEVEL", "INFO").upper()
         self.rag_enabled: bool = os.environ.get("RAG_ENABLED", "False").lower() in ("true", "1", "yes")
-        self.ttl_delta_days: str | None | int = int(os.environ.get("TTL_DELTA_DAYS", "30"))
+        self.ttl_delta_days: str | int = os.environ.get("TTL_DELTA_DAYS", "30")
         self.git_api_endpoint_version: str = '/api/v4'
 
         # Validate all configuration
@@ -99,6 +99,7 @@ class _ConfigLambda:
         self._validate_ai_config()
         self._validate_dynamodb_config()
         self._validate_logging_config()
+        self._validate_ttl_config()
 
     def _validate_vcs_config(self) -> None:
         """Validates VCS-related configuration."""
@@ -177,6 +178,16 @@ class _ConfigLambda:
                 f"Invalid LOG_LEVEL: {self.log_level}. "
                 f"Must be one of: {', '.join(valid_log_levels)}"
             )
+
+    def _validate_ttl_config(self) -> None:
+        """Validates TTL-related configuration."""
+        try:
+            self.ttl_delta_days = int(self.ttl_delta_days)
+        except ValueError:
+            raise ValueError("TTL_DELTA_DAYS must be an integer")
+
+        if self.ttl_delta_days <= 0:
+            raise ValueError("TTL_DELTA_DAYS must be a positive integer")
 
     @property
     def vcs_api_token(self) -> str:
