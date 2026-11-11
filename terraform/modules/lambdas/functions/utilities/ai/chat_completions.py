@@ -2,8 +2,10 @@ import time
 
 from openai import APIConnectionError, APIStatusError, APITimeoutError, OpenAI
 from openai.types import CompletionUsage
-from openai.types.chat import (ChatCompletionMessageParam,
-                               ChatCompletionSystemMessageParam)
+from openai.types.chat import (
+    ChatCompletionMessageParam,
+    ChatCompletionSystemMessageParam,
+)
 
 from config import config
 from utilities.logger import logger

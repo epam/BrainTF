@@ -1,6 +1,6 @@
 import os
 from functools import cached_property
-from typing import Any, Dict
+from typing import Any
 
 import boto3
 from botocore.config import Config
@@ -204,7 +204,7 @@ class _ConfigLambda:
                 parameter does not exist.
         """
         ssm = boto3.client('ssm', config=self.boto3_config)
-        response: Dict[str, Any] = ssm.get_parameter(
+        response: dict[str, Any] = ssm.get_parameter(
             Name=self.vcs_token_name,
             WithDecryption=True
         )
@@ -213,7 +213,7 @@ class _ConfigLambda:
     @property
     def webhook_secret(self) -> str:
         ssm = boto3.client('ssm', config=self.boto3_config)
-        response: Dict[str, Any] = ssm.get_parameter(
+        response: dict[str, Any] = ssm.get_parameter(
             Name=self.webhook_secret_name,
             WithDecryption=True
         )
@@ -222,7 +222,7 @@ class _ConfigLambda:
     @property
     def ai_api_token(self) -> str:
         ssm = boto3.client('ssm', config=self.boto3_config)
-        response: Dict[str, Any] = ssm.get_parameter(
+        response: dict[str, Any] = ssm.get_parameter(
             Name=self.ai_api_token_name,
             WithDecryption=True
         )

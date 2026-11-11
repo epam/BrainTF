@@ -1,4 +1,5 @@
 import boto3
+
 from tests.data.file_samples import MAIN_TF_FILE
 
 TEST_BUCKET = "test-bucket"
