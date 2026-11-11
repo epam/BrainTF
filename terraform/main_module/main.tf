@@ -36,7 +36,7 @@ locals {
   # Conditional variables
   oidc_role_name         = "${var.vcs_repo_name}-oidc-${var.vcs_provider}-${local.region}-role"
   oidc_policy_name       = "${var.vcs_repo_name}-oidc-${var.vcs_provider}-${local.region}-policy"
-  artifacts_bucket       = lower(replace(replace(replace("${var.artifacts_bucket_prefix}-${var.vcs_repo_name}-${local.region}", "_", "-"), " ", "-"), "[^a-z0-9.-]", ""))
+  artifacts_bucket       = replace(replace(replace(lower("${var.artifacts_bucket_prefix}-${var.vcs_repo_name}-${local.region}"), "_", "-"), " ", "-"), "/[^a-z0-9.-]/", "")
   ai_dynamodb_table_name = "ai-chat-history-${var.vcs_repo_name}-${local.region}"
   webhook_secret_name    = "/${var.vcs_repo_name}/webhook_secret"
   ai_api_token_name      = "/${var.vcs_repo_name}/ai_token"
