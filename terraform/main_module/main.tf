@@ -239,7 +239,7 @@ module "artifacts_bucket" {
       enabled                                = true
       prefix                                 = "artifacts/"
       expiration_date                        = null # Date for expiration (RFC3339 format)
-      expiration_days                        = 3    # Days for expiration
+      expiration_days                        = 14   # Days for expiration
       expired_object_delete_marker           = null # Flag for delete marker expiration
       noncurrent_version_expiration_days     = 1    # Days for noncurrent version expiration
       abort_incomplete_multipart_upload_days = 7    # Days to abort incomplete multipart uploads

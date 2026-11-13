@@ -52,7 +52,7 @@ The project represents an automated process for code verification and correction
 
 #### **I5:** S3 /artifacts/
 - Corrected files (e.g., `fixed_file_1.tf`, `fixed_file_x.tf`) are stored in S3 storage in the `/artifacts/` directory with the identifier MR_NUMBER.
-- Retention: corrected files are deleted automatically by the S3 lifecycle rule `artifacts-retention` 3 days after the AI last generated them (a pipeline run that found issues, or a `bot prompt` answer with corrected files). After they expire, `bot list`, `bot show` and `bot diff` find no files and `bot approve` replies that no files are available. If the pipeline still reports issues, re-run it (or use `bot prompt`) to regenerate the fixes. Approving the files with `bot approve` removes them immediately.
+- Retention: corrected files are deleted automatically by the S3 lifecycle rule `artifacts-retention` 14 days after the AI last generated them (a pipeline run that found issues, or a `bot prompt` answer with corrected files). After they expire, `bot list`, `bot show` and `bot diff` find no files and `bot approve` replies that no files are available. If the pipeline still reports issues, re-run it (or use `bot prompt`) to regenerate the fixes. Approving the files with `bot approve` removes them immediately.
 
 #### **I6:** DynamoDB
 - DynamoDB is used to store request history (Get/Put requests). This allows tracking of changes and results from the AI processing.
@@ -103,7 +103,7 @@ This Bot supports next structured comment commands to trigger automation:
 * **`bot prompt <user prompt>`** - sends custom prompt to AI.
 * **`help`** - shows this help information in the MR/PR notes.
 
-> **Note:** files corrected by AI are kept for 3 days after they were last generated. After that, `bot list`, `bot show`, `bot diff` and `bot approve` find nothing to work with. If the pipeline still reports issues, re-run it (or use `bot prompt`) to get the fixes again.
+> **Note:** files corrected by AI are kept for 14 days after they were last generated. After that, `bot list`, `bot show`, `bot diff` and `bot approve` find nothing to work with. If the pipeline still reports issues, re-run it (or use `bot prompt`) to get the fixes again.
 
 ## Guides and Instructions
 

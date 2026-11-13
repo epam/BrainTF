@@ -102,7 +102,7 @@ bot approve all                             # Apply fixes for all files
 >
 > The bot stores the list of files from the last analysis that found issues. If the pipeline passes with no findings, the stored list is **not cleared automatically**. Running `bot list` after a green pipeline will return files from the previous failing run — which may confuse the audience.
 >
-> `bot list` is cleared when `bot approve` is run, when a new failing analysis is triggered, or automatically 3 days after the last analysis (S3 lifecycle retention of the `artifacts/` files).
+> `bot list` is cleared when `bot approve` is run, when a new failing analysis is triggered, or automatically 14 days after the last analysis (S3 lifecycle retention of the `artifacts/` files).
 
 ### Step 6 — Show the fixed version
 
@@ -217,6 +217,6 @@ WORK_DIRS = demo/fixed/   →  pipeline SUCCESS  →  bot: "No issues were found
 
 > ⚠️ **Do not run `bot list` after a green pipeline.**
 >
-> When the pipeline passes with no findings, the bot does not clear its stored file list from the previous failing run. If `bot list` is called after a successful run, it will return files from the last failure — not the current state. This is expected behavior, not a bug. These files expire on their own 3 days after the last analysis.
+> When the pipeline passes with no findings, the bot does not clear its stored file list from the previous failing run. If `bot list` is called after a successful run, it will return files from the last failure — not the current state. This is expected behavior, not a bug. These files expire on their own 14 days after the last analysis.
 >
 > Use `bot list` only when the pipeline has **failed** and the bot has posted AI suggestions.
