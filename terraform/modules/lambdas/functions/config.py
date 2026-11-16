@@ -80,6 +80,9 @@ class _ConfigLambda:
         self.log_level: str = os.environ.get("LOG_LEVEL", "INFO").upper()
         self.rag_enabled: bool = os.environ.get("RAG_ENABLED", "False").lower() in ("true", "1", "yes")
         self.ttl_delta_days: str | int = os.environ.get("TTL_DELTA_DAYS", "30")
+        # Per-branch instances set this so they only answer comments on their own
+        # branch's PR/MR. Empty (prod / legacy) means handle every branch.
+        self.target_branch: str = os.environ.get("TARGET_BRANCH", "").strip()
         self.git_api_endpoint_version: str = '/api/v4'
 
         # Validate all configuration

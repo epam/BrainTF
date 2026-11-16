@@ -1,0 +1,281 @@
+name: Destroy BrainTF
+
+# Tears down a per-branch BrainTF instance created by deploy-braintf.yml
+# (state key main-module/<id>/terraform.tfstate). Never touches prod.
+#   - workflow_dispatch : pick a branch, or an explicit instance ID (e.g. the legacy "dev" stack)
+#   - delete            : a branch was deleted
+#   - pull_request      : a PR was closed or merged (same-repo PRs only)
+# A branch that never had an instance has no state object, so those runs are no-ops.
+#
+# Two branches can derive the same instance ID (same ticket key), so the automatic
+# triggers only destroy an instance whose owner marker
+# (s3://<state bucket>/main-module/<id>/owner, written by the deploy workflow)
+# names the triggering branch. A manual run by branch also refuses a foreign-owned
+# instance; a manual run with an explicit instance ID skips the check.
+#
+# GitHub only runs `delete` and `workflow_dispatch` workflows that exist on the
+# default branch, so those two triggers work once this file is merged to main.
+# The pull_request trigger uses the workflow file from the PR itself.
+
+on:
+  workflow_dispatch:
+    inputs:
+      branch:
+        description: "Branch whose instance to destroy (instance ID is derived from it)"
+        required: false
+        default: ""
+      instance_id:
+        description: "Explicit instance ID to destroy (overrides branch), e.g. dev"
+        required: false
+        default: ""
+  delete:
+  pull_request:
+    types: [closed]
+
+permissions:
+  id-token: write # required for the OIDC token used to assume the AWS role
+  contents: read
+
+concurrency:
+  # Never cancel a half-finished destroy; serialize per instance instead.
+  group: destroy-braintf-${{ github.event.pull_request.head.ref || github.event.ref || github.event.inputs.instance_id || github.event.inputs.branch }}
+  cancel-in-progress: false
+
+env:
+  TERRAFORM_VERSION: "1.14.8"
+  VCS_PROVIDER: "github"
+  STATE_BUCKET: "backend-state-bucket-braintf-eu-central-1"
+  STATE_REGION: "eu-central-1"
+
+jobs:
+  resolve:
+    name: Resolve instance
+    runs-on: ubuntu-latest
+    # Fork PRs get no OIDC token; deleted tags are not instances.
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      (github.event_name == 'delete' && github.event.ref_type == 'branch') ||
+      (github.event_name == 'pull_request' && github.event.pull_request.head.repo.full_name == github.repository)
+    outputs:
+      instance: ${{ steps.decide.outputs.instance }}
+      branch: ${{ steps.decide.outputs.branch }}
+      destroy: ${{ steps.decide.outputs.destroy }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          # PR: the exact code the instance was deployed from. Otherwise the
+          # triggering ref (default branch for `delete`).
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Decide
+        id: decide
+        shell: bash
+        # Untrusted values go through env, never inline in the script.
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DELETED_REF: ${{ github.event.ref }}
+          PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
+          INPUT_BRANCH: ${{ github.event.inputs.branch }}
+          INPUT_ID: ${{ github.event.inputs.instance_id }}
+        run: |
+          set -euo pipefail
+
+          BRANCH=""
+          case "$EVENT_NAME" in
+            delete) BRANCH="$DELETED_REF" ;;
+            pull_request) BRANCH="$PR_HEAD_REF" ;;
+            workflow_dispatch) BRANCH="$INPUT_BRANCH" ;;
+          esac
+
+          if [[ -n "$INPUT_ID" ]]; then
+            ID="$INPUT_ID"
+            if [[ "$ID" != "prod" ]] && ! [[ "$ID" =~ ^[a-z0-9]([a-z0-9-]{0,12}[a-z0-9])?$ ]]; then
+              echo "::error::Invalid instance ID '$ID' (lowercase letters, digits and '-', max 14 chars)."
+              exit 1
+            fi
+          elif [[ -n "$BRANCH" ]]; then
+            ID="$(bash .github/scripts/instance-id.sh "$BRANCH")"
+          else
+            echo "::error::Provide a branch or an instance ID."
+            exit 1
+          fi
+
+          DESTROY="true"
+          if [[ "$ID" == "prod" ]]; then
+            # main/prod is never torn down by this workflow.
+            if [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+              echo "::error::Refusing to destroy the prod instance."
+              exit 1
+            fi
+            echo "::notice::Branch '$BRANCH' maps to the prod instance; not destroying."
+            DESTROY="false"
+          fi
+
+          echo "instance=$ID" >> "$GITHUB_OUTPUT"
+          echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
+          echo "destroy=$DESTROY" >> "$GITHUB_OUTPUT"
+          echo "::notice::Instance '$ID' (branch '${BRANCH:-n/a}') selected for destroy=$DESTROY."
+
+  destroy:
+    name: Destroy ${{ needs.resolve.outputs.instance }}
+    needs: resolve
+    if: needs.resolve.outputs.destroy == 'true'
+    runs-on: ubuntu-latest
+    # One run at a time per instance, shared with the deploy job in deploy-braintf.yml.
+    concurrency:
+      group: braintf-instance-${{ needs.resolve.outputs.instance }}
+      cancel-in-progress: false
+    env:
+      INSTANCE: ${{ needs.resolve.outputs.instance }}
+      TARGET_BRANCH: ${{ needs.resolve.outputs.branch }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Assume AWS role (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
+          audience: ${{ vars.OIDC_AUDIENCE }}
+          role-session-name: braintf-destroy-${{ needs.resolve.outputs.instance }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Check instance state exists
+        id: state
+        shell: bash
+        run: |
+          set -euo pipefail
+          KEY="main-module/${INSTANCE}/terraform.tfstate"
+          if out="$(aws s3api head-object --bucket "$STATE_BUCKET" --key "$KEY" 2>&1)"; then
+            echo "exists=true" >> "$GITHUB_OUTPUT"
+          elif grep -qE "Not Found|NoSuchKey|404" <<<"$out"; then
+            echo "::notice::No state at s3://$STATE_BUCKET/$KEY; nothing to destroy."
+            echo "exists=false" >> "$GITHUB_OUTPUT"
+          else
+            # Anything else (e.g. AccessDenied) must not be mistaken for "no instance".
+            echo "$out" >&2
+            exit 1
+          fi
+
+      - name: Check instance ownership
+        id: owner
+        shell: bash
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_ID: ${{ github.event.inputs.instance_id }}
+        run: |
+          set -euo pipefail
+          OWNER_KEY="main-module/${INSTANCE}/owner"
+          # Prints the owner branch, or nothing if there is no marker. Any other
+          # failure (e.g. AccessDenied) must not be mistaken for "no owner".
+          read_owner() {
+            local out
+            if out="$(aws s3 cp "s3://${STATE_BUCKET}/${OWNER_KEY}" - 2>&1)"; then
+              printf '%s' "$out"
+            elif ! grep -qE "Not Found|NoSuchKey|404" <<<"$out"; then
+              echo "$out" >&2
+              return 1
+            fi
+          }
+          OWNER="$(read_owner)"
+          PROCEED="false"
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$INPUT_ID" ]]; then
+            # Explicit instance ID: the operator named the instance itself.
+            PROCEED="true"
+          elif [[ -n "$OWNER" && "$OWNER" == "$TARGET_BRANCH" ]]; then
+            PROCEED="true"
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" ]]; then
+            if [[ -n "$OWNER" ]]; then
+              echo "::error::Instance '${INSTANCE}' belongs to branch '${OWNER}', not '${TARGET_BRANCH}'. To destroy it anyway, run again with instance_id=${INSTANCE}."
+              exit 1
+            fi
+            # No owner marker (deployed before ownership was recorded): a manual run may proceed.
+            PROCEED="true"
+          elif [[ -n "$OWNER" ]]; then
+            echo "::notice::Instance '${INSTANCE}' belongs to branch '${OWNER}', not '${TARGET_BRANCH}'; leaving it alone."
+          elif [[ "${{ steps.state.outputs.exists }}" == "true" ]]; then
+            echo "::warning::Instance '${INSTANCE}' has no owner marker; not destroying it automatically. Run this workflow manually with instance_id=${INSTANCE}."
+          fi
+          echo "proceed=$PROCEED" >> "$GITHUB_OUTPUT"
+          echo "::notice::Instance '${INSTANCE}' owner: '${OWNER:-none}', destroy=$PROCEED."
+
+      - name: Pull tfvars + secrets from SSM
+        if: steps.state.outputs.exists == 'true' && steps.owner.outputs.proceed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          B="terraform/bootstrap"
+          M="terraform/main_module"
+          get() { aws ssm get-parameter --name "$1" --with-decryption --query "Parameter.Value" --output text; }
+
+          get "/Brain-TF/manual/${VCS_PROVIDER}/bootstrap/terraform.tfvars"      > "$B/terraform.tfvars"
+          get "/Brain-TF/manual/${VCS_PROVIDER}/main_module/terraform.tfvars"     > "$M/terraform.tfvars"
+          get "/Brain-TF/manual/${VCS_PROVIDER}/main_module/secrets.auto.tfvars"  > "$M/secrets.auto.tfvars"
+          get "/Brain-TF/manual/${VCS_PROVIDER}/main_module/terraform.auto.tfvars" > "$M/terraform.auto.tfvars"
+
+      - name: Generate backend config
+        if: steps.state.outputs.exists == 'true' && steps.owner.outputs.proceed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          cat > terraform/main_module/backend.generated.tf <<EOT
+          #======================= The Main module for application infrastructure =======================#
+          terraform {
+            backend "s3" {
+              bucket       = "${STATE_BUCKET}"
+              key          = "main-module/terraform.tfstate"
+              region       = "${STATE_REGION}"
+              encrypt      = true
+              use_lockfile = true
+            }
+          }
+          EOT
+
+      - name: Terraform init (instance state key)
+        if: steps.state.outputs.exists == 'true' && steps.owner.outputs.proceed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform -chdir=terraform/main_module init -input=false -reconfigure \
+            -backend-config="key=main-module/${INSTANCE}/terraform.tfstate"
+
+      - name: Terraform destroy
+        if: steps.state.outputs.exists == 'true' && steps.owner.outputs.proceed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # -var outranks the tfvars files.
+          terraform -chdir=terraform/main_module destroy -input=false -auto-approve \
+            -var="instance_id=${INSTANCE}" \
+            -var="environment=${INSTANCE}" \
+            -var="target_branch=${TARGET_BRANCH}"
+
+      - name: Remove empty state object
+        if: steps.state.outputs.exists == 'true' && steps.owner.outputs.proceed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          # Only drop the state once nothing is left in it, so a partial destroy
+          # can be retried instead of orphaning resources.
+          if [[ -n "$(terraform -chdir=terraform/main_module state list)" ]]; then
+            echo "::error::State for '${INSTANCE}' still tracks resources; keeping it."
+            exit 1
+          fi
+          aws s3 rm "s3://${STATE_BUCKET}/main-module/${INSTANCE}/terraform.tfstate"
+
+      - name: Release instance ownership
+        # Also covers a marker left by a deploy that failed before writing any state.
+        if: steps.owner.outputs.proceed == 'true'
+        shell: bash
+        run: |
+          set -euo pipefail
+          aws s3 rm "s3://${STATE_BUCKET}/main-module/${INSTANCE}/owner"

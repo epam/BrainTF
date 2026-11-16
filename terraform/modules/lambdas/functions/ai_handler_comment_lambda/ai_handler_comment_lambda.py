@@ -4,6 +4,7 @@ from typing import Any
 from config import config
 from utilities.auth import is_github_issue_comment, webhook_authenticator
 from utilities.exceptions import (
+    BranchMismatchException,
     HTTPException,
     InvalidTokenException,
     MissingCommentContextException,
@@ -12,7 +13,10 @@ from utilities.exceptions import (
 )
 from utilities.handlers import handle_comment_commands
 from utilities.logger import logger
-from utilities.vcs.github_functions import get_last_commit_sha_github
+from utilities.vcs.github_functions import (
+    get_last_commit_sha_github,
+    get_pr_head_ref_github,
+)
 
 HTTP_SUCCESS: int = 200
 HTTP_BAD_REQUEST: int = 400
@@ -72,6 +76,11 @@ def process_vcs_webhook_payload(event: dict[str, Any]) -> dict[str, Any]:
             )):
                 raise MissingWebhookDataException
 
+            if config.target_branch and source_branch != config.target_branch:
+                raise BranchMismatchException(
+                    f"merge request branch '{source_branch}' is not '{config.target_branch}'"
+                )
+
             commit_short_sha: str = commit_id[:8]
 
             metadata = {
@@ -103,6 +112,17 @@ def process_vcs_webhook_payload(event: dict[str, Any]) -> dict[str, Any]:
                     merge_or_pull_req_id
             )):
                 raise MissingWebhookDataException
+
+            if config.target_branch:
+                # Per-branch instance: only answer comments on its own branch's PR.
+                # Checked before any other GitHub API call to keep ignored hooks cheap.
+                if 'pull_request' not in issue:
+                    raise BranchMismatchException('comment is on an issue, not a pull request')
+                head_ref: str = get_pr_head_ref_github(repo_id_or_name, merge_or_pull_req_id)
+                if head_ref != config.target_branch:
+                    raise BranchMismatchException(
+                        f"pull request branch '{head_ref}' is not '{config.target_branch}'"
+                    )
 
             commit_sha: str = get_last_commit_sha_github(repo_id_or_name, merge_or_pull_req_id)
             commit_short_sha: str = commit_sha[:8]
@@ -157,6 +177,10 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:  # no
     except InvalidTokenException as error:
         logger.error(f'Invalid token: {error}.')
         return {'statusCode': HTTP_FORBIDDEN, 'body': 'Forbidden'}
+
+    except BranchMismatchException as exception:
+        logger.info(f'Ignoring webhook meant for another branch: {exception}.')
+        return {'statusCode': HTTP_SUCCESS, 'body': "Not this instance's branch, no action taken"}
 
     except MissingCommentContextException as exception:
         logger.debug(f'Webhook comment is outside bot command context: {exception}.')

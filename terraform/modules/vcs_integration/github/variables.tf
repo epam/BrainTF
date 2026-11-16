@@ -14,6 +14,18 @@ variable "vcs_variables" {
   }))
 }
 
+variable "manage_repo_config" {
+  description = "Whether this instance manages the repo-level GitHub Actions variables and secrets. Only one instance (prod) should; the others only register their own webhook."
+  type        = bool
+  default     = true
+}
+
+variable "deploy_environment" {
+  description = "GitHub Environment to create and restrict to the main branch (the environment the prod deploy job runs in). Only managed together with the repo config (manage_repo_config). Empty = none."
+  type        = string
+  default     = ""
+}
+
 variable "function_url" {
   description = "The URL for the webhook function."
   type        = string

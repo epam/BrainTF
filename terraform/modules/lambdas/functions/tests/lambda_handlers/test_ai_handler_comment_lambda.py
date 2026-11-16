@@ -2,7 +2,7 @@ import json
 
 import pytest
 
-from utilities.exceptions import MissingWebhookDataException
+from utilities.exceptions import BranchMismatchException, MissingWebhookDataException
 
 
 def set_webhook_payload_value(event, path, value):
@@ -278,3 +278,92 @@ def test_lambda_handler_comment_event_wrong_action_github(patched_config_github,
     result = lambda_handler(webhook_event_action_is_not_created_github, {})
 
     assert result == {'body': 'Out of bot context, no action taken', 'statusCode': 200}
+
+
+# --- Per-branch instance filtering (TARGET_BRANCH) ---------------------------------------------------------------
+
+MODULE = "ai_handler_comment_lambda.ai_handler_comment_lambda"
+OTHER_BRANCH_RESULT = {'statusCode': 200, 'body': "Not this instance's branch, no action taken"}
+
+
+def _fail_if_called(*args, **kwargs):
+    raise AssertionError("must not be called")
+
+
+def _set_target_branch(monkeypatch, branch):
+    from config import config
+    monkeypatch.setattr(config, "target_branch", branch)
+
+
+def test_process_vcs_webhook_payload_github_target_branch_match(patched_config_github, webhook_event_github,
+                                                                monkeypatch):
+    _set_target_branch(monkeypatch, "feature-x")
+    monkeypatch.setattr(f"{MODULE}.get_pr_head_ref_github", lambda repo, number: "feature-x")
+    monkeypatch.setattr(f"{MODULE}.get_last_commit_sha_github", lambda x, y: "1234")
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import (
+        process_vcs_webhook_payload,
+    )
+
+    result = process_vcs_webhook_payload(webhook_event_github)
+
+    assert result['metadata']['commit_short_sha'] == "1234"
+    # The filter must not change what the rest of the handler sees for GitHub.
+    assert result['metadata']['source_branch'] is None
+
+
+def test_lambda_handler_github_other_branch_is_ignored(patched_config_github, webhook_event_github, monkeypatch):
+    _set_target_branch(monkeypatch, "feature-x")
+    monkeypatch.setattr(f"{MODULE}.get_pr_head_ref_github", lambda repo, number: "someone-elses-branch")
+    monkeypatch.setattr(f"{MODULE}.get_last_commit_sha_github", _fail_if_called)
+    monkeypatch.setattr(f"{MODULE}.handle_comment_commands", _fail_if_called)
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import lambda_handler
+
+    assert lambda_handler(webhook_event_github, {}) == OTHER_BRANCH_RESULT
+
+
+def test_process_vcs_webhook_payload_github_issue_comment_is_ignored(patched_config_github, webhook_event_github,
+                                                                     monkeypatch):
+    _set_target_branch(monkeypatch, "feature-x")
+    payload = json.loads(webhook_event_github["body"])
+    del payload["issue"]["pull_request"]
+    webhook_event_github["body"] = json.dumps(payload)
+    monkeypatch.setattr(f"{MODULE}.get_pr_head_ref_github", _fail_if_called)
+    monkeypatch.setattr(f"{MODULE}.get_last_commit_sha_github", _fail_if_called)
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import (
+        process_vcs_webhook_payload,
+    )
+
+    with pytest.raises(BranchMismatchException):
+        process_vcs_webhook_payload(webhook_event_github)
+
+
+def test_process_vcs_webhook_payload_github_no_target_branch_handles_everything(patched_config_github,
+                                                                               webhook_event_github, monkeypatch):
+    _set_target_branch(monkeypatch, "")
+    monkeypatch.setattr(f"{MODULE}.get_pr_head_ref_github", _fail_if_called)
+    monkeypatch.setattr(f"{MODULE}.get_last_commit_sha_github", lambda x, y: "1234")
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import (
+        process_vcs_webhook_payload,
+    )
+
+    assert process_vcs_webhook_payload(webhook_event_github)['metadata']['commit_short_sha'] == "1234"
+
+
+def test_process_vcs_webhook_payload_gitlab_target_branch_match(patched_config_gitlab, webhook_event_gitlab,
+                                                                monkeypatch):
+    _set_target_branch(monkeypatch, "SYNC-branch")
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import (
+        process_vcs_webhook_payload,
+    )
+
+    result = process_vcs_webhook_payload(webhook_event_gitlab)
+
+    assert result['metadata']['source_branch'] == "SYNC-branch"
+
+
+def test_lambda_handler_gitlab_other_branch_is_ignored(patched_config_gitlab, webhook_event_gitlab, monkeypatch):
+    _set_target_branch(monkeypatch, "feature-x")
+    monkeypatch.setattr(f"{MODULE}.handle_comment_commands", _fail_if_called)
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import lambda_handler
+
+    assert lambda_handler(webhook_event_gitlab, {}) == OTHER_BRANCH_RESULT

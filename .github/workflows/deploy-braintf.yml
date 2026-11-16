@@ -1,0 +1,269 @@
+name: Deploy BrainTF
+
+# PoC CI/CD that deploys the BrainTF infrastructure (terraform/main_module):
+#   - push to a branch listed in .github/deploy-branches.txt -> one instance PER BRANCH
+#   - push to main                                           -> PROD instance
+# Every instance coexists in one AWS account. PROD is the primary instance: it keeps
+# the original un-suffixed resource names and the original state key
+# (main-module/terraform.tfstate). A branch instance gets an instance-ID suffix on
+# its resource names (var.instance_id) and its own state key
+# (main-module/<id>/terraform.tfstate). The ID comes from
+# .github/scripts/instance-id.sh (main -> prod, otherwise derived from the branch,
+# max 14 chars). Each branch instance registers its own webhook and only answers
+# comments on its own branch's PR (var.target_branch). Two branches can map to one
+# ID (same ticket key): the instance belongs to the branch that deployed it first
+# (owner marker s3://<state bucket>/main-module/<id>/owner), and a deploy from any
+# other branch is refused.
+# Tear instances down with destroy-braintf.yml.
+# See docs / EPMCACMAWS-504 and the one-time manual bootstrap in the plan.
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Instance ID override (leave empty to derive it from the branch; prod only from main)"
+        required: false
+        default: ""
+
+permissions:
+  id-token: write # required for the OIDC token used to assume the AWS role
+  contents: read
+
+concurrency:
+  # Never cancel a half-finished apply; serialize per ref instead.
+  group: deploy-braintf-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  TERRAFORM_VERSION: "1.14.8"
+  VCS_PROVIDER: "github"
+  # Bootstrap-managed state backend (shared across envs; only the key differs).
+  # Matches terraform/bootstrap-generated backend.generated.tf.
+  STATE_BUCKET: "backend-state-bucket-braintf-eu-central-1"
+  STATE_REGION: "eu-central-1"
+
+jobs:
+  gate:
+    name: Decide environment & deploy eligibility
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.decide.outputs.environment }}
+      instance_id: ${{ steps.decide.outputs.instance_id }}
+      state_key: ${{ steps.decide.outputs.state_key }}
+      deploy: ${{ steps.decide.outputs.deploy }}
+      branch: ${{ steps.decide.outputs.branch }}
+      actor: ${{ steps.decide.outputs.actor }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Decide
+        id: decide
+        shell: bash
+        # Untrusted values (branch name, actor, input) go through env, never inline
+        # in the script: a branch name may contain shell metacharacters.
+        env:
+          REF: ${{ github.ref_name }}
+          REF_FULL: ${{ github.ref }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_ENV: ${{ github.event.inputs.environment }}
+          ACTOR: ${{ github.actor }}
+        run: |
+          set -euo pipefail
+
+          # Resolve the instance ID: main -> prod, otherwise derived from the branch.
+          # A manual dispatch may override it.
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$INPUT_ENV" ]]; then
+            ENV="$INPUT_ENV"
+            if [[ "$ENV" != "prod" ]] && ! [[ "$ENV" =~ ^[a-z0-9]([a-z0-9-]{0,12}[a-z0-9])?$ ]]; then
+              echo "::error::Invalid instance ID override '$ENV' (lowercase letters, digits and '-', max 14 chars)."
+              exit 1
+            fi
+          else
+            ENV="$(bash .github/scripts/instance-id.sh "$REF")"
+          fi
+
+          DEPLOY="false"
+          if [[ "$ENV" == "prod" ]]; then
+            # Prod only ever deploys from the main branch (push or manual dispatch);
+            # the full ref rules out a tag that happens to be named "main".
+            if [[ "$REF_FULL" == "refs/heads/main" ]]; then
+              DEPLOY="true"
+            fi
+          else
+            # Branch instances deploy only from branches explicitly listed in the config file.
+            CFG=".github/deploy-branches.txt"
+            if [[ -f "$CFG" ]] && grep -qxF "$REF" <(grep -vE '^[[:space:]]*#|^[[:space:]]*$' "$CFG"); then
+              DEPLOY="true"
+            fi
+          fi
+
+          # Prod is the primary instance: no name suffix (var.instance_id empty), the
+          # original state key, and it serves every branch. A branch instance is
+          # suffixed with its ID, has its own state key and serves only its branch
+          # (comment filter + Branch tag).
+          if [[ "$ENV" == "prod" ]]; then
+            INSTANCE_ID=""
+            STATE_KEY="main-module/terraform.tfstate"
+            TARGET_BRANCH=""
+          else
+            INSTANCE_ID="$ENV"
+            STATE_KEY="main-module/${ENV}/terraform.tfstate"
+            TARGET_BRANCH="$REF"
+          fi
+          # AWS tag values only allow letters, digits, spaces and _ . : / = + - @
+          # (e.g. "dependabot[bot]" would be rejected), so replace anything else.
+          ACTOR_SAFE="$(printf '%s' "$ACTOR" | tr -c 'A-Za-z0-9 _.:/=+@-' '-')"
+
+          echo "environment=$ENV" >> "$GITHUB_OUTPUT"
+          echo "instance_id=$INSTANCE_ID" >> "$GITHUB_OUTPUT"
+          echo "state_key=$STATE_KEY" >> "$GITHUB_OUTPUT"
+          echo "deploy=$DEPLOY" >> "$GITHUB_OUTPUT"
+          echo "branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "actor=$ACTOR_SAFE" >> "$GITHUB_OUTPUT"
+
+          if [[ "$DEPLOY" == "true" ]]; then
+            echo "::notice::BrainTF will deploy branch '$REF' as instance '$ENV' (owner: $ACTOR_SAFE)."
+          else
+            echo "::notice::Branch '$REF' is not eligible for deploy as instance '$ENV' (not in .github/deploy-branches.txt). Skipping."
+          fi
+
+  deploy:
+    name: Deploy to ${{ needs.gate.outputs.environment }}
+    needs: gate
+    if: needs.gate.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    # Prod routes through a GitHub Environment so required reviewers gate the apply.
+    # A job in an environment presents "environment:braintf-prod" as its OIDC sub
+    # claim, so the name must match var.github_deploy_environment (role trust).
+    environment: ${{ needs.gate.outputs.environment == 'prod' && 'braintf-prod' || '' }}
+    # One run at a time per instance, shared with destroy-braintf.yml: two branches
+    # can map to one instance, and a deploy must not race its own teardown.
+    concurrency:
+      group: braintf-instance-${{ needs.gate.outputs.environment }}
+      cancel-in-progress: false
+    env:
+      ENVIRONMENT: ${{ needs.gate.outputs.environment }}
+      INSTANCE_ID: ${{ needs.gate.outputs.instance_id }}
+      STATE_KEY: ${{ needs.gate.outputs.state_key }}
+      TARGET_BRANCH: ${{ needs.gate.outputs.branch }}
+      OWNER_GITHUB: ${{ needs.gate.outputs.actor }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Assume AWS role (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
+          audience: ${{ vars.OIDC_AUDIENCE }}
+          role-session-name: braintf-deploy-${{ needs.gate.outputs.environment }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Claim instance for this branch
+        # Two branches can derive the same instance ID (same ticket key), and a
+        # manual dispatch can name any ID. An owner marker next to the state records
+        # the branch an instance belongs to. It is written before the first apply,
+        # so a half-built instance is owned too. Runs are serialized per instance
+        # (job concurrency), so check-then-write cannot race.
+        if: needs.gate.outputs.environment != 'prod'
+        shell: bash
+        run: |
+          set -euo pipefail
+          OWNER_KEY="${STATE_KEY%/*}/owner"
+          # Prints the owner branch, or nothing if there is no marker. Any other
+          # failure (e.g. AccessDenied) must not be mistaken for "no owner".
+          read_owner() {
+            local out
+            if out="$(aws s3 cp "s3://${STATE_BUCKET}/${OWNER_KEY}" - 2>&1)"; then
+              printf '%s' "$out"
+            elif ! grep -qE "Not Found|NoSuchKey|404" <<<"$out"; then
+              echo "$out" >&2
+              return 1
+            fi
+          }
+          OWNER="$(read_owner)"
+          if [[ -n "$OWNER" && "$OWNER" != "$TARGET_BRANCH" ]]; then
+            echo "::error::Instance '${INSTANCE_ID}' belongs to branch '${OWNER}', not '${TARGET_BRANCH}'. Destroy that instance first, or rename this branch so it derives a different ID."
+            exit 1
+          fi
+          if [[ -z "$OWNER" ]]; then
+            printf '%s' "$TARGET_BRANCH" | aws s3 cp - "s3://${STATE_BUCKET}/${OWNER_KEY}" --content-type text/plain
+            echo "::notice::Instance '${INSTANCE_ID}' claimed for branch '${TARGET_BRANCH}'."
+          fi
+
+      - name: Pull tfvars + secrets from SSM
+        shell: bash
+        run: |
+          set -euo pipefail
+          B="terraform/bootstrap"
+          M="terraform/main_module"
+          get() { aws ssm get-parameter --name "$1" --with-decryption --query "Parameter.Value" --output text; }
+
+          get "/Brain-TF/manual/${VCS_PROVIDER}/bootstrap/terraform.tfvars"      > "$B/terraform.tfvars"
+          get "/Brain-TF/manual/${VCS_PROVIDER}/main_module/terraform.tfvars"     > "$M/terraform.tfvars"
+          get "/Brain-TF/manual/${VCS_PROVIDER}/main_module/secrets.auto.tfvars"  > "$M/secrets.auto.tfvars"
+          get "/Brain-TF/manual/${VCS_PROVIDER}/main_module/terraform.auto.tfvars" > "$M/terraform.auto.tfvars"
+
+      - name: Generate backend config
+        shell: bash
+        run: |
+          set -euo pipefail
+          # backend.generated.tf is gitignored and normally produced by bootstrap.
+          # Recreate it here; the per-instance key is overridden at init below.
+          cat > terraform/main_module/backend.generated.tf <<EOT
+          #======================= The Main module for application infrastructure =======================#
+          terraform {
+            backend "s3" {
+              bucket       = "${STATE_BUCKET}"
+              key          = "main-module/terraform.tfstate"
+              region       = "${STATE_REGION}"
+              encrypt      = true
+              use_lockfile = true
+            }
+          }
+          EOT
+
+      - name: Terraform init (instance state key)
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform -chdir=terraform/main_module init -input=false -reconfigure \
+            -backend-config="key=${STATE_KEY}"
+
+      - name: Terraform plan
+        shell: bash
+        run: |
+          set -euo pipefail
+          # -var outranks the tfvars files. Prod keeps its own Environment tag from
+          # tfvars; a branch instance is tagged with its ID.
+          ARGS=(
+            -var="instance_id=${INSTANCE_ID}"
+            -var="target_branch=${TARGET_BRANCH}"
+            -var="owner_github=${OWNER_GITHUB}"
+          )
+          if [[ -n "$INSTANCE_ID" ]]; then
+            ARGS+=(-var="environment=${INSTANCE_ID}")
+          fi
+          terraform -chdir=terraform/main_module plan -input=false "${ARGS[@]}" -out=tfplan
+
+      - name: Terraform apply
+        # Branch instances: eligibility already enforced by the gate job. Prod:
+        # additionally require a push/dispatch on main. Apply replays the saved plan
+        # (instance ID, branch and owner baked in).
+        if: >
+          needs.gate.outputs.environment != 'prod' ||
+          github.ref == 'refs/heads/main'
+        shell: bash
+        run: |
+          set -euo pipefail
+          terraform -chdir=terraform/main_module apply -input=false -auto-approve tfplan

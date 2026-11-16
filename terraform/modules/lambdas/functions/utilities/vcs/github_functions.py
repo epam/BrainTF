@@ -356,6 +356,19 @@ def get_last_commit_sha_github(repo_id_or_name: int | str, pull_number: int) -> 
     return _get_pull_request(repo_id_or_name, pull_number, "PR head SHA").head.sha
 
 
+def get_pr_head_ref_github(repo_id_or_name: int | str, pull_number: int) -> str:
+    """Get the source (head) branch name of a GitHub pull request.
+
+    Args:
+        repo_id_or_name (int | str): GitHub repository ID or full name.
+        pull_number (int): Pull request number.
+
+    Returns:
+        str: The name of the pull request's source branch.
+    """
+    return _get_pull_request(repo_id_or_name, pull_number, "PR head branch").head.ref
+
+
 def get_all_tf_files_from_paths_list_github(
         event: dict[str, Any],
         paths_list: list[str]

@@ -1,0 +1,22 @@
+# Branches that deploy their own BrainTF instance (terraform/main_module) on push.
+# One branch name per line (exact match of the ref name, e.g.
+# feature/EPMCACMAWS-504-automated-deployment). Blank lines and lines starting
+# with "#" are ignored.
+#
+# Each listed branch gets its own instance: resource names are suffixed with an ID
+# derived from the branch (.github/scripts/instance-id.sh, e.g. epmcacmaws-504), it
+# registers its own webhook, and it only answers comments on that branch's PR.
+# Branches that carry the same ticket key derive the same ID: the instance belongs
+# to the branch that deployed it first, and the others are refused.
+# Tear it down with the "Destroy BrainTF" workflow (also runs on PR close/branch delete).
+#
+# This file is the single source of truth for BOTH:
+#   - the deploy-braintf.yml workflow gate (which branches trigger a deploy), and
+#   - the OIDC role trust policy (terraform/main_module/main.tf local.sub_values),
+#     so a branch listed here is also allowed to assume the AWS role.
+#
+# NOTE: main is implicit and always deploys to PROD - do not list it here.
+# After adding/removing a branch, re-apply the PROD state so the shared OIDC
+# role's trust picks up the change.
+# Temporarily disabled: remove the leading "# " to deploy this branch again.
+# feature/EPMCACMAWS-504-automated-deployment

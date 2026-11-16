@@ -14,6 +14,10 @@ class MissingCommentContextException(Exception):
     """Exception indicating that a required command context in comments is missing."""
 
 
+class BranchMismatchException(Exception):
+    """Exception indicating that the webhook belongs to a branch this instance does not serve."""
+
+
 class InvalidEventMetadata(Exception):
     """Exception indicating that the event metadata is invalid."""
 
