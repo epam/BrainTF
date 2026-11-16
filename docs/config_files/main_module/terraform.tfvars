@@ -17,14 +17,15 @@ managed_state_bucket = ""                           # (Optional) Name of an exis
 managed_state_key    = "pipeline/terraform.tfstate" # S3 key (path) for the managed workload state. Must include a directory prefix and end with .tfstate.
 
 # AI Handler block
-ai_handler_create       = "false"                                    # Flag to enable or disable AI handler creation
-rag_enable              = "false"                                    # Flag to enable or disable RAG for AI handler
-artifacts_path          = "artifacts"                                # The path where the corrected Terraform files (artifacts) will be stored in S3 bucket.
-log_level               = "INFO"                                     # The logging level for AWS Lambda functions. Possible values: DEBUG, INFO, WARN, ERROR.
-ai_api_base_url         = "<my_ai_api_base_url>"                     # Base URL for AI API
-llm_model               = "<my_llm_model_name>"                      # Name of the AI model used
-ai_temperature          = 0.1                                        # Sampling temperature for the model; valid range is 0.0–2.0.
-oidc_provider           = "<my_oidc_provider>"                       # Audience for OIDC provider (gitlab.com for GitLab, token.actions.githubusercontent.com for GitHub or other for custom variant)
-artifacts_bucket_prefix = "ai-handler-artifacts-bucket"              # Prefix for the name of the artifacts S3 bucket
-private_subnet_ids      = ["<subnet_a>", "<subnet_b>", "<subnet_c>"] # List of private subnet IDs for Lambda functions
-security_groups         = ["<sg_a>"]                                 # List of security groups with inbound rules for 80 and 443 ports for Lambda functions
+ai_handler_create        = "false"                                    # Flag to enable or disable AI handler creation
+rag_enable               = "false"                                    # Flag to enable or disable RAG for AI handler
+artifacts_path           = "artifacts"                                # The path where the corrected Terraform files (artifacts) will be stored in S3 bucket.
+artifacts_retention_days = 3                                          # (Optional) Days after which corrected files in S3 artifacts/ are deleted by the lifecycle rule. Must be a whole number, 1-30. Default: 3.
+log_level                = "INFO"                                     # The logging level for AWS Lambda functions. Possible values: DEBUG, INFO, WARN, ERROR.
+ai_api_base_url          = "<my_ai_api_base_url>"                     # Base URL for AI API
+llm_model                = "<my_llm_model_name>"                      # Name of the AI model used
+ai_temperature           = 0.1                                        # Sampling temperature for the model; valid range is 0.0–2.0.
+oidc_provider            = "<my_oidc_provider>"                       # Audience for OIDC provider (gitlab.com for GitLab, token.actions.githubusercontent.com for GitHub or other for custom variant)
+artifacts_bucket_prefix  = "ai-handler-artifacts-bucket"              # Prefix for the name of the artifacts S3 bucket
+private_subnet_ids       = ["<subnet_a>", "<subnet_b>", "<subnet_c>"] # List of private subnet IDs for Lambda functions
+security_groups          = ["<sg_a>"]                                 # List of security groups with inbound rules for 80 and 443 ports for Lambda functions

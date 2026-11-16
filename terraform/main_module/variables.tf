@@ -74,6 +74,17 @@ variable "artifacts_path" {
   default     = "artifacts"
 }
 
+variable "artifacts_retention_days" {
+  description = "Number of days after which corrected files (S3 artifacts/ prefix) are deleted by the S3 lifecycle rule. Must be between 1 and 30."
+  type        = number
+  default     = 3
+
+  validation {
+    condition     = var.artifacts_retention_days >= 1 && var.artifacts_retention_days <= 30 && floor(var.artifacts_retention_days) == var.artifacts_retention_days
+    error_message = "artifacts_retention_days must be a whole number of days between 1 and 30."
+  }
+}
+
 variable "log_level" {
   description = "The logging level for AWS Lambda functions. Possible values: DEBUG, INFO, WARN, ERROR."
   type        = string

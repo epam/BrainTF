@@ -50,6 +50,7 @@
 | <a name="input_ai_token"></a> [ai\_token](#input\_ai\_token) | The AI token | `string` | `""` | no |
 | <a name="input_artifacts_bucket_prefix"></a> [artifacts\_bucket\_prefix](#input\_artifacts\_bucket\_prefix) | The prefix to be used for naming an artifacts bucket | `string` | n/a | yes |
 | <a name="input_artifacts_path"></a> [artifacts\_path](#input\_artifacts\_path) | The path where the corrected Terraform files (artifacts) will be stored. | `string` | `"artifacts"` | no |
+| <a name="input_artifacts_retention_days"></a> [artifacts\_retention\_days](#input\_artifacts\_retention\_days) | Number of days after which corrected files (S3 artifacts/ prefix) are deleted by the S3 lifecycle rule. Must be between 1 and 30. | `number` | `3` | no |
 | <a name="input_deployed_by"></a> [deployed\_by](#input\_deployed\_by) | The deployment method | `string` | n/a | yes |
 | <a name="input_environment"></a> [environment](#input\_environment) | The Project environment | `string` | n/a | yes |
 | <a name="input_job_token"></a> [job\_token](#input\_job\_token) | Git Notes token used for GitLab integration | `string` | n/a | yes |
