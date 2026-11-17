@@ -20,11 +20,6 @@ id = "gitlab-token"
 regex = '''glpat-[0-9a-zA-Z_]{20}'''
 
 [[rules]]
-description = "Bitbucket Token"
-id = "bitbucket-token"
-regex = '''(?i)bitbucket(.{0,20})?(?-i)['\"][0-9a-zA-Z/+]{40}['\"]'''
-
-[[rules]]
 description = "Generic API Key"
 id = "generic-api-key"
 regex = '''(?i)apikey(.{0,20})?(?-i)['\"][0-9a-zA-Z]{32,45}['\"]'''
