@@ -91,8 +91,8 @@ The project represents an automated process for code verification and correction
 - Applying changes to the infrastructure. This stage is only triggered after all previous checks are successfully passed. Currently, only the first directory specified in the 'WORK_DIRS' variable is processed! This limitation may be revised in future releases!
 
 ## Bot usage guidance
-This Bot supports next structured comment commands to trigger automation:
-* **`bot approve`** or **`bot approve all`** - triggers the approval of committing all files fixed by AI bot.
+This Bot supports the following structured comment commands to trigger automation:
+* **`bot approve *`** or **`bot approve all`** - triggers the approval of committing all files fixed by AI bot.
 * **`bot approve <path/to/file1> [<path/to/file2> ...]`** - triggers the approval of committing a specific file or files fixed by AI bot.
 * **`bot list`** - lists files corrected by AI and ready to commit.
 * **`bot show`** - shows the content of all files corrected by AI and ready to commit.
@@ -102,6 +102,10 @@ This Bot supports next structured comment commands to trigger automation:
 
 * **`bot prompt <user prompt>`** - sends custom prompt to AI.
 * **`help`** - shows this help information in the MR/PR notes.
+
+> **Notes:**
+> * All commands are case-sensitive.
+> * `bot prompt` takes file names from the AI answer (Corrected file `<name>`). An answer that contains a corrected file replaces all previously stored corrected files for that MR/PR.
 
 > **Note:** files corrected by AI are kept for `artifacts_retention_days` days (default: 3) after they were last generated. After that, `bot list`, `bot show`, `bot diff` and `bot approve` find nothing to work with. If the pipeline still reports issues, re-run it (or use `bot prompt`) to get the fixes again.
 
