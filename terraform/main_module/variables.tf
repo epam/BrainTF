@@ -31,6 +31,12 @@ variable "github_deploy_environment" {
   default     = "braintf-prod"
 }
 
+variable "deploy_branch_prefix" {
+  description = "Branch-name prefix whose branches may deploy their own ephemeral BrainTF instance. The shared OIDC role trusts 'refs/heads/<prefix>*' as a single wildcard, so new branches under this prefix need no prod re-apply. Must match the gate prefix in deploy-braintf.yml (env DEPLOY_BRANCH_PREFIX). Empty disables the wildcard (trust falls back to the explicit deploy-branches.txt list only). GitHub only."
+  type        = string
+  default     = "feature/"
+}
+
 variable "team" {
   description = "The owner team"
   type        = string

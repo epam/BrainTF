@@ -62,21 +62,32 @@ locals {
   github_org  = element(split("/", var.vcs_project_path), 0)
   github_repo = element(split("/", var.vcs_project_path), 1)
 
-  # Deployable dev branches come from the same file the deploy workflow gate
-  # reads (.github/deploy-branches.txt), so trust and gate never drift. Blank
-  # lines and "#" comments are ignored. main + pull_request are always trusted.
+  # Ephemeral dev instances deploy from branches under a prefix (var.deploy_branch_prefix,
+  # e.g. "feature/"). The trust is a single wildcard over that prefix, so a new branch
+  # needs NO prod re-apply — this is the primary path and must match the gate prefix in
+  # deploy-braintf.yml (env DEPLOY_BRANCH_PREFIX). Classic + immutable-ID sub forms.
+  github_branch_prefix_subs = var.deploy_branch_prefix != "" ? [
+    "repo:${var.vcs_project_path}:ref:refs/heads/${var.deploy_branch_prefix}*",
+    "repo:${local.github_org}@*/${local.github_repo}@*:ref:refs/heads/${var.deploy_branch_prefix}*",
+  ] : []
+
+  # Escape hatch: branches OUTSIDE the prefix can still be allow-listed in
+  # .github/deploy-branches.txt (the deploy workflow gate also honours it). Each such
+  # branch is trusted explicitly, so adding one DOES require a prod apply — reserve it
+  # for the rare non-prefix branch. Blank lines and "#" comments are ignored.
   deploy_branches_file = "${path.module}/../../.github/deploy-branches.txt"
   deploy_branches = fileexists(local.deploy_branches_file) ? [
     for b in split("\n", file(local.deploy_branches_file)) :
     trimspace(b) if trimspace(b) != "" && !startswith(trimspace(b), "#")
   ] : []
-  # Classic + immutable-ID sub-claim forms for each deployable branch (GitHub only)
-  github_branch_subs = flatten([
+  github_branch_file_subs = flatten([
     for b in local.deploy_branches : [
       "repo:${var.vcs_project_path}:ref:refs/heads/${b}",
       "repo:${local.github_org}@*/${local.github_repo}@*:ref:refs/heads/${b}",
     ]
   ])
+
+  github_branch_subs = concat(local.github_branch_prefix_subs, local.github_branch_file_subs)
 
   # A job that runs in a GitHub Environment gets "environment:<name>" as its sub
   # claim instead of the ref, so the environment the prod deploy job uses
@@ -88,8 +99,8 @@ locals {
   ] : []
 
   # OIDC trust: main branch pushes + pull requests, the prod deploy environment,
-  # plus the deployable dev branches from deploy-branches.txt. Both classic and
-  # immutable-ID formats.
+  # the ephemeral-branch prefix wildcard, plus any explicitly allow-listed branches.
+  # Both classic and immutable-ID formats.
   sub_values = (var.vcs_provider == "github" ?
     concat([
       "repo:${var.vcs_project_path}:ref:refs/heads/main",

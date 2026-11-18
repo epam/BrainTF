@@ -40,6 +40,10 @@ concurrency:
 env:
   TERRAFORM_VERSION: "1.14.8"
   VCS_PROVIDER: "github"
+  # Branches under this prefix auto-deploy their own ephemeral instance. Must match
+  # var.deploy_branch_prefix in terraform/main_module (the OIDC role trusts the same
+  # prefix as a wildcard, so new branches need no prod re-apply).
+  DEPLOY_BRANCH_PREFIX: "feature/"
   # Bootstrap-managed state backend (shared across envs; only the key differs).
   # Matches terraform/bootstrap-generated backend.generated.tf.
   STATE_BUCKET: "backend-state-bucket-braintf-eu-central-1"
@@ -71,6 +75,7 @@ jobs:
           EVENT_NAME: ${{ github.event_name }}
           INPUT_ENV: ${{ github.event.inputs.environment }}
           ACTOR: ${{ github.actor }}
+          DEPLOY_BRANCH_PREFIX: ${{ env.DEPLOY_BRANCH_PREFIX }}
         run: |
           set -euo pipefail
 
@@ -94,9 +99,17 @@ jobs:
               DEPLOY="true"
             fi
           else
-            # Branch instances deploy only from branches explicitly listed in the config file.
+            # Primary path: any branch under the deploy prefix (e.g. feature/*) deploys
+            # its own instance. The OIDC role trusts the same prefix as a wildcard, so
+            # no prod re-apply is needed to onboard a new branch.
+            if [[ -n "${DEPLOY_BRANCH_PREFIX:-}" && "$REF" == "${DEPLOY_BRANCH_PREFIX}"* ]]; then
+              DEPLOY="true"
+            fi
+            # Escape hatch: a branch outside the prefix can still be allow-listed. Such a
+            # branch must also be added to the role trust (a prod apply) or its OIDC
+            # assume will fail — reserve this for the rare non-prefix branch.
             CFG=".github/deploy-branches.txt"
-            if [[ -f "$CFG" ]] && grep -qxF "$REF" <(grep -vE '^[[:space:]]*#|^[[:space:]]*$' "$CFG"); then
+            if [[ "$DEPLOY" != "true" && -f "$CFG" ]] && grep -qxF "$REF" <(grep -vE '^[[:space:]]*#|^[[:space:]]*$' "$CFG"); then
               DEPLOY="true"
             fi
           fi
