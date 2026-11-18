@@ -19,6 +19,28 @@ def test_config_loads_defaults(config_lambda_class, patched_environment, monkeyp
     assert config.boto3_config.read_timeout == 361
 
 
+@pytest.mark.parametrize("property", ["default_timeout",
+                                   "boto3_config",
+                                   "vcs_provider",
+                                   "vcs_token_name",
+                                   "vcs_api_endpoint",
+                                   "webhook_secret_name",
+                                   "artifacts_bucket",
+                                   "path_to_artifacts",
+                                   "ai_api_token_name",
+                                   "llm_model",
+                                   "ai_temperature",
+                                   "ai_api_base_url",
+                                   "table_name",
+                                   "log_level",
+                                   "rag_enabled",
+                                   "ttl_delta_days",
+                                   "git_api_endpoint_version"])
+def test_config_property_protection(config_lambda_class, patched_environment, property):
+    with pytest.raises(AttributeError):
+        setattr(config_lambda_class(), property, None)
+
+
 @pytest.mark.parametrize("provider", ["github", "gitlab"])
 def test_config_accepts_supported_vcs_providers(config_lambda_class, patched_environment, provider):
     patched_environment.setenv("VCS_PROVIDER", provider)

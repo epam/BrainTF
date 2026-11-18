@@ -61,29 +61,97 @@ class _ConfigLambda:
     """
 
     def __init__(self) -> None:
-        self.default_timeout: tuple[float, float] = (361, 361)
-        self.boto3_config: Config = Config(connect_timeout=self.default_timeout[0],
+        self.__default_timeout: tuple[float, float] = (361, 361)
+        self.__boto3_config: Config = Config(connect_timeout=self.default_timeout[0],
                                            read_timeout=self.default_timeout[1])
 
         # Load environment variables
-        self.vcs_provider: str = os.environ.get("VCS_PROVIDER", "github")
-        self.vcs_token_name: str | None = os.environ.get('VCS_TOKEN_NAME')
-        self.vcs_api_endpoint: str | None = os.environ.get('VCS_API_ENDPOINT')
-        self.webhook_secret_name: str | None = os.environ.get('WEBHOOK_SECRET_NAME')
-        self.artifacts_bucket: str = os.environ.get('ARTIFACTS_BUCKET', '')
-        self.path_to_artifacts: str = os.environ.get('ARTIFACTS_PATH', 'artifacts')
-        self.ai_api_token_name: str | None = os.environ.get('AI_API_TOKEN_NAME')
-        self.llm_model: str | None = os.environ.get("LLM_MODEL")
-        self.ai_temperature: str | float | None = os.environ.get("AI_TEMPERATURE")
-        self.ai_api_base_url: str | None = os.environ.get("AI_API_BASE_URL")
-        self.table_name: str | None = os.environ.get("DYNAMODB_TABLE_NAME")
-        self.log_level: str = os.environ.get("LOG_LEVEL", "INFO").upper()
-        self.rag_enabled: bool = os.environ.get("RAG_ENABLED", "False").lower() in ("true", "1", "yes")
-        self.ttl_delta_days: str | int = os.environ.get("TTL_DELTA_DAYS", "30")
-        self.git_api_endpoint_version: str = '/api/v4'
+        self.__vcs_provider: str = os.environ.get("VCS_PROVIDER", "github")
+        self.__vcs_token_name: str | None = os.environ.get('VCS_TOKEN_NAME')
+        self.__vcs_api_endpoint: str | None = os.environ.get('VCS_API_ENDPOINT')
+        self.__webhook_secret_name: str | None = os.environ.get('WEBHOOK_SECRET_NAME')
+        self.__artifacts_bucket: str = os.environ.get('ARTIFACTS_BUCKET', '')
+        self.__path_to_artifacts: str = os.environ.get('ARTIFACTS_PATH', 'artifacts')
+        self.__ai_api_token_name: str | None = os.environ.get('AI_API_TOKEN_NAME')
+        self.__llm_model: str | None = os.environ.get("LLM_MODEL")
+        self.__ai_temperature: str | float | None = os.environ.get("AI_TEMPERATURE")
+        self.__ai_api_base_url: str | None = os.environ.get("AI_API_BASE_URL")
+        self.__table_name: str | None = os.environ.get("DYNAMODB_TABLE_NAME")
+        self.__log_level: str = os.environ.get("LOG_LEVEL", "INFO").upper()
+        self.__rag_enabled: bool = os.environ.get("RAG_ENABLED", "False").lower() in ("true", "1", "yes")
+        self.__ttl_delta_days: str | int = os.environ.get("TTL_DELTA_DAYS", "30")
+        self.__git_api_endpoint_version: str = '/api/v4'
 
         # Validate all configuration
         self._validate_config()
+
+    @property
+    def default_timeout(self):
+        return self.__default_timeout
+
+    @property
+    def boto3_config(self):
+        return self.__boto3_config
+
+    @property
+    def vcs_provider(self):
+        return self.__vcs_provider
+
+    @property
+    def vcs_token_name(self):
+        return self.__vcs_token_name
+
+    @property
+    def vcs_api_endpoint(self):
+        return self.__vcs_api_endpoint
+
+    @property
+    def webhook_secret_name(self):
+        return self.__webhook_secret_name
+
+    @property
+    def artifacts_bucket(self):
+        return self.__artifacts_bucket
+
+    @property
+    def path_to_artifacts(self):
+        return self.__path_to_artifacts
+
+    @property
+    def ai_api_token_name(self):
+        return self.__ai_api_token_name
+
+    @property
+    def llm_model(self):
+        return self.__llm_model
+
+    @property
+    def ai_temperature(self):
+        return self.__ai_temperature
+
+    @property
+    def ai_api_base_url(self):
+        return self.__ai_api_base_url
+
+    @property
+    def table_name(self):
+        return self.__table_name
+
+    @property
+    def log_level(self):
+        return self.__log_level
+
+    @property
+    def rag_enabled(self):
+        return self.__rag_enabled
+
+    @property
+    def ttl_delta_days(self):
+        return self.__ttl_delta_days
+
+    @property
+    def git_api_endpoint_version(self):
+        return self.__git_api_endpoint_version
 
     def _validate_config(self) -> None:
         """
@@ -155,7 +223,7 @@ class _ConfigLambda:
         if ai_temperature < 0 or ai_temperature > 2:
             raise ValueError("AI_TEMPERATURE must be between zero and two")
 
-        self.ai_temperature = ai_temperature
+        self.__ai_temperature = ai_temperature
 
         if not self.ai_api_base_url:
             raise ValueError("AI_API_BASE_URL environment variable is required")
@@ -182,7 +250,7 @@ class _ConfigLambda:
     def _validate_ttl_config(self) -> None:
         """Validates TTL-related configuration."""
         try:
-            self.ttl_delta_days = int(self.ttl_delta_days)
+            self.__ttl_delta_days = int(self.ttl_delta_days)
         except ValueError:
             raise ValueError("TTL_DELTA_DAYS must be an integer")
 

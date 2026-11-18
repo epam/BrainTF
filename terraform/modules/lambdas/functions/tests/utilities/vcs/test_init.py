@@ -59,7 +59,7 @@ def test_gitlab_imports(patched_vcs_module_gitlab, mock_functions):
 
 def test_invalid_vcs_provider(monkeypatch):
     # Mock an unsupported VCS provider
-    monkeypatch.setattr("config.config.vcs_provider", "unsupported")
+    monkeypatch.setattr("config._ConfigLambda.vcs_provider", property(lambda self: "unsupported"))
 
     # Expect a ValueError when importing the module
     with pytest.raises(ValueError, match="Unsupported VCS provider: unsupported"):

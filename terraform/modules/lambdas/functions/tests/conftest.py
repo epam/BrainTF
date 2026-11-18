@@ -134,7 +134,7 @@ def expected_token_github():
 
 @pytest.fixture
 def patched_config_gitlab(patched_environment, ssm_setup, expected_token_gitlab):
-    from config import config
+    import config
 
     boto3.client("ssm").put_parameter(
         Name="webhook_secret",
@@ -143,14 +143,14 @@ def patched_config_gitlab(patched_environment, ssm_setup, expected_token_gitlab)
         Overwrite=True,
     )
 
-    patched_environment.setattr(config, "vcs_provider", "gitlab")
-    patched_environment.setattr(config, "vcs_token_name", "x-gitlab-token")
+    patched_environment.setattr(config._ConfigLambda, "vcs_provider", property(lambda self: "gitlab"))
+    patched_environment.setattr(config._ConfigLambda, "vcs_token_name", property(lambda self: "x-gitlab-token"))
     return patched_environment
 
 
 @pytest.fixture
 def patched_config_github(patched_environment, ssm_setup, expected_token_github):
-    from config import config
+    import config
 
     boto3.client("ssm").put_parameter(
         Name="webhook_secret",
@@ -159,14 +159,14 @@ def patched_config_github(patched_environment, ssm_setup, expected_token_github)
         Overwrite=True,
     )
 
-    patched_environment.setattr(config, "vcs_provider", "github")
-    patched_environment.setattr(config, "vcs_token_name", "x-github-token")
+    patched_environment.setattr(config._ConfigLambda, "vcs_provider", property(lambda self: "github"))
+    patched_environment.setattr(config._ConfigLambda, "vcs_token_name", property(lambda self: "x-github-token"))
     return patched_environment
 
 
 @pytest.fixture
 def patched_config_wrong_vcs(patched_environment, ssm_setup, expected_token_github):
-    from config import config
+    import config
 
     boto3.client("ssm").put_parameter(
         Name="webhook_secret",
@@ -175,8 +175,8 @@ def patched_config_wrong_vcs(patched_environment, ssm_setup, expected_token_gith
         Overwrite=True,
     )
 
-    patched_environment.setattr(config, "vcs_provider", "provider")
-    patched_environment.setattr(config, "vcs_token_name", "x-github-token")
+    patched_environment.setattr(config._ConfigLambda, "vcs_provider", property(lambda self: "provider"))
+    patched_environment.setattr(config._ConfigLambda, "vcs_token_name", property(lambda self: "x-github-token"))
     return patched_environment
 
 
