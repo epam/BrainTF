@@ -103,11 +103,12 @@ This Bot supports the following structured comment commands to trigger automatio
 * **`bot prompt <user prompt>`** - sends custom prompt to AI.
 * **`help`** - shows this help information in the MR/PR notes.
 
-> **Notes:**
+> [!NOTE]
 > * All commands are case-sensitive.
 > * `bot prompt` takes file names from the AI answer (Corrected file `<name>`). An answer that contains a corrected file replaces all previously stored corrected files for that MR/PR.
 
-> **Note:** files corrected by AI are kept for `artifacts_retention_days` days (default: 3) after they were last generated. After that, `bot list`, `bot show`, `bot diff` and `bot approve` find nothing to work with. If the pipeline still reports issues, re-run it (or use `bot prompt`) to get the fixes again.
+> [!TIP]
+> Files corrected by AI are kept for `artifacts_retention_days` days (default: 3) after they were last generated. After that, `bot list`, `bot show`, `bot diff` and `bot approve` find nothing to work with. If the pipeline still reports issues, re-run it (or use `bot prompt`) to get the fixes again.
 
 ## Guides and Instructions
 
