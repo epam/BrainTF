@@ -1,7 +1,6 @@
 # ======================= Getting account details =======================
 
 data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}
 
 provider "github" {
   # Only meaningful when vcs_provider == "github"
@@ -27,7 +26,7 @@ data "aws_s3_bucket" "platform_state" {
 
 locals {
   # Account details
-  region     = data.aws_region.current.region
+  region     = var.region
   account_id = data.aws_caller_identity.current.account_id
 
   # Use user-provided bucket if set, otherwise fall back to the bootstrap state bucket

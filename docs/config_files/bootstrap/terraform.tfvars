@@ -5,7 +5,8 @@ deployed_by = "Terraform"             # Tool for deploying the infrastructure
 owner_mail  = "<my_mail@example.com>" # Email address of the infrastructure owner
 
 # Block of common variables
-vcs_repo_name = "<my_project>" # Name of the project (gitlab or github)
+vcs_repo_name = "<my_project>"    # Name of the project (gitlab or github)
+region        = "<my_aws_region>" # AWS region for all BrainTF resources (e.g., eu-central-1). Copied to main_module. AWS_REGION and the AWS CLI profile region are not used
 
 # Bootstrap-only settings (not passed to main_module)
 platform_state_bucket_prefix = "<my-platform-state-bucket-prefix>" # Prefix for the platform state S3 bucket name (stores bootstrap + main_module state). Optional: this is the default.
