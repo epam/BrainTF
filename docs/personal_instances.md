@@ -33,16 +33,15 @@ OIDC provider that PROD created. The two operations that WOULD affect PROD —
 applying this model to PROD's own state (`instance_id=""`) and migrating the
 shared OIDC provider/role out of PROD — are never part of a personal deploy.
 
+Prerequisite: an AWS session with write access to the account (e.g. `aws login`
+or exported credentials) — the same identity you would use for any terraform
+apply. Config (tfvars + secrets) is pulled from SSM exactly like the deploy
+workflow does; set `CONFIG_SOURCE=local` to use local tfvars files instead.
+
 1. Verify the plan touches only `-<your-id>` resources and nothing of PROD's:
 
    ```bash
-   terraform -chdir=terraform/main_module init -reconfigure \
-     -backend-config="key=main-module/<your-github-login>/terraform.tfstate"
-
-   terraform -chdir=terraform/main_module plan \
-     -var="instance_id=<your-github-login>" \
-     -var="owner_github=<your-github-login>" \
-     -var="environment=<your-github-login>"
+   make plan INSTANCE_ID=<your-github-login>
    ```
 
    The plan must show only creations of `...-<your-github-login>` resources. If any
@@ -53,23 +52,20 @@ shared OIDC provider/role out of PROD — are never part of a personal deploy.
 2. Apply once the plan is clean:
 
    ```bash
-   terraform -chdir=terraform/main_module apply \
-     -var="instance_id=<your-github-login>" \
-     -var="owner_github=<your-github-login>" \
-     -var="environment=<your-github-login>"
+   make deploy INSTANCE_ID=<your-github-login>
    ```
 
 3. Tear it down when done (PROD and shared singletons are left intact):
 
    ```bash
-   terraform -chdir=terraform/main_module destroy \
-     -var="instance_id=<your-github-login>" \
-     -var="owner_github=<your-github-login>" \
-     -var="environment=<your-github-login>"
+   make destroy INSTANCE_ID=<your-github-login>
    ```
 
-> The `make plan` / `make deploy` / `make destroy` wrappers (added separately)
-> perform the same steps and derive the instance ID and state key automatically.
+`INSTANCE_ID` defaults to your GitHub handle (`gh api user`, or `GITHUB_ACTOR`
+in CI) and is sanitised to lowercase `[a-z0-9-]` max 14 chars; `OWNER_GITHUB`
+defaults to the same handle. Without a handle or an explicit ID, the instance
+ID is derived from the current git branch (same rule as the deploy workflow),
+and the instance serves that branch (`TARGET_BRANCH=<branch>`).
 
 ## What is shared and not isolated
 
