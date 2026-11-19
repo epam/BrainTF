@@ -3,6 +3,8 @@ name: Deploy BrainTF
 # PoC CI/CD that deploys the BrainTF infrastructure (terraform/main_module):
 #   - push to a branch listed in .github/deploy-branches.txt -> one instance PER BRANCH
 #   - push to main                                           -> PROD instance
+#   - workflow_dispatch personal=true                        -> the caller's
+#     PERSONAL instance (ID and owner = github.actor, serves that user's PRs)
 # Every instance coexists in one AWS account. PROD is the primary instance: it keeps
 # the original un-suffixed resource names and the original state key
 # (main-module/terraform.tfstate). A branch instance gets an instance-ID suffix on
@@ -27,6 +29,11 @@ on:
         description: "Instance ID override (leave empty to derive it from the branch; prod only from main)"
         required: false
         default: ""
+      personal:
+        description: "Deploy YOUR personal instance (instance ID and owner = your GitHub login)"
+        type: boolean
+        required: false
+        default: false
 
 permissions:
   id-token: write # required for the OIDC token used to assume the AWS role
@@ -74,14 +81,24 @@ jobs:
           REF_FULL: ${{ github.ref }}
           EVENT_NAME: ${{ github.event_name }}
           INPUT_ENV: ${{ github.event.inputs.environment }}
+          INPUT_PERSONAL: ${{ github.event.inputs.personal }}
           ACTOR: ${{ github.actor }}
           DEPLOY_BRANCH_PREFIX: ${{ env.DEPLOY_BRANCH_PREFIX }}
         run: |
           set -euo pipefail
 
           # Resolve the instance ID: main -> prod, otherwise derived from the branch.
-          # A manual dispatch may override it.
-          if [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$INPUT_ENV" ]]; then
+          # A manual dispatch may override it — or select the caller's personal
+          # instance, keyed on github.actor.
+          PERSONAL="false"
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$INPUT_PERSONAL" == "true" ]]; then
+            PERSONAL="true"
+            source scripts/lib/instance.sh
+            if ! ENV="$(sanitize_instance_id "$ACTOR")"; then
+              echo "::error::Cannot derive a personal instance ID from actor '$ACTOR'."
+              exit 1
+            fi
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$INPUT_ENV" ]]; then
             ENV="$INPUT_ENV"
             if [[ "$ENV" != "prod" ]] && ! [[ "$ENV" =~ ^[a-z0-9]([a-z0-9-]{0,12}[a-z0-9])?$ ]]; then
               echo "::error::Invalid instance ID override '$ENV' (lowercase letters, digits and '-', max 14 chars)."
@@ -92,7 +109,11 @@ jobs:
           fi
 
           DEPLOY="false"
-          if [[ "$ENV" == "prod" ]]; then
+          if [[ "$PERSONAL" == "true" ]]; then
+            # A personal dispatch always deploys: eligibility rules for branches
+            # (prefix / allowlist) do not apply to it.
+            DEPLOY="true"
+          elif [[ "$ENV" == "prod" ]]; then
             # Prod only ever deploys from the main branch (push or manual dispatch);
             # the full ref rules out a tag that happens to be named "main".
             if [[ "$REF_FULL" == "refs/heads/main" ]]; then
@@ -126,6 +147,8 @@ jobs:
             INSTANCE_ID="$ENV"
             STATE_KEY="main-module/${ENV}/terraform.tfstate"
             TARGET_BRANCH="$REF"
+            # A personal instance serves its owner's PRs, not one branch.
+            [[ "$PERSONAL" == "true" ]] && TARGET_BRANCH=""
           fi
           # AWS tag values only allow letters, digits, spaces and _ . : / = + - @
           # (e.g. "dependabot[bot]" would be rejected), so replace anything else.
@@ -192,4 +215,3 @@ jobs:
           TARGET_BRANCH: ${{ needs.gate.outputs.branch }}
           OWNER_GITHUB: ${{ needs.gate.outputs.actor }}
         run: make deploy
-

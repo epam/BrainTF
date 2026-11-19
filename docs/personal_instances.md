@@ -67,6 +67,10 @@ defaults to the same handle. Without a handle or an explicit ID, the instance
 ID is derived from the current git branch (same rule as the deploy workflow),
 and the instance serves that branch (`TARGET_BRANCH=<branch>`).
 
+The same deploy is available without local credentials via **Actions → Deploy
+BrainTF → personal=true**: the instance ID and owner come from `github.actor`.
+Tear it down with **Destroy BrainTF → personal=true** or `make destroy`.
+
 ## What is shared and not isolated
 
 - **OIDC provider and role** — one shared set per account; a personal instance

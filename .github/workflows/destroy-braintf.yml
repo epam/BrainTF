@@ -2,7 +2,8 @@ name: Destroy BrainTF
 
 # Tears down a per-branch BrainTF instance created by deploy-braintf.yml
 # (state key main-module/<id>/terraform.tfstate). Never touches prod.
-#   - workflow_dispatch : pick a branch, or an explicit instance ID (e.g. the legacy "dev" stack)
+#   - workflow_dispatch : pick a branch, an explicit instance ID (e.g. the legacy
+#                         "dev" stack), or personal=true for your own instance
 #   - delete            : a branch was deleted
 #   - pull_request      : a PR was closed or merged (same-repo PRs only)
 # A branch that never had an instance has no state object, so those runs are no-ops.
@@ -28,6 +29,11 @@ on:
         description: "Explicit instance ID to destroy (overrides branch), e.g. dev"
         required: false
         default: ""
+      personal:
+        description: "Destroy YOUR personal instance (instance ID = your GitHub login)"
+        type: boolean
+        required: false
+        default: false
   delete:
   pull_request:
     types: [closed]
@@ -60,6 +66,7 @@ jobs:
       instance: ${{ steps.decide.outputs.instance }}
       branch: ${{ steps.decide.outputs.branch }}
       destroy: ${{ steps.decide.outputs.destroy }}
+      explicit: ${{ steps.decide.outputs.explicit }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -78,6 +85,8 @@ jobs:
           PR_HEAD_REF: ${{ github.event.pull_request.head.ref }}
           INPUT_BRANCH: ${{ github.event.inputs.branch }}
           INPUT_ID: ${{ github.event.inputs.instance_id }}
+          INPUT_PERSONAL: ${{ github.event.inputs.personal }}
+          ACTOR: ${{ github.actor }}
         run: |
           set -euo pipefail
 
@@ -88,12 +97,22 @@ jobs:
             workflow_dispatch) BRANCH="$INPUT_BRANCH" ;;
           esac
 
-          if [[ -n "$INPUT_ID" ]]; then
+          EXPLICIT="false"
+          if [[ "$INPUT_PERSONAL" == "true" ]]; then
+            # Personal instance: the ID is the caller's GitHub login (github.actor).
+            source scripts/lib/instance.sh
+            if ! ID="$(sanitize_instance_id "$ACTOR")"; then
+              echo "::error::Cannot derive a personal instance ID from actor '$ACTOR'."
+              exit 1
+            fi
+            EXPLICIT="true"
+          elif [[ -n "$INPUT_ID" ]]; then
             ID="$INPUT_ID"
             if [[ "$ID" != "prod" ]] && ! [[ "$ID" =~ ^[a-z0-9]([a-z0-9-]{0,12}[a-z0-9])?$ ]]; then
               echo "::error::Invalid instance ID '$ID' (lowercase letters, digits and '-', max 14 chars)."
               exit 1
             fi
+            EXPLICIT="true"
           elif [[ -n "$BRANCH" ]]; then
             ID="$(bash .github/scripts/instance-id.sh "$BRANCH")"
           else
@@ -115,6 +134,7 @@ jobs:
           echo "instance=$ID" >> "$GITHUB_OUTPUT"
           echo "branch=$BRANCH" >> "$GITHUB_OUTPUT"
           echo "destroy=$DESTROY" >> "$GITHUB_OUTPUT"
+          echo "explicit=$EXPLICIT" >> "$GITHUB_OUTPUT"
           echo "::notice::Instance '$ID' (branch '${BRANCH:-n/a}') selected for destroy=$DESTROY."
 
   destroy:
@@ -171,7 +191,7 @@ jobs:
         shell: bash
         env:
           EVENT_NAME: ${{ github.event_name }}
-          INPUT_ID: ${{ github.event.inputs.instance_id }}
+          EXPLICIT: ${{ needs.resolve.outputs.explicit }}
         run: |
           set -euo pipefail
           OWNER_KEY="main-module/${INSTANCE}/owner"
@@ -188,8 +208,9 @@ jobs:
           }
           OWNER="$(read_owner)"
           PROCEED="false"
-          if [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$INPUT_ID" ]]; then
-            # Explicit instance ID: the operator named the instance itself.
+          if [[ "$EXPLICIT" == "true" ]]; then
+            # Explicit instance ID or personal dispatch: the operator named the
+            # instance itself.
             PROCEED="true"
           elif [[ -n "$OWNER" && "$OWNER" == "$TARGET_BRANCH" ]]; then
             PROCEED="true"
@@ -214,13 +235,13 @@ jobs:
         # drop the emptied state object and release the owner marker. When no
         # state exists it only releases the marker (covers a marker left by a
         # deploy that failed before writing any state) and exits cleanly.
-        # FORCE mirrors this workflow's arbitration: an explicit instance ID
-        # already bypassed the marker check above.
+        # FORCE mirrors this workflow's arbitration: an explicit instance ID or a
+        # personal dispatch already bypassed the marker check above.
         if: steps.owner.outputs.proceed == 'true'
         env:
           INSTANCE_ID: ${{ needs.resolve.outputs.instance }}
           TARGET_BRANCH: ${{ needs.resolve.outputs.branch }}
           OWNER_GITHUB: ${{ github.actor }}
-          FORCE: ${{ github.event.inputs.instance_id != '' && '1' || '' }}
+          FORCE: ${{ needs.resolve.outputs.explicit == 'true' && '1' || '' }}
           AUTO_APPROVE: "1"
         run: make destroy
