@@ -53,7 +53,7 @@ variable "owner_mail" {
 }
 
 variable "owner_github" {
-  description = "GitHub login of whoever deployed this instance. Set by the deploy workflow (github.actor); recorded as the OwnerGithub tag. Empty = no tag."
+  description = "GitHub login this instance belongs to (github.actor). Recorded as the OwnerGithub tag and, for personal instances, passed to the comment lambda (OWNER_GITHUB) so the bot only answers pull requests authored by this user. Empty = no owner tag and no author filter."
   type        = string
   default     = ""
 }

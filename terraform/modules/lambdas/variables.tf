@@ -103,6 +103,12 @@ variable "target_branch" {
   default     = ""
 }
 
+variable "owner_github" {
+  description = "GitHub login this personal instance serves. When set, the comment lambda only answers comments on pull requests authored by this user (OWNER_GITHUB env var), so one developer's instance handles only their own PRs. Empty = do not filter by author."
+  type        = string
+  default     = ""
+}
+
 variable "log_level" {
   description = "The logging level for AWS Lambda functions. Possible values: DEBUG, INFO, WARN, ERROR."
   type        = string

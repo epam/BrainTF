@@ -192,6 +192,8 @@ module "process_comment_lambda_vcs" {
     },
     # Per-branch instances only handle comments on their own branch's PR.
     var.target_branch != "" ? { TARGET_BRANCH = var.target_branch } : {},
+    # Personal instances only handle comments on PRs authored by their owner.
+    var.owner_github != "" ? { OWNER_GITHUB = var.owner_github } : {},
   )
   tracing_mode           = "Active"
   vpc_subnet_ids         = var.private_subnet_ids

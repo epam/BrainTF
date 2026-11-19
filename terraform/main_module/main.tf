@@ -400,6 +400,7 @@ module "ai_lambda" {
   artifacts_path       = var.artifacts_path
   layer_name           = lower("layer-${var.vcs_repo_name}-${local.region}")
   target_branch        = var.target_branch
+  owner_github         = var.owner_github
 }
 
 # ======================= VCS Integration =======================
