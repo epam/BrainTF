@@ -158,12 +158,6 @@ jobs:
     concurrency:
       group: braintf-instance-${{ needs.gate.outputs.environment }}
       cancel-in-progress: false
-    env:
-      ENVIRONMENT: ${{ needs.gate.outputs.environment }}
-      INSTANCE_ID: ${{ needs.gate.outputs.instance_id }}
-      STATE_KEY: ${{ needs.gate.outputs.state_key }}
-      TARGET_BRANCH: ${{ needs.gate.outputs.branch }}
-      OWNER_GITHUB: ${{ needs.gate.outputs.actor }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v6
@@ -182,101 +176,20 @@ jobs:
           role-session-name: braintf-deploy-${{ needs.gate.outputs.environment }}
           aws-region: ${{ vars.AWS_REGION }}
 
-      - name: Claim instance for this branch
-        # Two branches can derive the same instance ID (same ticket key), and a
-        # manual dispatch can name any ID. An owner marker next to the state records
-        # the branch an instance belongs to. It is written before the first apply,
-        # so a half-built instance is owned too. Runs are serialized per instance
-        # (job concurrency), so check-then-write cannot race.
-        if: needs.gate.outputs.environment != 'prod'
-        shell: bash
-        run: |
-          set -euo pipefail
-          OWNER_KEY="${STATE_KEY%/*}/owner"
-          # Prints the owner branch, or nothing if there is no marker. Any other
-          # failure (e.g. AccessDenied) must not be mistaken for "no owner".
-          read_owner() {
-            local out
-            if out="$(aws s3 cp "s3://${STATE_BUCKET}/${OWNER_KEY}" - 2>&1)"; then
-              printf '%s' "$out"
-            elif ! grep -qE "Not Found|NoSuchKey|404" <<<"$out"; then
-              echo "$out" >&2
-              return 1
-            fi
-          }
-          OWNER="$(read_owner)"
-          if [[ -n "$OWNER" && "$OWNER" != "$TARGET_BRANCH" ]]; then
-            echo "::error::Instance '${INSTANCE_ID}' belongs to branch '${OWNER}', not '${TARGET_BRANCH}'. Destroy that instance first, or rename this branch so it derives a different ID."
-            exit 1
-          fi
-          if [[ -z "$OWNER" ]]; then
-            printf '%s' "$TARGET_BRANCH" | aws s3 cp - "s3://${STATE_BUCKET}/${OWNER_KEY}" --content-type text/plain
-            echo "::notice::Instance '${INSTANCE_ID}' claimed for branch '${TARGET_BRANCH}'."
-          fi
-
-      - name: Pull tfvars + secrets from SSM
-        shell: bash
-        run: |
-          set -euo pipefail
-          B="terraform/bootstrap"
-          M="terraform/main_module"
-          get() { aws ssm get-parameter --name "$1" --with-decryption --query "Parameter.Value" --output text; }
-
-          get "/Brain-TF/manual/${VCS_PROVIDER}/bootstrap/terraform.tfvars"      > "$B/terraform.tfvars"
-          get "/Brain-TF/manual/${VCS_PROVIDER}/main_module/terraform.tfvars"     > "$M/terraform.tfvars"
-          get "/Brain-TF/manual/${VCS_PROVIDER}/main_module/secrets.auto.tfvars"  > "$M/secrets.auto.tfvars"
-          get "/Brain-TF/manual/${VCS_PROVIDER}/main_module/terraform.auto.tfvars" > "$M/terraform.auto.tfvars"
-
-      - name: Generate backend config
-        shell: bash
-        run: |
-          set -euo pipefail
-          # backend.generated.tf is gitignored and normally produced by bootstrap.
-          # Recreate it here; the per-instance key is overridden at init below.
-          cat > terraform/main_module/backend.generated.tf <<EOT
-          #======================= The Main module for application infrastructure =======================#
-          terraform {
-            backend "s3" {
-              bucket       = "${STATE_BUCKET}"
-              key          = "main-module/terraform.tfstate"
-              region       = "${STATE_REGION}"
-              encrypt      = true
-              use_lockfile = true
-            }
-          }
-          EOT
-
-      - name: Terraform init (instance state key)
-        shell: bash
-        run: |
-          set -euo pipefail
-          terraform -chdir=terraform/main_module init -input=false -reconfigure \
-            -backend-config="key=${STATE_KEY}"
-
-      - name: Terraform plan
-        shell: bash
-        run: |
-          set -euo pipefail
-          # -var outranks the tfvars files. Prod keeps its own Environment tag from
-          # tfvars; a branch instance is tagged with its ID.
-          ARGS=(
-            -var="instance_id=${INSTANCE_ID}"
-            -var="target_branch=${TARGET_BRANCH}"
-            -var="owner_github=${OWNER_GITHUB}"
-          )
-          if [[ -n "$INSTANCE_ID" ]]; then
-            ARGS+=(-var="environment=${INSTANCE_ID}")
-          fi
-          terraform -chdir=terraform/main_module plan -input=false "${ARGS[@]}" -out=tfplan
-
-      - name: Terraform apply
-        # Branch instances: eligibility already enforced by the gate job. Prod:
-        # additionally require a push/dispatch on main. Apply replays the saved plan
-        # (instance ID, branch and owner baked in).
+      - name: Deploy instance
+        # The script performs the same steps this job used to inline: pull config
+        # from SSM, write the backend, init the per-instance state key, claim the
+        # instance via the owner marker (skipped for prod), plan, apply.
+        # INSTANCE_ID gets the gate's environment value ("prod" or the ID), so the
+        # script resolves prod vs suffixed exactly like the gate did.
+        # Prod additionally requires a push/dispatch on main (the gate already
+        # enforces it; kept here as a second line of defence).
         if: >
           needs.gate.outputs.environment != 'prod' ||
           github.ref == 'refs/heads/main'
-        shell: bash
-        run: |
-          set -euo pipefail
-          terraform -chdir=terraform/main_module apply -input=false -auto-approve tfplan
+        env:
+          INSTANCE_ID: ${{ needs.gate.outputs.environment }}
+          TARGET_BRANCH: ${{ needs.gate.outputs.branch }}
+          OWNER_GITHUB: ${{ needs.gate.outputs.actor }}
+        run: make deploy
+

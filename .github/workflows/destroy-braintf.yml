@@ -208,74 +208,19 @@ jobs:
           echo "proceed=$PROCEED" >> "$GITHUB_OUTPUT"
           echo "::notice::Instance '${INSTANCE}' owner: '${OWNER:-none}', destroy=$PROCEED."
 
-      - name: Pull tfvars + secrets from SSM
-        if: steps.state.outputs.exists == 'true' && steps.owner.outputs.proceed == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          B="terraform/bootstrap"
-          M="terraform/main_module"
-          get() { aws ssm get-parameter --name "$1" --with-decryption --query "Parameter.Value" --output text; }
-
-          get "/Brain-TF/manual/${VCS_PROVIDER}/bootstrap/terraform.tfvars"      > "$B/terraform.tfvars"
-          get "/Brain-TF/manual/${VCS_PROVIDER}/main_module/terraform.tfvars"     > "$M/terraform.tfvars"
-          get "/Brain-TF/manual/${VCS_PROVIDER}/main_module/secrets.auto.tfvars"  > "$M/secrets.auto.tfvars"
-          get "/Brain-TF/manual/${VCS_PROVIDER}/main_module/terraform.auto.tfvars" > "$M/terraform.auto.tfvars"
-
-      - name: Generate backend config
-        if: steps.state.outputs.exists == 'true' && steps.owner.outputs.proceed == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          cat > terraform/main_module/backend.generated.tf <<EOT
-          #======================= The Main module for application infrastructure =======================#
-          terraform {
-            backend "s3" {
-              bucket       = "${STATE_BUCKET}"
-              key          = "main-module/terraform.tfstate"
-              region       = "${STATE_REGION}"
-              encrypt      = true
-              use_lockfile = true
-            }
-          }
-          EOT
-
-      - name: Terraform init (instance state key)
-        if: steps.state.outputs.exists == 'true' && steps.owner.outputs.proceed == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          terraform -chdir=terraform/main_module init -input=false -reconfigure \
-            -backend-config="key=main-module/${INSTANCE}/terraform.tfstate"
-
-      - name: Terraform destroy
-        if: steps.state.outputs.exists == 'true' && steps.owner.outputs.proceed == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          # -var outranks the tfvars files.
-          terraform -chdir=terraform/main_module destroy -input=false -auto-approve \
-            -var="instance_id=${INSTANCE}" \
-            -var="environment=${INSTANCE}" \
-            -var="target_branch=${TARGET_BRANCH}"
-
-      - name: Remove empty state object
-        if: steps.state.outputs.exists == 'true' && steps.owner.outputs.proceed == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          # Only drop the state once nothing is left in it, so a partial destroy
-          # can be retried instead of orphaning resources.
-          if [[ -n "$(terraform -chdir=terraform/main_module state list)" ]]; then
-            echo "::error::State for '${INSTANCE}' still tracks resources; keeping it."
-            exit 1
-          fi
-          aws s3 rm "s3://${STATE_BUCKET}/main-module/${INSTANCE}/terraform.tfstate"
-
-      - name: Release instance ownership
-        # Also covers a marker left by a deploy that failed before writing any state.
+      - name: Destroy instance
+        # The script performs the same steps this job used to inline: pull config
+        # from SSM, write the backend, init the per-instance state key, destroy,
+        # drop the emptied state object and release the owner marker. When no
+        # state exists it only releases the marker (covers a marker left by a
+        # deploy that failed before writing any state) and exits cleanly.
+        # FORCE mirrors this workflow's arbitration: an explicit instance ID
+        # already bypassed the marker check above.
         if: steps.owner.outputs.proceed == 'true'
-        shell: bash
-        run: |
-          set -euo pipefail
-          aws s3 rm "s3://${STATE_BUCKET}/main-module/${INSTANCE}/owner"
+        env:
+          INSTANCE_ID: ${{ needs.resolve.outputs.instance }}
+          TARGET_BRANCH: ${{ needs.resolve.outputs.branch }}
+          OWNER_GITHUB: ${{ github.actor }}
+          FORCE: ${{ github.event.inputs.instance_id != '' && '1' || '' }}
+          AUTO_APPROVE: "1"
+        run: make destroy
