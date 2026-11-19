@@ -18,6 +18,10 @@ class BranchMismatchException(Exception):
     """Exception indicating that the webhook belongs to a branch this instance does not serve."""
 
 
+class AuthorMismatchException(Exception):
+    """Exception indicating that the pull request was authored by someone this personal instance does not serve."""
+
+
 class InvalidEventMetadata(Exception):
     """Exception indicating that the event metadata is invalid."""
 

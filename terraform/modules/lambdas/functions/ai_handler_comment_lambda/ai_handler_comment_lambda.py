@@ -4,6 +4,7 @@ from typing import Any
 from config import config
 from utilities.auth import is_github_issue_comment, webhook_authenticator
 from utilities.exceptions import (
+    AuthorMismatchException,
     BranchMismatchException,
     HTTPException,
     InvalidTokenException,
@@ -113,6 +114,18 @@ def process_vcs_webhook_payload(event: dict[str, Any]) -> dict[str, Any]:
             )):
                 raise MissingWebhookDataException
 
+            if config.owner_github:
+                # Personal instance: only answer pull requests authored by its owner.
+                # The author is in the webhook payload, so this costs no GitHub API call
+                # and is checked before any other filter to keep ignored hooks cheap.
+                if 'pull_request' not in issue:
+                    raise AuthorMismatchException('comment is on an issue, not a pull request')
+                pr_author: str = (issue.get('user') or {}).get('login', '')
+                if pr_author != config.owner_github:
+                    raise AuthorMismatchException(
+                        f"pull request author '{pr_author}' is not '{config.owner_github}'"
+                    )
+
             if config.target_branch:
                 # Per-branch instance: only answer comments on its own branch's PR.
                 # Checked before any other GitHub API call to keep ignored hooks cheap.
@@ -181,6 +194,10 @@ def lambda_handler(event: dict[str, Any], context: Any) -> dict[str, Any]:  # no
     except BranchMismatchException as exception:
         logger.info(f'Ignoring webhook meant for another branch: {exception}.')
         return {'statusCode': HTTP_SUCCESS, 'body': "Not this instance's branch, no action taken"}
+
+    except AuthorMismatchException as exception:
+        logger.info(f'Ignoring webhook for another owner: {exception}.')
+        return {'statusCode': HTTP_SUCCESS, 'body': "Not this instance's owner, no action taken"}
 
     except MissingCommentContextException as exception:
         logger.debug(f'Webhook comment is outside bot command context: {exception}.')

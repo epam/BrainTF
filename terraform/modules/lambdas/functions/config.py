@@ -83,6 +83,9 @@ class _ConfigLambda:
         # Per-branch instances set this so they only answer comments on their own
         # branch's PR/MR. Empty (prod / legacy) means handle every branch.
         self.target_branch: str = os.environ.get("TARGET_BRANCH", "").strip()
+        # Personal instances set this so they only answer comments on pull requests
+        # authored by their owner. Empty means do not filter by author. GitHub only.
+        self.owner_github: str = os.environ.get("OWNER_GITHUB", "").strip()
         self.git_api_endpoint_version: str = '/api/v4'
 
         # Validate all configuration
