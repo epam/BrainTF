@@ -2,7 +2,11 @@ import json
 
 import pytest
 
-from utilities.exceptions import BranchMismatchException, MissingWebhookDataException
+from utilities.exceptions import (
+    AuthorMismatchException,
+    BranchMismatchException,
+    MissingWebhookDataException,
+)
 
 
 def set_webhook_payload_value(event, path, value):
@@ -367,3 +371,107 @@ def test_lambda_handler_gitlab_other_branch_is_ignored(patched_config_gitlab, we
     from ai_handler_comment_lambda.ai_handler_comment_lambda import lambda_handler
 
     assert lambda_handler(webhook_event_gitlab, {}) == OTHER_BRANCH_RESULT
+
+
+# --- Personal instance filtering (OWNER_GITHUB) ------------------------------------------------------------------
+
+OTHER_OWNER_RESULT = {'statusCode': 200, 'body': "Not this instance's owner, no action taken"}
+# The github webhook fixture's pull request author (issue.user.login).
+FIXTURE_PR_AUTHOR = "testuser"
+
+
+def _set_owner_github(monkeypatch, owner):
+    from config import config
+    monkeypatch.setattr(config, "owner_github", owner)
+
+
+def test_process_vcs_webhook_payload_github_owner_match(patched_config_github, webhook_event_github, monkeypatch):
+    _set_owner_github(monkeypatch, FIXTURE_PR_AUTHOR)
+    monkeypatch.setattr(f"{MODULE}.get_last_commit_sha_github", lambda x, y: "1234")
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import (
+        process_vcs_webhook_payload,
+    )
+
+    result = process_vcs_webhook_payload(webhook_event_github)
+
+    assert result['metadata']['commit_short_sha'] == "1234"
+
+
+def test_lambda_handler_github_other_owner_is_ignored(patched_config_github, webhook_event_github, monkeypatch):
+    _set_owner_github(monkeypatch, "someone-else")
+    monkeypatch.setattr(f"{MODULE}.get_pr_head_ref_github", _fail_if_called)
+    monkeypatch.setattr(f"{MODULE}.get_last_commit_sha_github", _fail_if_called)
+    monkeypatch.setattr(f"{MODULE}.handle_comment_commands", _fail_if_called)
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import lambda_handler
+
+    assert lambda_handler(webhook_event_github, {}) == OTHER_OWNER_RESULT
+
+
+def test_process_vcs_webhook_payload_github_owner_issue_comment_is_ignored(patched_config_github,
+                                                                         webhook_event_github, monkeypatch):
+    _set_owner_github(monkeypatch, FIXTURE_PR_AUTHOR)
+    payload = json.loads(webhook_event_github["body"])
+    del payload["issue"]["pull_request"]
+    webhook_event_github["body"] = json.dumps(payload)
+    monkeypatch.setattr(f"{MODULE}.get_pr_head_ref_github", _fail_if_called)
+    monkeypatch.setattr(f"{MODULE}.get_last_commit_sha_github", _fail_if_called)
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import (
+        process_vcs_webhook_payload,
+    )
+
+    with pytest.raises(AuthorMismatchException):
+        process_vcs_webhook_payload(webhook_event_github)
+
+
+def test_process_vcs_webhook_payload_github_owner_missing_user_is_ignored(patched_config_github,
+                                                                          webhook_event_github, monkeypatch):
+    _set_owner_github(monkeypatch, FIXTURE_PR_AUTHOR)
+    payload = json.loads(webhook_event_github["body"])
+    del payload["issue"]["user"]
+    webhook_event_github["body"] = json.dumps(payload)
+    monkeypatch.setattr(f"{MODULE}.get_last_commit_sha_github", _fail_if_called)
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import (
+        process_vcs_webhook_payload,
+    )
+
+    with pytest.raises(AuthorMismatchException):
+        process_vcs_webhook_payload(webhook_event_github)
+
+
+def test_process_vcs_webhook_payload_github_no_owner_handles_everything(patched_config_github,
+                                                                        webhook_event_github, monkeypatch):
+    _set_owner_github(monkeypatch, "")
+    monkeypatch.setattr(f"{MODULE}.get_pr_head_ref_github", _fail_if_called)
+    monkeypatch.setattr(f"{MODULE}.get_last_commit_sha_github", lambda x, y: "1234")
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import (
+        process_vcs_webhook_payload,
+    )
+
+    assert process_vcs_webhook_payload(webhook_event_github)['metadata']['commit_short_sha'] == "1234"
+
+
+def test_lambda_handler_github_owner_checked_before_branch(patched_config_github, webhook_event_github,
+                                                           monkeypatch):
+    _set_owner_github(monkeypatch, "someone-else")
+    _set_target_branch(monkeypatch, "feature-x")
+    # An author mismatch must short-circuit before the branch check's API call.
+    monkeypatch.setattr(f"{MODULE}.get_pr_head_ref_github", _fail_if_called)
+    monkeypatch.setattr(f"{MODULE}.handle_comment_commands", _fail_if_called)
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import lambda_handler
+
+    assert lambda_handler(webhook_event_github, {}) == OTHER_OWNER_RESULT
+
+
+def test_process_vcs_webhook_payload_github_owner_and_branch_match(patched_config_github, webhook_event_github,
+                                                                   monkeypatch):
+    _set_owner_github(monkeypatch, FIXTURE_PR_AUTHOR)
+    _set_target_branch(monkeypatch, "feature-x")
+    monkeypatch.setattr(f"{MODULE}.get_pr_head_ref_github", lambda repo, number: "feature-x")
+    monkeypatch.setattr(f"{MODULE}.get_last_commit_sha_github", lambda x, y: "1234")
+    from ai_handler_comment_lambda.ai_handler_comment_lambda import (
+        process_vcs_webhook_payload,
+    )
+
+    result = process_vcs_webhook_payload(webhook_event_github)
+
+    assert result['metadata']['commit_short_sha'] == "1234"

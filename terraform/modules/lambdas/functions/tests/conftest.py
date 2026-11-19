@@ -70,6 +70,11 @@ def patched_environment(monkeypatch):
     monkeypatch.setenv("TTL_DELTA_DAYS", "30")
     monkeypatch.setenv("AWS_DEFAULT_REGION", "eu-central-1")
 
+    # Instance filters must not leak from the developer's environment.
+    from config import config
+    monkeypatch.setattr(config, "target_branch", "")
+    monkeypatch.setattr(config, "owner_github", "")
+
     return monkeypatch
 
 
