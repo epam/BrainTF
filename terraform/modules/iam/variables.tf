@@ -8,6 +8,12 @@ variable "vcs_repo_name" {
   type        = string
 }
 
+variable "name_suffix" {
+  description = "Instance ID appended to resource names so several instances coexist in one account. Empty (primary instance) = no suffix"
+  type        = string
+  default     = ""
+}
+
 variable "artifacts_bucket" {
   description = "The artifacts bucket name"
   type        = string

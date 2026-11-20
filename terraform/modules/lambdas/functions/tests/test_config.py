@@ -19,6 +19,18 @@ def test_config_loads_defaults(config_lambda_class, patched_environment, monkeyp
     assert config.boto3_config.read_timeout == 361
 
 
+def test_config_target_branch_defaults_to_empty(config_lambda_class, patched_environment):
+    patched_environment.delenv("TARGET_BRANCH", raising=False)
+
+    assert config_lambda_class().target_branch == ""
+
+
+def test_config_target_branch_is_read_and_stripped(config_lambda_class, patched_environment):
+    patched_environment.setenv("TARGET_BRANCH", "  feature/EPMCACMAWS-504-automated-deployment ")
+
+    assert config_lambda_class().target_branch == "feature/EPMCACMAWS-504-automated-deployment"
+
+
 @pytest.mark.parametrize("provider", ["github", "gitlab"])
 def test_config_accepts_supported_vcs_providers(config_lambda_class, patched_environment, provider):
     patched_environment.setenv("VCS_PROVIDER", provider)

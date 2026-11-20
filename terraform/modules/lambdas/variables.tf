@@ -3,6 +3,12 @@ variable "vcs_repo_name" {
   type        = string
 }
 
+variable "name_suffix" {
+  description = "Instance ID appended to Lambda function names so several instances coexist in one account. Empty (primary instance) = no suffix"
+  type        = string
+  default     = ""
+}
+
 variable "vcs_provider" {
   description = "The VCS provider used for deployment (e.g., github, gitlab)"
   type        = string
@@ -89,6 +95,18 @@ variable "artifacts_path" {
 variable "layer_name" {
   description = "AWS Lambda layer name"
   type        = string
+}
+
+variable "target_branch" {
+  description = "Branch this instance serves. When set, the comment lambda ignores comments on pull/merge requests from other branches (TARGET_BRANCH env var). Empty = handle all branches."
+  type        = string
+  default     = ""
+}
+
+variable "owner_github" {
+  description = "GitHub login this personal instance serves. When set, the comment lambda only answers comments on pull requests authored by this user (OWNER_GITHUB env var), so one developer's instance handles only their own PRs. Empty = do not filter by author."
+  type        = string
+  default     = ""
 }
 
 variable "log_level" {

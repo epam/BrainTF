@@ -1,0 +1,218 @@
+name: Deploy BrainTF
+
+# PoC CI/CD that deploys the BrainTF infrastructure (terraform/main_module):
+#   - push to a branch listed in .github/deploy-branches.txt -> one instance PER BRANCH
+#   - push to main                                           -> PROD instance
+#   - workflow_dispatch personal=true                        -> the caller's
+#     PERSONAL instance (ID and owner = github.actor, serves that user's PRs)
+# Every instance coexists in one AWS account. PROD is the primary instance: it keeps
+# the original un-suffixed resource names and the original state key
+# (main-module/terraform.tfstate). A branch instance gets an instance-ID suffix on
+# its resource names (var.instance_id) and its own state key
+# (main-module/<id>/terraform.tfstate). The ID comes from
+# .github/scripts/instance-id.sh (main -> prod, otherwise derived from the branch,
+# max 14 chars). Each branch instance registers its own webhook and only answers
+# comments on its own branch's PR (var.target_branch). Two branches can map to one
+# ID (same ticket key): the instance belongs to the branch that deployed it first
+# (owner marker s3://<state bucket>/main-module/<id>/owner), and a deploy from any
+# other branch is refused.
+# Tear instances down with destroy-braintf.yml.
+# See docs / EPMCACMAWS-504 and the one-time manual bootstrap in the plan.
+
+on:
+  push:
+    branches:
+      - '**'
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: "Instance ID override (leave empty to derive it from the branch; prod only from main)"
+        required: false
+        default: ""
+      personal:
+        description: "Deploy YOUR personal instance (instance ID and owner = your GitHub login)"
+        type: boolean
+        required: false
+        default: false
+
+permissions:
+  id-token: write # required for the OIDC token used to assume the AWS role
+  contents: read
+
+concurrency:
+  # Never cancel a half-finished apply; serialize per ref instead.
+  group: deploy-braintf-${{ github.ref }}
+  cancel-in-progress: false
+
+env:
+  TERRAFORM_VERSION: "1.14.8"
+  VCS_PROVIDER: "github"
+  # Branches under this prefix auto-deploy their own ephemeral instance. Must match
+  # var.deploy_branch_prefix in terraform/main_module (the OIDC role trusts the same
+  # prefix as a wildcard, so new branches need no prod re-apply).
+  DEPLOY_BRANCH_PREFIX: "feature/"
+  # Bootstrap-managed state backend (shared across envs; only the key differs).
+  # Matches terraform/bootstrap-generated backend.generated.tf.
+  STATE_BUCKET: "backend-state-bucket-braintf-eu-central-1"
+  STATE_REGION: "eu-central-1"
+
+jobs:
+  gate:
+    name: Decide environment & deploy eligibility
+    runs-on: ubuntu-latest
+    outputs:
+      environment: ${{ steps.decide.outputs.environment }}
+      instance_id: ${{ steps.decide.outputs.instance_id }}
+      state_key: ${{ steps.decide.outputs.state_key }}
+      deploy: ${{ steps.decide.outputs.deploy }}
+      branch: ${{ steps.decide.outputs.branch }}
+      actor: ${{ steps.decide.outputs.actor }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Decide
+        id: decide
+        shell: bash
+        # Untrusted values (branch name, actor, input) go through env, never inline
+        # in the script: a branch name may contain shell metacharacters.
+        env:
+          REF: ${{ github.ref_name }}
+          REF_FULL: ${{ github.ref }}
+          EVENT_NAME: ${{ github.event_name }}
+          INPUT_ENV: ${{ github.event.inputs.environment }}
+          INPUT_PERSONAL: ${{ github.event.inputs.personal }}
+          ACTOR: ${{ github.actor }}
+          DEPLOY_BRANCH_PREFIX: ${{ env.DEPLOY_BRANCH_PREFIX }}
+        run: |
+          set -euo pipefail
+
+          # Resolve the instance ID: main -> prod, otherwise derived from the branch.
+          # A manual dispatch may override it — or select the caller's personal
+          # instance, keyed on github.actor.
+          PERSONAL="false"
+          if [[ "$EVENT_NAME" == "workflow_dispatch" && "$INPUT_PERSONAL" == "true" ]]; then
+            PERSONAL="true"
+            source scripts/lib/instance.sh
+            if ! ENV="$(sanitize_instance_id "$ACTOR")"; then
+              echo "::error::Cannot derive a personal instance ID from actor '$ACTOR'."
+              exit 1
+            fi
+          elif [[ "$EVENT_NAME" == "workflow_dispatch" && -n "$INPUT_ENV" ]]; then
+            ENV="$INPUT_ENV"
+            if [[ "$ENV" != "prod" ]] && ! [[ "$ENV" =~ ^[a-z0-9]([a-z0-9-]{0,12}[a-z0-9])?$ ]]; then
+              echo "::error::Invalid instance ID override '$ENV' (lowercase letters, digits and '-', max 14 chars)."
+              exit 1
+            fi
+          else
+            ENV="$(bash .github/scripts/instance-id.sh "$REF")"
+          fi
+
+          DEPLOY="false"
+          if [[ "$PERSONAL" == "true" ]]; then
+            # A personal dispatch always deploys: eligibility rules for branches
+            # (prefix / allowlist) do not apply to it.
+            DEPLOY="true"
+          elif [[ "$ENV" == "prod" ]]; then
+            # Prod only ever deploys from the main branch (push or manual dispatch);
+            # the full ref rules out a tag that happens to be named "main".
+            if [[ "$REF_FULL" == "refs/heads/main" ]]; then
+              DEPLOY="true"
+            fi
+          else
+            # Primary path: any branch under the deploy prefix (e.g. feature/*) deploys
+            # its own instance. The OIDC role trusts the same prefix as a wildcard, so
+            # no prod re-apply is needed to onboard a new branch.
+            if [[ -n "${DEPLOY_BRANCH_PREFIX:-}" && "$REF" == "${DEPLOY_BRANCH_PREFIX}"* ]]; then
+              DEPLOY="true"
+            fi
+            # Escape hatch: a branch outside the prefix can still be allow-listed. Such a
+            # branch must also be added to the role trust (a prod apply) or its OIDC
+            # assume will fail — reserve this for the rare non-prefix branch.
+            CFG=".github/deploy-branches.txt"
+            if [[ "$DEPLOY" != "true" && -f "$CFG" ]] && grep -qxF "$REF" <(grep -vE '^[[:space:]]*#|^[[:space:]]*$' "$CFG"); then
+              DEPLOY="true"
+            fi
+          fi
+
+          # Prod is the primary instance: no name suffix (var.instance_id empty), the
+          # original state key, and it serves every branch. A branch instance is
+          # suffixed with its ID, has its own state key and serves only its branch
+          # (comment filter + Branch tag).
+          if [[ "$ENV" == "prod" ]]; then
+            INSTANCE_ID=""
+            STATE_KEY="main-module/terraform.tfstate"
+            TARGET_BRANCH=""
+          else
+            INSTANCE_ID="$ENV"
+            STATE_KEY="main-module/${ENV}/terraform.tfstate"
+            TARGET_BRANCH="$REF"
+            # A personal instance serves its owner's PRs, not one branch.
+            [[ "$PERSONAL" == "true" ]] && TARGET_BRANCH=""
+          fi
+          # AWS tag values only allow letters, digits, spaces and _ . : / = + - @
+          # (e.g. "dependabot[bot]" would be rejected), so replace anything else.
+          ACTOR_SAFE="$(printf '%s' "$ACTOR" | tr -c 'A-Za-z0-9 _.:/=+@-' '-')"
+
+          echo "environment=$ENV" >> "$GITHUB_OUTPUT"
+          echo "instance_id=$INSTANCE_ID" >> "$GITHUB_OUTPUT"
+          echo "state_key=$STATE_KEY" >> "$GITHUB_OUTPUT"
+          echo "deploy=$DEPLOY" >> "$GITHUB_OUTPUT"
+          echo "branch=$TARGET_BRANCH" >> "$GITHUB_OUTPUT"
+          echo "actor=$ACTOR_SAFE" >> "$GITHUB_OUTPUT"
+
+          if [[ "$DEPLOY" == "true" ]]; then
+            echo "::notice::BrainTF will deploy branch '$REF' as instance '$ENV' (owner: $ACTOR_SAFE)."
+          else
+            echo "::notice::Branch '$REF' is not eligible for deploy as instance '$ENV' (not in .github/deploy-branches.txt). Skipping."
+          fi
+
+  deploy:
+    name: Deploy to ${{ needs.gate.outputs.environment }}
+    needs: gate
+    if: needs.gate.outputs.deploy == 'true'
+    runs-on: ubuntu-latest
+    # Prod routes through a GitHub Environment so required reviewers gate the apply.
+    # A job in an environment presents "environment:braintf-prod" as its OIDC sub
+    # claim, so the name must match var.github_deploy_environment (role trust).
+    environment: ${{ needs.gate.outputs.environment == 'prod' && 'braintf-prod' || '' }}
+    # One run at a time per instance, shared with destroy-braintf.yml: two branches
+    # can map to one instance, and a deploy must not race its own teardown.
+    concurrency:
+      group: braintf-instance-${{ needs.gate.outputs.environment }}
+      cancel-in-progress: false
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: ${{ env.TERRAFORM_VERSION }}
+          terraform_wrapper: false
+
+      - name: Assume AWS role (OIDC)
+        uses: aws-actions/configure-aws-credentials@v6
+        with:
+          role-to-assume: ${{ vars.OIDC_ROLE_ARN }}
+          audience: ${{ vars.OIDC_AUDIENCE }}
+          role-session-name: braintf-deploy-${{ needs.gate.outputs.environment }}
+          aws-region: ${{ vars.AWS_REGION }}
+
+      - name: Deploy instance
+        # The script performs the same steps this job used to inline: pull config
+        # from SSM, write the backend, init the per-instance state key, claim the
+        # instance via the owner marker (skipped for prod), plan, apply.
+        # INSTANCE_ID gets the gate's environment value ("prod" or the ID), so the
+        # script resolves prod vs suffixed exactly like the gate did.
+        # Prod additionally requires a push/dispatch on main (the gate already
+        # enforces it; kept here as a second line of defence).
+        if: >
+          needs.gate.outputs.environment != 'prod' ||
+          github.ref == 'refs/heads/main'
+        env:
+          INSTANCE_ID: ${{ needs.gate.outputs.environment }}
+          TARGET_BRANCH: ${{ needs.gate.outputs.branch }}
+          OWNER_GITHUB: ${{ needs.gate.outputs.actor }}
+          AUTO_APPROVE: "1"
+        run: make deploy

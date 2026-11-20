@@ -1,0 +1,20 @@
+# Escape hatch: branches OUTSIDE the deploy prefix that should still deploy their
+# own BrainTF instance (terraform/main_module) on push. One branch name per line
+# (exact ref name). Blank lines and lines starting with "#" are ignored.
+#
+# PRIMARY PATH (no entry needed here): any branch under the deploy prefix
+# (var.deploy_branch_prefix / DEPLOY_BRANCH_PREFIX, default "feature/") auto-deploys.
+# The OIDC role trusts that prefix as a wildcard, so new feature/* branches need NO
+# prod re-apply. List a branch here ONLY if it is outside the prefix.
+#
+# Each instance gets resource names suffixed with an ID derived from the branch
+# (.github/scripts/instance-id.sh, e.g. epmcacmaws-504), registers its own webhook,
+# and only answers comments on that branch's PR. Branches that carry the same ticket
+# key derive the same ID: the instance belongs to the branch that deployed it first,
+# and the others are refused.
+# Tear it down with the "Destroy BrainTF" workflow (also runs on PR close/branch delete).
+#
+# NOTE: main is implicit and always deploys to PROD - do not list it here.
+# A branch listed HERE (outside the prefix) is trusted explicitly, so after
+# adding/removing it you MUST re-apply the PROD state so the shared OIDC role's
+# trust picks up the change. Branches under the prefix do not need this.

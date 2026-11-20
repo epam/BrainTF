@@ -32,14 +32,27 @@ locals {
   # Use user-provided bucket if set, otherwise fall back to the bootstrap state bucket
   managed_state_bucket = var.managed_state_bucket != "" ? var.managed_state_bucket : data.aws_s3_bucket.platform_state.bucket
 
+  # Several copies of BrainTF can coexist in one AWS account. The primary
+  # instance (var.instance_id empty) keeps the original un-suffixed resource
+  # names and owns the shared singletons (OIDC provider/role, repo-level CI
+  # variables). Every other instance appends "-<instance_id>" to its names and
+  # reuses those singletons. var.environment is only a tag and never affects
+  # names or ownership.
+  is_primary = var.instance_id == ""
+  suffix     = local.is_primary ? "" : "-${var.instance_id}"
+  ssm_prefix = local.is_primary ? "/${var.vcs_repo_name}" : "/${var.vcs_repo_name}/${var.instance_id}"
+
   # Conditional variables
-  oidc_role_name         = "${var.vcs_repo_name}-oidc-${var.vcs_provider}-${local.region}-role"
-  oidc_policy_name       = "${var.vcs_repo_name}-oidc-${var.vcs_provider}-${local.region}-policy"
-  artifacts_bucket       = replace(replace(replace(lower("${var.artifacts_bucket_prefix}-${var.vcs_repo_name}-${local.region}"), "_", "-"), " ", "-"), "/[^a-z0-9.-]/", "")
-  ai_dynamodb_table_name = "ai-chat-history-${var.vcs_repo_name}-${local.region}"
-  webhook_secret_name    = "/${var.vcs_repo_name}/webhook_secret"
-  ai_api_token_name      = "/${var.vcs_repo_name}/ai_token"
-  vcs_token_name         = "/${var.vcs_repo_name}/vcs_token"
+  oidc_role_name   = "${var.vcs_repo_name}-oidc-${var.vcs_provider}-${local.region}-role"
+  oidc_policy_name = "${var.vcs_repo_name}-oidc-${var.vcs_provider}-${local.region}-policy"
+  # Un-suffixed artifacts bucket stem; the OIDC role policy wildcards over this
+  # so the single shared role reaches every instance's "<stem>-<instance_id>" bucket.
+  artifacts_bucket_stem  = replace(replace(replace(lower("${var.artifacts_bucket_prefix}-${var.vcs_repo_name}-${local.region}"), "_", "-"), " ", "-"), "/[^a-z0-9.-]/", "")
+  artifacts_bucket       = "${local.artifacts_bucket_stem}${local.suffix}"
+  ai_dynamodb_table_name = "ai-chat-history-${var.vcs_repo_name}-${local.region}${local.suffix}"
+  webhook_secret_name    = "${local.ssm_prefix}/webhook_secret"
+  ai_api_token_name      = "${local.ssm_prefix}/ai_token"
+  vcs_token_name         = "${local.ssm_prefix}/vcs_token"
   vcs_api_endpoint       = (var.vcs_provider == "github" ? "https://api.${var.vcs_hostname}" : "https://${var.vcs_hostname}")
   aud_variable           = "${var.oidc_provider}:aud"
   sub_variable           = "${var.oidc_provider}:sub"
@@ -48,15 +61,52 @@ locals {
   github_org  = element(split("/", var.vcs_project_path), 0)
   github_repo = element(split("/", var.vcs_project_path), 1)
 
-  # Restrict OIDC trust to main branch pushes and pull requests only.
-  # Support both classic and immutable-ID sub-claim formats for GitHub OIDC.
+  # Ephemeral dev instances deploy from branches under a prefix (var.deploy_branch_prefix,
+  # e.g. "feature/"). The trust is a single wildcard over that prefix, so a new branch
+  # needs NO prod re-apply — this is the primary path and must match the gate prefix in
+  # deploy-braintf.yml (env DEPLOY_BRANCH_PREFIX). Classic + immutable-ID sub forms.
+  github_branch_prefix_subs = var.deploy_branch_prefix != "" ? [
+    "repo:${var.vcs_project_path}:ref:refs/heads/${var.deploy_branch_prefix}*",
+    "repo:${local.github_org}@*/${local.github_repo}@*:ref:refs/heads/${var.deploy_branch_prefix}*",
+  ] : []
+
+  # Escape hatch: branches OUTSIDE the prefix can still be allow-listed in
+  # .github/deploy-branches.txt (the deploy workflow gate also honours it). Each such
+  # branch is trusted explicitly, so adding one DOES require a prod apply — reserve it
+  # for the rare non-prefix branch. Blank lines and "#" comments are ignored.
+  deploy_branches_file = "${path.module}/../../.github/deploy-branches.txt"
+  deploy_branches = fileexists(local.deploy_branches_file) ? [
+    for b in split("\n", file(local.deploy_branches_file)) :
+    trimspace(b) if trimspace(b) != "" && !startswith(trimspace(b), "#")
+  ] : []
+  github_branch_file_subs = flatten([
+    for b in local.deploy_branches : [
+      "repo:${var.vcs_project_path}:ref:refs/heads/${b}",
+      "repo:${local.github_org}@*/${local.github_repo}@*:ref:refs/heads/${b}",
+    ]
+  ])
+
+  github_branch_subs = concat(local.github_branch_prefix_subs, local.github_branch_file_subs)
+
+  # A job that runs in a GitHub Environment gets "environment:<name>" as its sub
+  # claim instead of the ref, so the environment the prod deploy job uses
+  # (deploy-braintf.yml) must be trusted explicitly. That claim carries no branch:
+  # vcs_integration_github restricts the environment itself to main.
+  github_environment_subs = var.github_deploy_environment != "" ? [
+    "repo:${var.vcs_project_path}:environment:${var.github_deploy_environment}",
+    "repo:${local.github_org}@*/${local.github_repo}@*:environment:${var.github_deploy_environment}",
+  ] : []
+
+  # OIDC trust: main branch pushes + pull requests, the prod deploy environment,
+  # the ephemeral-branch prefix wildcard, plus any explicitly allow-listed branches.
+  # Both classic and immutable-ID formats.
   sub_values = (var.vcs_provider == "github" ?
-    [
+    concat([
       "repo:${var.vcs_project_path}:ref:refs/heads/main",
       "repo:${var.vcs_project_path}:pull_request",
       "repo:${local.github_org}@*/${local.github_repo}@*:ref:refs/heads/main",
       "repo:${local.github_org}@*/${local.github_repo}@*:pull_request"
-    ] :
+    ], local.github_environment_subs, local.github_branch_subs) :
     ["project_path:${var.vcs_project_path}:ref_type:branch:ref:*"]
   )
 
@@ -82,8 +132,11 @@ locals {
         protected   = false
       },
       {
-        key         = "OIDC_ROLE_ARN"
-        value       = module.oidc[0].oidc_role_arn
+        key = "OIDC_ROLE_ARN"
+        # The OIDC role is a shared singleton owned by the primary instance, with
+        # a stable name. Build the ARN from account + name so this local is
+        # evaluable on every instance (module.oidc has count=0 elsewhere).
+        value       = "arn:aws:iam::${local.account_id}:role/${local.oidc_role_name}"
         description = "OIDC role ARN (Managed by Terraform)"
         masked      = false
         protected   = false
@@ -263,14 +316,17 @@ module "ssm_parameters" {
 }
 
 # ======================= OIDC Provider =======================
+# Shared singleton: the OIDC provider is one-per-issuer-per-account and the role
+# CI assumes cannot be re-created by each instance. Only the primary instance owns
+# it; the others reuse the same role (trust + policy widened to cover them).
 module "oidc" {
   source               = "../modules/oidc"
-  count                = var.ai_handler_create ? 1 : 0
+  count                = var.ai_handler_create && local.is_primary ? 1 : 0
   vcs_provider         = var.vcs_provider
   oidc_role_name       = local.oidc_role_name
   oidc_policy_name     = local.oidc_policy_name
   oidc_provider        = var.oidc_provider
-  artifacts_bucket     = local.artifacts_bucket
+  artifacts_bucket     = local.artifacts_bucket_stem
   managed_state_bucket = local.managed_state_bucket
   kms_key_arn          = data.aws_kms_alias.kms_key.target_key_arn
   client_id_list       = local.client_id_list
@@ -283,6 +339,7 @@ module "oidc" {
 module "iam" {
   source            = "../modules/iam"
   count             = var.ai_handler_create ? 1 : 0
+  name_suffix       = var.instance_id
   region            = local.region
   account_id        = local.account_id
   artifacts_bucket  = local.artifacts_bucket
@@ -320,6 +377,7 @@ module "ai_dynamodb_table" {
 module "ai_lambda" {
   source               = "../modules/lambdas"
   count                = var.ai_handler_create ? 1 : 0
+  name_suffix          = var.instance_id
   vcs_repo_name        = var.vcs_repo_name
   vcs_provider         = var.vcs_provider
   artifacts_bucket     = local.artifacts_bucket
@@ -340,20 +398,29 @@ module "ai_lambda" {
   log_level            = var.log_level
   artifacts_path       = var.artifacts_path
   layer_name           = lower("layer-${var.vcs_repo_name}-${local.region}")
+  target_branch        = var.target_branch
+  owner_github         = var.owner_github
 }
 
 # ======================= VCS Integration =======================
+# Every instance registers its own repo webhook (its own function URL + secret);
+# GitHub allows many hooks as long as the URLs differ. Only the primary instance
+# additionally manages the repo-level Actions variables/secrets
+# (manage_repo_config): running that per instance would clobber them, and they
+# reference the shared module.oidc. The other instances reuse the shared role.
 module "vcs_integration_github" {
-  count             = var.vcs_provider == "github" ? 1 : 0
-  source            = "../modules/vcs_integration/github"
-  vcs_project_path  = var.vcs_project_path
-  vcs_variables     = local.vcs_variables
-  webhook_secret    = try(random_password.lambda_webhook_secret[0].result, null)
-  function_url      = try(module.ai_lambda[0].function_url, null)
-  ai_handler_create = var.ai_handler_create
+  count              = var.vcs_provider == "github" ? 1 : 0
+  source             = "../modules/vcs_integration/github"
+  vcs_project_path   = var.vcs_project_path
+  vcs_variables      = local.vcs_variables
+  manage_repo_config = local.is_primary
+  deploy_environment = var.github_deploy_environment
+  webhook_secret     = try(random_password.lambda_webhook_secret[0].result, null)
+  function_url       = try(module.ai_lambda[0].function_url, null)
+  ai_handler_create  = var.ai_handler_create
 }
 module "vcs_integration_gitlab" {
-  count             = var.vcs_provider == "gitlab" ? 1 : 0
+  count             = var.vcs_provider == "gitlab" && local.is_primary ? 1 : 0
   source            = "../modules/vcs_integration/gitlab"
   vcs_project_path  = var.vcs_project_path
   vcs_variables     = local.vcs_variables

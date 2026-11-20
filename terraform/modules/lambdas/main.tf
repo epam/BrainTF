@@ -3,8 +3,9 @@ locals {
   layer_path           = "${path.module}/functions"
   container_layer_path = "/var/task"
   zip_file_path        = "${local.layer_path}/layer.zip"
-  zip_file_exists      = fileexists(local.zip_file_path)
-  requirements_sha     = filesha1("${path.module}/functions/requirements.txt")
+  # Environment suffix (e.g. "-dev") appended to function names; empty when unset
+  suffix           = var.name_suffix != "" ? "-${var.name_suffix}" : ""
+  requirements_sha = filesha1("${path.module}/functions/requirements.txt")
   # Hash of everything that affects layer.zip contents; keyed by aws_lambda_layer_version.
   layer_hash = sha1(join("", [local.requirements_sha, var.lambda_builder_image, var.python_runtime]))
   lambda_exclude_patterns = [
@@ -19,9 +20,14 @@ locals {
 resource "terraform_data" "lambda_layer" {
   count = var.ai_handler_create == "true" ? 1 : 0
 
-  # Rebuild on content change, and also when layer.zip is missing so pip runs again.
-  # The missing-zip component flips back once the zip exists, costing one extra rebuild on the next apply.
-  triggers_replace = sha1(join("", [local.layer_hash, tostring(local.zip_file_exists)]))
+  # layer.zip is an ephemeral build artifact that never survives between CI runs.
+  # A content-hash + fileexists() trigger cannot detect its absence on a fresh
+  # runner: fileexists() is false at plan time on every run, so the stored and
+  # current triggers both compute with "false" and always match -> never rebuilds.
+  # Rebuild every apply (timestamp), matching the function archive resources.
+  # The layer version itself only republishes when source_code_hash (layer_hash)
+  # changes, so this adds a ~25s docker build but no resource churn.
+  triggers_replace = timestamp()
 
   provisioner "local-exec" {
     command = <<-EOT
@@ -80,7 +86,7 @@ module "ai_lambda_vcs" {
   count           = var.ai_handler_create == "true" ? 1 : 0
   source          = "git::https://github.com/terraform-aws-modules/terraform-aws-lambda.git?ref=4cfa5b42d1928afbc8946393e36eeee77eca0851"
   description     = "AI Handler for Terraform error handling for the ${var.vcs_repo_name} repository"
-  function_name   = "AI_Handler_TF_Errors_${var.vcs_repo_name}"
+  function_name   = "AI_Handler_TF_Errors_${var.vcs_repo_name}${local.suffix}"
   handler         = "ai_handler_tf_errors_lambda.lambda_handler"
   runtime         = var.python_runtime
   timeout         = 420
@@ -137,7 +143,7 @@ module "process_comment_lambda_vcs" {
   count           = var.ai_handler_create == "true" ? 1 : 0
   source          = "git::https://github.com/terraform-aws-modules/terraform-aws-lambda.git?ref=4cfa5b42d1928afbc8946393e36eeee77eca0851"
   description     = "AI Handler for processing comments in Git MR"
-  function_name   = "AI_Handler_Comment_${var.vcs_repo_name}"
+  function_name   = "AI_Handler_Comment_${var.vcs_repo_name}${local.suffix}"
   handler         = "ai_handler_comment_lambda.lambda_handler"
   runtime         = var.python_runtime
   timeout         = 420
@@ -168,21 +174,27 @@ module "process_comment_lambda_vcs" {
     }
   ]
 
-  # Environment variables specific to the Terraform errors handler
-  environment_variables = {
-    VCS_TOKEN_NAME      = var.vcs_token_name
-    VCS_API_ENDPOINT    = var.vcs_api_endpoint
-    VCS_PROVIDER        = var.vcs_provider
-    WEBHOOK_SECRET_NAME = var.webhook_secret_name
-    AI_API_TOKEN_NAME   = var.ai_api_token_name
-    AI_API_BASE_URL     = var.ai_api_base_url
-    AI_TEMPERATURE      = tostring(var.ai_temperature)
-    ARTIFACTS_BUCKET    = var.artifacts_bucket
-    ARTIFACTS_PATH      = var.artifacts_path
-    DYNAMODB_TABLE_NAME = var.dynamodb_table_name
-    LLM_MODEL           = var.llm_model
-    LOG_LEVEL           = var.log_level
-  }
+  # Environment variables specific to the comments handler
+  environment_variables = merge(
+    {
+      VCS_TOKEN_NAME      = var.vcs_token_name
+      VCS_API_ENDPOINT    = var.vcs_api_endpoint
+      VCS_PROVIDER        = var.vcs_provider
+      WEBHOOK_SECRET_NAME = var.webhook_secret_name
+      AI_API_TOKEN_NAME   = var.ai_api_token_name
+      AI_API_BASE_URL     = var.ai_api_base_url
+      AI_TEMPERATURE      = tostring(var.ai_temperature)
+      ARTIFACTS_BUCKET    = var.artifacts_bucket
+      ARTIFACTS_PATH      = var.artifacts_path
+      DYNAMODB_TABLE_NAME = var.dynamodb_table_name
+      LLM_MODEL           = var.llm_model
+      LOG_LEVEL           = var.log_level
+    },
+    # Per-branch instances only handle comments on their own branch's PR.
+    var.target_branch != "" ? { TARGET_BRANCH = var.target_branch } : {},
+    # Personal instances only handle comments on PRs authored by their owner.
+    var.owner_github != "" ? { OWNER_GITHUB = var.owner_github } : {},
+  )
   tracing_mode           = "Active"
   vpc_subnet_ids         = var.private_subnet_ids
   vpc_security_group_ids = var.security_groups
