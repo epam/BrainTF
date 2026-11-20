@@ -38,7 +38,6 @@
 | [random_password.lambda_webhook_secret](https://registry.terraform.io/providers/hashicorp/random/latest/docs/resources/password) | resource |
 | [aws_caller_identity.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/caller_identity) | data source |
 | [aws_kms_alias.kms_key](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/kms_alias) | data source |
-| [aws_region.current](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/region) | data source |
 | [aws_s3_bucket.platform_state](https://registry.terraform.io/providers/hashicorp/aws/latest/docs/data-sources/s3_bucket) | data source |
 
 ## Inputs
@@ -51,6 +50,7 @@
 | <a name="input_ai_token"></a> [ai\_token](#input\_ai\_token) | The AI token | `string` | `""` | no |
 | <a name="input_artifacts_bucket_prefix"></a> [artifacts\_bucket\_prefix](#input\_artifacts\_bucket\_prefix) | The prefix to be used for naming an artifacts bucket | `string` | n/a | yes |
 | <a name="input_artifacts_path"></a> [artifacts\_path](#input\_artifacts\_path) | The path where the corrected Terraform files (artifacts) will be stored. | `string` | `"artifacts"` | no |
+| <a name="input_artifacts_retention_days"></a> [artifacts\_retention\_days](#input\_artifacts\_retention\_days) | Number of days after which corrected files (S3 artifacts/ prefix) are deleted by the S3 lifecycle rule. Must be between 1 and 30. | `number` | `3` | no |
 | <a name="input_deployed_by"></a> [deployed\_by](#input\_deployed\_by) | The deployment method | `string` | n/a | yes |
 | <a name="input_environment"></a> [environment](#input\_environment) | The Project environment | `string` | n/a | yes |
 | <a name="input_job_token"></a> [job\_token](#input\_job\_token) | Git Notes token used for GitLab integration | `string` | n/a | yes |
@@ -63,6 +63,7 @@
 | <a name="input_platform_state_bucket"></a> [platform\_state\_bucket](#input\_platform\_state\_bucket) | Name of the bootstrap (platform) state S3 bucket. Bootstrap writes it to terraform.auto.tfvars on apply; set it by hand only if bootstrap cannot be applied on this machine (value: terraform output state\_bucket\_name in terraform/bootstrap). | `string` | n/a | yes |
 | <a name="input_private_subnet_ids"></a> [private\_subnet\_ids](#input\_private\_subnet\_ids) | VPC Private Subnet IDs | `list(string)` | n/a | yes |
 | <a name="input_rag_enable"></a> [rag\_enable](#input\_rag\_enable) | Whether to turn on RAG for AI handler. | `bool` | `false` | no |
+| <a name="input_region"></a> [region](#input\_region) | The AWS region for all BrainTF resources. Set it in bootstrap/terraform.tfvars: bootstrap copies it to terraform.auto.tfvars. AWS\_REGION, AWS\_DEFAULT\_REGION and the AWS CLI profile region are not used | `string` | n/a | yes |
 | <a name="input_run_checkov_analysis"></a> [run\_checkov\_analysis](#input\_run\_checkov\_analysis) | Enable or disable the Checkov analysis stage. Default is false. | `bool` | `false` | no |
 | <a name="input_run_terraform_apply"></a> [run\_terraform\_apply](#input\_run\_terraform\_apply) | Enable or disable the Terraform apply stage. Default is false. | `bool` | `false` | no |
 | <a name="input_run_terraform_plan"></a> [run\_terraform\_plan](#input\_run\_terraform\_plan) | Enable or disable the Terraform plan stage. Default is false. | `bool` | `false` | no |
