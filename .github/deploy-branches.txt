@@ -21,5 +21,4 @@
 # Temporarily disabled: remove the leading "# " to deploy this branch again.
 
 
-feature/EPMCACMAWS-504-automated-deployment
 feature/EPMCACMAWS-505-testing-automated-deployment
