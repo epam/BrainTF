@@ -28,6 +28,8 @@ Workflow/pipeline described in this section can work independently and also be a
 1. Choose an option to store Terraform state file for the `bootstrap` module using the guide [here](../docs/state_management.md).
 2. Copy the [docs/config_files/bootstrap/terraform.tfvars](./config_files/bootstrap/terraform.tfvars) file into the [bootstrap/](../terraform/bootstrap) directory and replace `<placeholders>` with values for your environment.
    > The state bucket is protected from accidental deletion by default (`state_bucket_force_destroy = false`). The template sets `state_bucket_force_destroy = false` explicitly; change it to `true` only for demo/dev teardown. See [State Bucket Deletion Protection](./state_management.md#state-bucket-deletion-protection).
+
+   > Set `region` to the AWS region for BrainTF (e.g. `eu-central-1`). The AWS provider in both modules uses only this value: `AWS_REGION`, `AWS_DEFAULT_REGION` and the AWS CLI profile region are not used. Set it in `bootstrap/terraform.tfvars` only: bootstrap copies it to `main_module` (step 6).
 3. Copy the [docs/config_files/main_module/terraform.tfvars](./config_files/main_module/terraform.tfvars) and [docs/config_files/main_module/secrets.auto.tfvars](../docs/config_files/main_module/secrets.auto.tfvars) files into the [main_module/](../terraform/main_module) directory. Some variables will be filled in automatically in the next steps.
 4. Run `terraform init` command in `terraform/bootstrap` directory.
 5. Run `terraform plan/apply` commands in `terraform/bootstrap` directory.
@@ -36,6 +38,16 @@ Workflow/pipeline described in this section can work independently and also be a
    - `terraform.auto.tfvars`: a copy of `bootstrap/terraform.tfvars` (common variables) plus the state bucket name (`platform_state_bucket`).
 
    See [State Management](./state_management.md#what-bootstrap-creates) for examples.
+
+### Upgrading an existing installation: `region` is required
+
+Both root modules now require the `region` input. Without it, `terraform plan` stops with `No value for required variable "region"`.
+
+1. Add `region = "<the region where BrainTF is deployed>"` to `terraform/bootstrap/terraform.tfvars`.
+2. Run `terraform apply` in `terraform/bootstrap`. The plan replaces only `local_file.this` (the generated `main_module/terraform.auto.tfvars`), no AWS changes.
+3. Run `terraform plan` in `terraform/main_module`. The region is the same as before, so no resource changes come from this step.
+
+Use the region where the installation already runs. Changing `region` later does not move the installation: the `bootstrap` plan replaces every resource whose name contains the region, including the state bucket, and `terraform plan` in `main_module` stops with `reading KMS Alias (...): empty result`.
 
 ## Bot deployment
 1. Fill in other `<placeholders>` in [terraform/main_module/terraform.tfvars](config_files/main_module/terraform.tfvars) and [terraform/main_module/secrets.auto.tfvars](config_files/main_module/secrets.auto.tfvars) with values.

@@ -1,7 +1,6 @@
 # ======================= Getting account details =======================
 
 data "aws_caller_identity" "current" {}
-data "aws_region" "current" {}
 
 provider "github" {
   # Only meaningful when vcs_provider == "github"
@@ -27,7 +26,7 @@ data "aws_s3_bucket" "platform_state" {
 
 locals {
   # Account details
-  region     = data.aws_region.current.region
+  region     = var.region
   account_id = data.aws_caller_identity.current.account_id
 
   # Use user-provided bucket if set, otherwise fall back to the bootstrap state bucket
@@ -280,12 +279,12 @@ module "artifacts_bucket" {
     {
       id                                     = "artifacts-retention"
       enabled                                = true
-      prefix                                 = "artifacts/*"
-      expiration_date                        = null # Date for expiration (RFC3339 format)
-      expiration_days                        = 3    # Days for expiration
-      expired_object_delete_marker           = null # Flag for delete marker expiration
-      noncurrent_version_expiration_days     = 1    # Days for noncurrent version expiration
-      abort_incomplete_multipart_upload_days = 7    # Days to abort incomplete multipart uploads
+      prefix                                 = "artifacts/"
+      expiration_date                        = null                         # Date for expiration (RFC3339 format)
+      expiration_days                        = var.artifacts_retention_days # Days for expiration
+      expired_object_delete_marker           = null                         # Flag for delete marker expiration
+      noncurrent_version_expiration_days     = 1                            # Days for noncurrent version expiration
+      abort_incomplete_multipart_upload_days = 7                            # Days to abort incomplete multipart uploads
     }
   ]
   account_id         = local.account_id

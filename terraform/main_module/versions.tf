@@ -21,6 +21,8 @@ terraform {
 }
 
 provider "aws" {
+  region = var.region
+
   default_tags {
     # OwnerGithub / Branch are only added when set: AWS tag values should not be
     # empty, and prod (main) has no single owning branch. Tag values only allow
