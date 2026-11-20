@@ -214,4 +214,5 @@ jobs:
           INSTANCE_ID: ${{ needs.gate.outputs.environment }}
           TARGET_BRANCH: ${{ needs.gate.outputs.branch }}
           OWNER_GITHUB: ${{ needs.gate.outputs.actor }}
+          AUTO_APPROVE: "1"
         run: make deploy

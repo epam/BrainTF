@@ -20,8 +20,8 @@
 #   VCS_PROVIDER=github|gitlab (default: github — selects the SSM path)
 #   STATE_BUCKET / STATE_REGION  state backend (defaults match the workflows)
 #   PLAN_ONLY=1        plan only, create nothing
-#   AUTO_APPROVE=1     apply the saved plan without a prompt (it never prompts
-#                      anyway; kept for interface parity)
+#   AUTO_APPROVE=1     apply the saved plan without the confirmation prompt
+#                      (CI sets this; locally the script asks before applying)
 #
 # Usage:
 #   ./scripts/deploy.sh INSTANCE_ID=vasjr     # or: INSTANCE_ID=vasjr ./scripts/deploy.sh
@@ -85,6 +85,11 @@ terraform -chdir="$MAIN_DIR" plan -input=false "${ARGS[@]}" -out=tfplan
 if [[ "${PLAN_ONLY:-}" == "1" ]]; then
   log "PLAN_ONLY=1 — plan saved at $MAIN_DIR/tfplan, nothing applied."
   exit 0
+fi
+
+if [[ "${AUTO_APPROVE:-}" != "1" ]]; then
+  read -r -p "Apply this plan to instance '${INSTANCE_ID:-prod}'? [y/N] " answer
+  [[ "$answer" =~ ^[Yy]([Ee][Ss])?$ ]] || { log "Aborted — nothing applied."; exit 0; }
 fi
 
 log "Applying terraform/main_module"
