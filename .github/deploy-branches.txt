@@ -22,3 +22,4 @@
 
 
 feature/EPMCACMAWS-504-automated-deployment
+feature/EPMCACMAWS-505-testing-automated-deployment
