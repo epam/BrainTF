@@ -1,0 +1,37 @@
+name: Redeploy BrainTF on PR reopen
+
+# Closing a PR tears its branch instance down (destroy-braintf.yml), but reopening
+# it is a pull_request event, not a push, so deploy-braintf.yml does not fire.
+# This workflow re-dispatches the deploy on the PR's head branch.
+#
+# The deploy is dispatched rather than triggered by pull_request directly because
+# a pull_request run has github.ref_name "<n>/merge" (fails the
+# .github/deploy-branches.txt gate) and an OIDC sub claim of "...:pull_request"
+# (rejected by the role trust). A dispatched run lands on refs/heads/<branch>, so
+# the gate and the trust policy work unchanged. Branches not listed in
+# deploy-branches.txt are still skipped by the deploy workflow's gate job.
+
+on:
+  pull_request:
+    types: [reopened]
+
+permissions:
+  actions: write # required to dispatch deploy-braintf.yml
+
+jobs:
+  dispatch:
+    name: Dispatch deploy for the PR branch
+    # Same-repo PRs only: a fork's head branch does not exist in this repository.
+    if: github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    steps:
+      - name: Dispatch Deploy BrainTF
+        shell: bash
+        # The branch name is untrusted input: pass it through env, never inline.
+        env:
+          GH_TOKEN: ${{ github.token }}
+          HEAD_REF: ${{ github.head_ref }}
+        run: |
+          set -euo pipefail
+          gh workflow run deploy-braintf.yml --repo "$GITHUB_REPOSITORY" --ref "$HEAD_REF"
+          echo "::notice::Dispatched Deploy BrainTF on branch '$HEAD_REF'."
