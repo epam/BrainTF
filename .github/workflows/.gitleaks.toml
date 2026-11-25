@@ -16,9 +16,14 @@ id = "github-token"
 regex = '''(?i)ghp_[0-9a-zA-Z]{36}|gho_[0-9a-zA-Z]{36}|ghu_[0-9a-zA-Z]{36}|ghs_[0-9a-zA-Z]{36}|ghr_[0-9a-zA-Z]{36}'''
 
 [[rules]]
+description = "GitHub Fine-Grained Token"
+id = "github-fine-grained-token"
+regex = '''github_pat_[0-9a-zA-Z_]{82}'''
+
+[[rules]]
 description = "GitLab Token"
 id = "gitlab-token"
-regex = '''glpat-[0-9a-zA-Z_]{20}'''
+regex = '''glpat-[0-9a-zA-Z_-]{27,300}\.[0-9a-z]{2}[0-9a-z]{7}|glpat-[0-9a-zA-Z_-]{20}'''
 
 [[rules]]
 description = "Generic API Key"
