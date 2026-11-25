@@ -7,7 +7,8 @@ regex = '''(A3T[A-Z0-9]|AKIA|AIDA|AROA|AIPA|ANPA|ANVA|ASIA)[A-Z0-9]{16}'''
 [[rules]]
 description = "AWS Secret Key"
 id = "aws-secret-key"
-regex = '''(?i)aws(.{0,20})?(?-i)['\"][0-9a-zA-Z/+]{40}['\"]'''
+regex = '''(?i)aws(?:.{0,20})?(?-i)['\"]([0-9a-zA-Z/+]{40})['\"]'''
+secretGroup = 1
 
 [[rules]]
 description = "GitHub Token"
@@ -22,14 +23,17 @@ regex = '''glpat-[0-9a-zA-Z_]{20}'''
 [[rules]]
 description = "Generic API Key"
 id = "generic-api-key"
-regex = '''(?i)apikey(.{0,20})?(?-i)['\"][0-9a-zA-Z]{32,45}['\"]'''
+regex = '''(?i)apikey(?:.{0,20})?(?-i)['\"]([0-9a-zA-Z]{32,45})['\"]'''
+secretGroup = 1
 
 [[rules]]
 description = "Generic Secret"
 id = "generic-secret"
-regex = '''(?i)secret(.{0,20})?(?-i)['\"][0-9a-zA-Z]{32,45}['\"]'''
+regex = '''(?i)secret(?:.{0,20})?(?-i)['\"]([0-9a-zA-Z]{32,45})['\"]'''
+secretGroup = 1
 
 [[rules]]
 description = "Python Secret Token"
 id = "python-secret-token"
-regex = '''(?i)('|\")?(\bsecret\b|\btoken\b)(.{0,20})?(?-i)['\"][0-9a-zA-Z]{32,45}['\"]'''
+regex = '''(?i)(?:'|\")?(?:\bsecret\b|\btoken\b)(?:.{0,20})?(?-i)['\"]([0-9a-zA-Z]{32,45})['\"]'''
+secretGroup = 1

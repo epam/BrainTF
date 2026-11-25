@@ -37,6 +37,7 @@ This document lists all external dependencies used in the project, their locatio
 |------|------|-----------------|--------------|
 | pre-commit-terraform | `.pre-commit-config.yaml` | v1.105.0 | https://github.com/antonbabenko/pre-commit-terraform/releases |
 | pre-commit-hooks | `.pre-commit-config.yaml` | v6.0.0 | https://github.com/pre-commit/pre-commit-hooks/releases |
+| gitleaks | `.pre-commit-config.yaml` | v8.30.1 | https://github.com/gitleaks/gitleaks/releases |
 
 ## Custom Action Tools
 

@@ -42,11 +42,15 @@ repos:
         exclude: terraform/modules/lambdas/functions/tests/
       - id: trailing-whitespace  # This hook checks for trailing whitespaces
         exclude: terraform/modules/lambdas/functions/tests/
-#  - repo: https://github.com/gitleaks/gitleaks
-#    rev: v8.19.2
-#    hooks:
-#      - id: gitleaks
-#        repo: local
-#        name: gitleaks
-#        entry: gitleaks detect --verbose --no-git --config=.github/workflows/.gitleaks.toml
-#        pass_filenames: false
+  - repo: https://github.com/gitleaks/gitleaks  # Use gitleaks repository
+    rev: v8.30.1  # Use specific version of the hooks
+    hooks:
+      - id: gitleaks  # This hook scans staged changes for hardcoded secrets
+        args:
+          - --config=.github/workflows/.gitleaks.toml  # Path to the gitleaks rules
+      - id: gitleaks  # This hook scans the commit history of the current branch for hardcoded secrets
+        alias: gitleaks-history
+        name: Detect hardcoded secrets in commit history
+        entry: gitleaks git --redact --verbose --log-opts=HEAD
+        args:
+          - --config=.github/workflows/.gitleaks.toml  # Path to the gitleaks rules
