@@ -19,7 +19,7 @@ def mock_functions():
 def patched_vcs_module_github(monkeypatch, mock_functions):
     """Fixture for GitHub VCS module patching."""
     # Mock the VCS provider config
-    monkeypatch.setattr("config.config.vcs_provider", "github")
+    monkeypatch.setattr("config._ConfigLambda.vcs_provider", property(lambda self: "github"))
 
     # Patch GitHub-specific functions
     monkeypatch.setattr("utilities.vcs.github_functions.post_pr_comment_github", mock_functions.mock_post_comment)
@@ -36,7 +36,7 @@ def patched_vcs_module_github(monkeypatch, mock_functions):
 def patched_vcs_module_gitlab(monkeypatch, mock_functions):
     """Fixture for GitLab VCS module patching."""
     # Mock the VCS provider config
-    monkeypatch.setattr("config.config.vcs_provider", "gitlab")
+    monkeypatch.setattr("config._ConfigLambda.vcs_provider", property(lambda self: "gitlab"))
 
     # Patch GitLab-specific functions
     monkeypatch.setattr("utilities.vcs.gitlab_functions.post_gitlab_comment", mock_functions.mock_post_comment)

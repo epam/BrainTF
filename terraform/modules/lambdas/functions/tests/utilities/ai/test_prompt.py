@@ -3,11 +3,11 @@ from tests.data.file_samples import DEMO_BROKEN_MAIN_TF_FILE
 
 def test_make_prompt_block_with_errors_and_files_tflint(
         patched_environment, log_file_text_tflint, webhook_event_command_bot_list_github):
-    from config import config
+    import config
     from utilities.ai.prompt import make_prompt_block_with_errors_and_files
     event = webhook_event_command_bot_list_github
     event["metadata"]["tool_name"] = "tflint"
-    patched_environment.setattr(config, "rag_enabled", True)
+    patched_environment.setattr(config._ConfigLambda, "rag_enabled", property(lambda self: True))
     patched_environment.setattr(
         "utilities.ai.prompt.get_all_tf_files_from_paths_list",
         lambda current_event, paths_to_files: [("demo/broken/main.tf", DEMO_BROKEN_MAIN_TF_FILE)]
@@ -44,12 +44,12 @@ def test_make_prompt_block_with_tflint_guides_when_rag_enabled(
 
 def test_make_prompt_block_with_tflint_guides_disabled(
         patched_environment, monkeypatch, log_file_text_tflint, webhook_event_command_bot_list_github):
-    from config import config
+    import config
     from utilities.ai.prompt import make_prompt_block_with_errors_and_files
 
     event = webhook_event_command_bot_list_github
     event["metadata"]["tool_name"] = "tflint"
-    patched_environment.setattr(config, "rag_enabled", False)
+    patched_environment.setattr(config._ConfigLambda, "rag_enabled", property(lambda self: False))
     monkeypatch.setattr(
         "utilities.ai.prompt.extract_tflint_guides",
         lambda errors: (_ for _ in ()).throw(AssertionError("retrieval should be disabled"))
@@ -91,12 +91,12 @@ def test_make_prompt_block_with_checkov_guides_when_rag_enabled(
 
 def test_make_prompt_block_with_checkov_guides_disabled(
         patched_environment, monkeypatch, log_file_text_checkov, webhook_event_command_bot_list_github):
-    from config import config
+    import config
     from utilities.ai.prompt import make_prompt_block_with_errors_and_files
 
     event = webhook_event_command_bot_list_github
     event["metadata"]["tool_name"] = "checkov"
-    patched_environment.setattr(config, "rag_enabled", False)
+    patched_environment.setattr(config._ConfigLambda, "rag_enabled", property(lambda self: False))
     monkeypatch.setattr(
         "utilities.ai.prompt.extract_checkov_guides",
         lambda errors: (_ for _ in ()).throw(AssertionError("retrieval should be disabled"))
@@ -134,12 +134,12 @@ def test_make_prompt_block_with_trivy_guides_when_rag_enabled(
 
 def test_make_prompt_block_with_trivy_guides_disabled(
         patched_environment, monkeypatch, log_file_text_trivy, webhook_event_command_bot_list_github):
-    from config import config
+    import config
     from utilities.ai.prompt import make_prompt_block_with_errors_and_files
 
     event = webhook_event_command_bot_list_github
     event["metadata"]["tool_name"] = "trivy"
-    patched_environment.setattr(config, "rag_enabled", False)
+    patched_environment.setattr(config._ConfigLambda, "rag_enabled", property(lambda self: False))
     monkeypatch.setattr(
         "utilities.ai.prompt.extract_trivy_guides",
         lambda errors: (_ for _ in ()).throw(AssertionError("retrieval should be disabled"))
@@ -156,12 +156,12 @@ def test_make_prompt_block_with_trivy_guides_disabled(
 
 def test_make_prompt_block_with_tfsec_guide_when_rag_enabled(
         patched_environment, monkeypatch, log_file_text_tfsec, webhook_event_command_bot_list_github):
-    from config import config
+    import config
     from utilities.ai.prompt import make_prompt_block_with_errors_and_files
 
     event = webhook_event_command_bot_list_github
     event["metadata"]["tool_name"] = "tfsec"
-    patched_environment.setattr(config, "rag_enabled", True)
+    patched_environment.setattr(config._ConfigLambda, "rag_enabled", property(lambda self: True))
     retrieved_errors = []
 
     def retrieve_guide(errors):
